@@ -1,0 +1,2 @@
+useDynLib(maskirovka, .registration = TRUE, .fixes = "")
+exportPattern("^[[:alpha:]]+")

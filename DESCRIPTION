@@ -1,0 +1,10 @@
+Package: maskirovka
+Type: Package
+Title: Maskirovka: experiments with custom objects masquerading as ordinary R objects
+Version: 0.1.0
+Author: 
+Maintainer: Konrad Siek <siekkonr@fit.cvut.cz>
+Description: Experiments in making custom objects with complex behavior appearing as ordinary R data structures (data.frames, matrices, etc.) to both R functions and C functions.
+License: who knows?
+Encoding: UTF-8
+LazyData: true
