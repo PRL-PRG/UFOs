@@ -17,9 +17,9 @@ static const R_CallMethodDef CallEntries[] = {
 // library. Name follows the pattern: R_init_<package_name> 
 void attribute_visible R_init_maskirovka(DllInfo *dll) {
     InitMaskirovkaAltRepClass(dll);
-    R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
-    R_useDynamicSymbols(dll, FALSE);
-    R_forceSymbols(dll, TRUE);
+    //R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
+    //R_useDynamicSymbols(dll, FALSE);
+    //R_forceSymbols(dll, TRUE);
 }
 
 
