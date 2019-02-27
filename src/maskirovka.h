@@ -1,5 +1,5 @@
-#ifndef __HAMSTR_H__
-#define __HAMSTR_H__
+#ifndef __MASKIROVKA_H__
+#define __MASKIROVKA_H__
 
 #include <R.h>
 #include <Rinternals.h>

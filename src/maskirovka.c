@@ -2,7 +2,10 @@
 #include <R.h>
 #include <Rinternals.h>
 #include <R_ext/Rallocators.h>
+
 #include <stdlib.h>
+
+#include "maskirovka.h"
 
 #define MASKIROVKA_DEBUG
 
@@ -51,7 +54,7 @@ void cheater_free(R_allocator_t *allocator, void * addr) {
 // Function that creates a custom vector with a custom allocator.
 SEXP/*INTSXP|VECSXP<INTSXP>*/ mask_new(SEXP/*INTSXP*/ lengths) {
 
-    SEXP/*VECSXP<INTSXP>*/ results = allocVector(VECSXP, LENGTH(lengths));
+    SEXP/*VECSXP<INTSXP>*/ results = allocVector(VECSXP, LENGTH(lengths)); // FIXME PROTECT
 
     // FIXME assuming lengths is a INTSXP for now.
     for (int i = 0; i < LENGTH(lengths); i++) {
@@ -95,3 +98,6 @@ SEXP/*INTSXP|VECSXP<INTSXP>*/ mask_new(SEXP/*INTSXP*/ lengths) {
 
 // TODO question: do we need to free the space used by the allocator and its
 // paraphrenalia?
+
+
+
