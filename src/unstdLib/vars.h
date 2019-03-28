@@ -4,11 +4,10 @@
 
 /**
  * Removes an element `from[idx]` by assigning the value into `to` and then assigning `from[idx]` = `zero`
- * Macro prevents double evaluation by using temporary variable for from and idx
+ * Macro prevents double evaluation of everything except "from"
  */
 #define takeElement(from, to, idx, zero) ({ \
-  mVar(from, _from);                        \
   mVar(idx, _idx);                          \
-  to = _from[_idx];                         \
-  _from[_idx] = zero;                       \
+  to = from[_idx];                         \
+  from[_idx] = zero;                       \
 })
