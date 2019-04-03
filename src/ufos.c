@@ -5,9 +5,9 @@
 
 #include <stdlib.h>
 
-#include "maskirovka.h"
+#include "ufos.h"
 
-#define MASKIROVKA_DEBUG
+#define UFOS_DEBUG
 
 typedef struct {
     size_t size;
@@ -26,11 +26,11 @@ void * cheater_malloc(R_allocator_t *allocator, size_t size) {
     allocator_data->header_size = sizeof(SEXPREC_ALIGN);
     allocator_data->data_size = size - sizeof(SEXPREC_ALIGN);
 
-#ifdef MASKIROVKA_DEBUG
+#ifdef UFOS_DEBUG
     fprintf(stderr, "cheater alloc %ld + %ld = %ld, %ld elements\n",
            allocator_data->header_size, allocator_data->data_size,
            allocator_data->size, allocator_data->length);
-#endif //MASKIROVKA_DEBUG
+#endif //UFOS_DEBUG
 
     return (void *) malloc(size);
 }
@@ -52,7 +52,7 @@ void cheater_free(R_allocator_t *allocator, void * addr) {
 }
 
 // Function that creates a custom vector with a custom allocator.
-SEXP/*INTSXP|VECSXP<INTSXP>*/ mask_new(SEXP/*INTSXP*/ lengths) {
+SEXP/*INTSXP|VECSXP<INTSXP>*/ ufo_new(SEXP/*INTSXP*/ lengths) {
 
     SEXP/*VECSXP<INTSXP>*/ results = allocVector(VECSXP, LENGTH(lengths)); // FIXME PROTECT
 
