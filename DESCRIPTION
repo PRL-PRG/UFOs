@@ -1,10 +1,10 @@
-Package: maskirovka
+Package: ufos
 Type: Package
-Title: Maskirovka: experiments with custom objects masquerading as ordinary R objects
+Title: UFOs: implementation of custom objects masquerading as plain R objects via user faults
 Version: 0.1.0
-Author: 
-Maintainer: Konrad Siek <siekkonr@fit.cvut.cz>
-Description: Experiments in making custom objects with complex behavior appearing as ordinary R data structures (data.frames, matrices, etc.) to both R functions and C functions.
+Author: Colette Kerr <colette.m.y.kerr@gmail.com>, Konrad Siek <siekkonr@fit.cvut.cz>
+Maintainer: Colette Kerr <colette.m.y.kerr@gmail.com>, Konrad Siek <siekkonr@fit.cvut.cz>
+Description: Experiments in making custom objects with complex behavior appearing as ordinary R data structures (data.frames, matrices, etc.) to both R functions and C functions. This uses user faults (memory faults) to capture memory accesses and override them.
 License: who knows?
 Encoding: UTF-8
 LazyData: true
