@@ -1,2 +1,2 @@
-useDynLib(maskirovka, .registration = TRUE, .fixes = "")
+useDynLib(ufos, .registration = TRUE, .fixes = "")
 exportPattern("^[[:alpha:]]+")
