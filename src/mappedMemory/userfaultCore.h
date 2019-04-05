@@ -102,7 +102,7 @@ typedef struct{
  *    ufBadArgs         if rounding mode was not understood
  *
  */
-typedef int (*ufPopulateCallout)(*ufPopulateCalloutMsg);
+typedef int (*ufPopulateCallout)(ufPopulateCalloutMsg*);
 
 #define ufErrAlreadyResolved 1
 #define ufErrOutOfBounds     2
