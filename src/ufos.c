@@ -1,103 +1,65 @@
 #define USE_RINTERNALS
+#define UFOS_DEBUG
+
 #include <R.h>
 #include <Rinternals.h>
 #include <R_ext/Rallocators.h>
-
 #include <stdlib.h>
-
 #include "ufos.h"
 
-#define UFOS_DEBUG
-
-typedef struct {
-    size_t size;
-    size_t header_size;
-    size_t data_size;
-    size_t length;
-} cheater_allocator_data;
-
-// Custom allocator function.
-// FIXME Placeholder implementation.
-void * cheater_malloc(R_allocator_t *allocator, size_t size) {
-    cheater_allocator_data * allocator_data =
-            ((cheater_allocator_data *)allocator->data);
-
-    allocator_data->size = size;
-    allocator_data->header_size = sizeof(SEXPREC_ALIGN);
-    allocator_data->data_size = size - sizeof(SEXPREC_ALIGN);
-
-#ifdef UFOS_DEBUG
-    fprintf(stderr, "cheater alloc %ld + %ld = %ld, %ld elements\n",
-           allocator_data->header_size, allocator_data->data_size,
-           allocator_data->size, allocator_data->length);
-#endif //UFOS_DEBUG
-
-    return (void *) malloc(size);
+ufInstance_t ufInstance;
+void initializeUFOs () {
+    ufInstance = ufMakeInstance();
+    ufInit(ufInstance);
 }
 
-// Custom deallocator function.
-// FIXME Placeholder implementation.
-void cheater_free(R_allocator_t *allocator, void * addr) {
+typedef SEXP (*__ufo_specific_vector_constructor)(size_t length);
 
-#ifdef MASKIROVKA_DEBUG
-    cheater_allocator_data * allocator_data =
-            ((cheater_allocator_data *)allocator->data);
+SEXP __ufo_new_any(SEXP/*INTSXP*/ vector_lengths, SEXP/*EXTPTRSXP*/ source,
+                   __ufo_specific_vector_constructor constructor) {
 
-    fprintf(stderr, "cheater dealloc %ld + %ld = %ld, %ld elements\n",
-           allocator_data->header_size, allocator_data->data_size,
-           allocator_data->size, allocator_data->length);
-#endif //MASKIROVKA_DEBUG
-
-    free(addr);
-}
-
-// Function that creates a custom vector with a custom allocator.
-SEXP/*INTSXP|VECSXP<INTSXP>*/ ufo_new(SEXP/*INTSXP*/ lengths) {
-
-    SEXP/*VECSXP<INTSXP>*/ results = allocVector(VECSXP, LENGTH(lengths)); // FIXME PROTECT
-
-    // FIXME assuming lengths is a INTSXP for now.
-    for (int i = 0; i < LENGTH(lengths); i++) {
-        // Get length from the lengths vector.
-        size_t length = INTEGER(lengths)[i];
-
-        // Initialize an allocator.
-        R_allocator_t *cheater_allocator =
-                (R_allocator_t *) malloc(sizeof(R_allocator_t));
-
-        // Initialize an allocator data struct.
-        cheater_allocator_data *cheater_data =
-                (cheater_allocator_data *) malloc(
-                        sizeof(cheater_allocator_data));
-
-        // Configure the allocator: provide function to allocate and free memory,
-        // as well as a structure to keep the allocator's data.
-        cheater_allocator->mem_alloc = &cheater_malloc;
-        cheater_allocator->mem_free = &cheater_free;
-        cheater_allocator->res; /* reserved, must be NULL */
-        cheater_allocator->data = cheater_data; /* custom data */
-
-        // Pass information to the allocator.
-        cheater_data->length = length;
-
-        // Create a new vector of the same type and length as the old vector.
-        SEXP/*INTSXP*/ result =
-                allocVector3(INTSXP, length, cheater_allocator);
-
-        // If we receive only one length, then return a simple INTSXP vector.
-        if (LENGTH(lengths) == 1) {
-            return result;
-        }
-
-        // Add result to results;
-        SET_VECTOR_ELT(results, i, result);
+    if (TYPEOF(lengths) != INTSXP) {
+        Rf_error("Lengths have to be an integer vector (INTSXP).\n");
+        return R_NilValue;
     }
 
+    if (LENGTH(lengths) == 0) {
+        return R_NilValue;
+    }
+
+    if (LENGTH(lengths) == 1) {
+        size_t length = INTEGER_ELT(lengths, 0);
+        return constructor(length);
+    }
+
+    SEXP/*VECSXP<INTSXP>*/ results;
+    PROTECT(results = allocVector(VECSXP, LENGTH(lengths)));
+    for (int i = 0; i < LENGTH(lengths); i++) {
+        size_t length = INTEGER_ELT(lengths, i);
+        SET_VECTOR_ELT(results, i, constructor(length));
+    }
+    UNPROTECT(1);
     return results;
 }
 
-// TODO question: do we need to free the space used by the allocator and its
-// paraphrenalia?
+SEXP/*INTSXP*/ __ufo_new_intsxp(size_t length) {
+    return R_NilValue; //TODO
+}
 
+SEXP/*INTSXP*/ __ufo_new_lglsxp(size_t length) {
+    return R_NilValue; //TODO
+}
 
+SEXP/*INTSXP|VECSXP<INTSXP>*/ ufo_new_intsxp(SEXP/*INTSXP*/ vector_lengths,
+                                             SEXP/*EXTPTRSXP*/ source) {
+    return __ufo_new_any(vector_lengths, source, &__ufo_new_intsxp);
+}
 
+SEXP/*INTSXP|VECSXP<INTSXP>*/ ufo_new_lglsxp(SEXP/*INTSXP*/ vector_lengths,
+                                             SEXP/*EXTPTRSXP*/ source) {
+    return __ufo_new_any(vector_lengths, source, &__ufo_new_lglsxp);
+}
+
+SEXP/*EXTPTRSXP*/ ufo_make_bin_file_source(SEXP/*STRSXP*/ path) {
+    return R_NilValue; //TODO
+}
