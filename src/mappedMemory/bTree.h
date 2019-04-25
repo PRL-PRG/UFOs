@@ -16,6 +16,8 @@ typedef union {
   uint64_t i;
 } ptrInt;
 
+
+//TODO: move value out of key to compress the key area of the node
 typedef struct{
   ptrInt start;
   ptrInt end;
@@ -28,7 +30,7 @@ typedef struct{
   uint64_t         __padding; // Keep in reserve
 } bMeta; // 24
 
-typedef struct __attribute__((align(128))) bNode { // Align with cache lines, we are 2 lies large
+typedef struct __attribute__((aligned(64))) bNode { // Align with cache lines, we are 2 lines large
   bKey*             keys[bMaxKeys];          // 72 bytes = 24 * 3
   struct bNode*     children[bMaxChildren];  // 32 = 8 * 4
   bMeta             metadata;                // 24
