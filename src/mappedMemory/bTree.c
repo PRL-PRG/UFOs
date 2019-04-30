@@ -20,8 +20,7 @@ void   setOccupancy(bNode* n, int o){ n->metadata.occupancy = o; }
 static bool isLeaf(bNode* n){ return NULL == n->children[0]; }
 
 
-void assertOccupancy(bNode* n){
-#ifndef NDEBUG
+void assertOccupancy0(bNode* n){
   int seenKeys = 0, seenChildren = 0, i;
   for(i = 0; i < bMaxChildren; i++){
     seenKeys += (NULL == n->keys[i] ? 0 : 1);
@@ -31,8 +30,13 @@ void assertOccupancy(bNode* n){
 
   assert(seenKeys + 1 == seenChildren);
   assert(seenKeys == getKeyOccupancy(n));
-#endif
 }
+
+#ifndef NDEBUG
+  #define  assertOccupancy(n) assertOccupancy0(n)
+#else
+  #define  assertOccupancy(n) ({})
+#endif
 
 static int compare(bKey* k, uint64_t x){
   if(x <  k->start.i) return -1;
@@ -71,15 +75,15 @@ static bKey* nextKeyInTree(bNode* node, int insertionPoint){
 }
 
 static void listInsert0(void** list, int length, int idx, void* element){
-  for(int i = length; i > idx; i--)
-    list[i] = list[i-1];
+  //      dest,       src,      # bytes
+  memmove(list+idx+1, list+idx, (length - idx) * sizeof(void*));
   list[idx] = element;
 }
 #define listInsert(list, length, idx, element) listInsert0((void**)list, length, idx, element)
 
 static void listRemove0(void** list, int length, int idx){
-  for(int i = idx; i < length; i++)
-    list[i] = list[i+1];
+  //      dest,     src,        # bytes
+  memmove(list+idx, list+idx+1, (length - idx) * sizeof(void*));
   list[length-1] = NULL;
 }
 #define listRemove(list, length, idx) listRemove0((void**)list, length, idx)
@@ -209,6 +213,9 @@ bInsertResult bInsert(bNode* node, bKey* key){
 #define StealLeft  1
 #define StealRight 2
 
+#define MergeLeft  1
+#define MergeRight 2
+
 /*
  * When stealing right the "leafmost" index is the one on the left (0)
  * This is because we want the first key from the right
@@ -243,7 +250,7 @@ static int findChildIdxInParent(bNode* child, int* idx){
   return treeError;
 }
 
-static int findStealableLeaf(bNode* startingNode, uint keyIdx, int* direction_p, bNode** leaf_p){
+static int findStealableLeaf(bNode* startingNode, uint keyIdx, int* direction_p, bNode** leaf_p, int* leafKeyIdx){
   assert(getKeyOccupancy(startingNode) > keyIdx);
   bNode* child;
   int direction = StealLeft;
@@ -282,15 +289,15 @@ static int findStealableLeaf(bNode* startingNode, uint keyIdx, int* direction_p,
 
   *direction_p = direction;
   *leaf_p      = child;
+  *leafKeyIdx  = StealLeft ? getKeyOccupancy(child) : 0;
   return 0;
 
   err:
   *direction_p = 0;
   *leaf_p      = NULL;
+  *leafKeyIdx  = -1;
   return noLeaf;
 }
-
-//TODO: always delete logically-"from" leafs, to do this we really are stealing from the leafs when working in internal nodes
 
 static int findStealableSiblingKey(bNode* node, int* direction_p, bNode** sibling_p,
     int* stealKeyIdx_p, int* stealChildIdx_p, int* stealParentKeyIdx_p){
@@ -400,12 +407,17 @@ static int tryRotate(bNode* node){
   listInsert(node->children, nodeOcc+1, insertChildIdx, newChildPointer);
   setOccupancy(node, newOcc);
 
+  assertOccupancy(node);
+  assertOccupancy(sibling);
+  assertOccupancy(parent);
+
   return 0;
 }
 
 static int mergeWithSibling(bNode* node){
   bNode* parent = getParent(node);
-  assert(NULL != parent); // Root
+  if(NULL == parent)
+    return 0; // Root
 
   int direction, idx;
   int status = findChildIdxInParent(node, &idx);
@@ -415,15 +427,50 @@ static int mergeWithSibling(bNode* node){
   }
 
   //If we are the first key then merge right, otherwise merge left
-  direction = (0 == idx) ? StealRight : StealLeft;
-  int siblingIdx = StealLeft ? idx - 1 : idx + 1;
+  direction = (0 == idx) ? MergeRight : MergeLeft;
+  int siblingIdx = MergeLeft ? idx - 1 : idx + 1;
 
   bNode* sibling = parent->children[siblingIdx];
+  // We must have a sibling, the only way for a node to be empty is temporarily during a delte
   assert(NULL != sibling);
-  //Both of our siblings weren't able to donate a key, so it should always be possible to merge with either
-  assert(getKeyOccupancy(node) + getKeyOccupancy(sibling) <= bMaxKeys);
-  //TODO: Steal a key from the parent and sandwich the two siblings
 
+  int siblingOcc = getKeyOccupancy(sibling);
+  int ourOcc = getKeyOccupancy(node);
+  int parentOcc = getKeyOccupancy(parent);
+
+  //Both of our siblings weren't able to donate a key, so it should always be possible to merge with either
+  assert(ourOcc + siblingOcc <= bMaxKeys);
+
+  if(MergeRight == direction){
+    // Only when merging right: we need to make some room for the contents we want to migrate
+    // One key from the parent, all our remaining keys, and all our children
+
+    // Make room then move the keys, and then the same for the child pointers
+    //      dest,                       src,                # bytes
+    memmove(sibling->keys+ourOcc+1,     sibling->keys, siblingOcc * sizeof(void*));
+    memmove(sibling->keys,            node->keys,      ourOcc     * sizeof(void*));
+    sibling->keys[ourOcc] = parent->keys[idx];
+    listRemove(parent->keys, parentOcc,  idx);
+
+    memmove(sibling->children+ourOcc+1, sibling->children, (siblingOcc+1) * sizeof(void*));
+    memmove(sibling->children,        node->children,    (ourOcc+1)     * sizeof(void*));
+  }else{
+    //TODO: steal the parent key first!!
+    // Just move over the pointers to the ends of the list
+    sibling->keys[siblingOcc] = parent->keys[idx-1]; // Merging left, went to use the key before us
+    listRemove(parent->keys, parentOcc,  idx);
+    memmove(sibling->keys+siblingOcc+1,   node->keys,      ourOcc    * sizeof(void*));
+    memmove(sibling->children+siblingOcc, node->children, (ourOcc+1) * sizeof(void*));
+  }
+
+  setOccupancy(parent, parentOcc-1);
+  assertOccupancy(parent);
+  setOccupancy(sibling, siblingOcc + 1 + ourOcc);
+  assertOccupancy(sibling);
+
+  free(node);
+
+  return 0;
 }
 
 static bKey* rebalanceAfterDelete(bNode* node, bKey* removed){
@@ -433,11 +480,11 @@ static bKey* rebalanceAfterDelete(bNode* node, bKey* removed){
 
   /* rotation is preffered to stealing from the parent*/
   if(!tryRotate(node))
-    return removed;
+    return removed; // After a rotate the tree is balanced
 
   /* parent stealing & further rebalancing */
   mergeWithSibling(node);
-  return removed;
+  return rebalanceAfterDelete(getParent(node), removed);
 }
 
 bKey* bRemove(bNode* node, bKey* toRemove){
@@ -458,6 +505,14 @@ bKey* bRemove(bNode* node, bKey* toRemove){
       return rebalanceAfterDelete(node, removed);
     }else{
       //TODO: steal a key from a leaf and then start rebalance at the leaf
+      int direction, stealIdx;
+      bNode *toStealFrom;
+      int status = findStealableLeaf(node, idx, &direction, &toStealFrom, &stealIdx);
+      assert(!status); // There must be a leaf beneath us
+
+      swap(node->keys[idx], toStealFrom->keys[stealIdx]);
+      listRemove(toStealFrom->keys, getKeyOccupancy(toStealFrom), stealIdx);
+      return rebalanceAfterDelete(toStealFrom, removed);
     }
 
     //TODO: how do we get the new root, if root was changed?
