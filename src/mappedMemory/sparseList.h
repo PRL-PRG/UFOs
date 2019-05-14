@@ -31,6 +31,8 @@ enum{
 
   // Errors
   EntryConflict,
+
+  // Critical errors, the program should not continue
   AssertError
 };
 

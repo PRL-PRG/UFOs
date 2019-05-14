@@ -231,6 +231,7 @@ static uint64_t makeRoomAtIdx(sparseList* l, uint64_t idx){
 }
 
 static bool assertListInvariants(sparseList* l){
+#ifdef ExpensiveAsserts
   const uint64_t u = l->usedSlots;
   uint64_t occupied = 0;
 
@@ -252,7 +253,7 @@ static bool assertListInvariants(sparseList* l){
 
   // We saw the correct number of elements, right?
   assert(l->size == occupied);
-
+#endif
   return true;
 }
 
