@@ -4,10 +4,16 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <errno.h>
+
 #include <string.h>
+
 #include <assert.h>
 
+
 #include "sparseList.h"
+
+#define incGetModCt(l) (l->modCt = (l->modCt + 1) & ((1 << 30) - 1))
 
 typedef struct {
   union{
@@ -21,6 +27,7 @@ typedef struct {
 typedef struct {
   entryI* list;
   uint64_t allocatedSlots, usedSlots, size;
+  uint32_t modCt;
 } sparseList;
 
 
@@ -31,15 +38,26 @@ typedef struct {
 
 sparseList_t newList(){
   sparseList* l = calloc(1, sizeof(sparseList));
-  assert(NULL != l);
+  if(NULL == l)
+    goto nomem0;
 
   l->size = 0;
   l->usedSlots = 0;
   l->list = calloc(8, sizeof(entryI));
-  assert(NULL != l->list);
+  if(NULL == l)
+    goto nomem1;
+
   l->allocatedSlots = 8;
 
   return (sparseList_t) l;
+
+  nomem1:
+  assert(NULL != l); // Should only be reachable after l is allocated
+  free(l);
+
+  nomem0:
+  errno = ENOMEM;
+  return NULL;
 }
 
 void freeList(sparseList_t list){
@@ -83,11 +101,12 @@ static searchResult binarySearch(sparseList* list, uint64_t i){
       case 1:
         l = m + 1;
         break;
-      default:
-        assert(false); // for debugger
-        exit(EXIT_FAILURE); // This just can't happen
       case 0:
         return (searchResult) {1, m};
+
+      default:
+        assert(false); // for debugger
+        exit(EXIT_FAILURE); // This literally can't happen
     }
   }while(l <= h);
   return (searchResult) {0, -1 == cmp ? m : m + 1 };
@@ -107,7 +126,7 @@ enum {
  *  then this will almost always expand the list if there is spare allocated space
  * If there is no extra allocated space then this will shift
  */
-static uint64_t makeRoomAtIdx(sparseList* l, uint64_t idx){
+static int makeRoomAtIdx(sparseList* l, uint64_t* newIdx, uint64_t idx){
   entryI* e = NULL;
   uint64_t idxToTake;
   uint64_t actualIdx;
@@ -159,6 +178,7 @@ static uint64_t makeRoomAtIdx(sparseList* l, uint64_t idx){
   }
 
   /*
+   * This code should be unreachable
    * No free slot found, even though there was free space?
    * Should not be able to get here. Run some asserts to help discover the root cause
    */
@@ -168,7 +188,7 @@ static uint64_t makeRoomAtIdx(sparseList* l, uint64_t idx){
     false; // trigger the enclosing assert
   }));
   // Crash and burn
-  exit(EXIT_FAILURE);
+  return AssertError;
 
   _grow:
   assert(l->allocatedSlots >= l->usedSlots); // Can't have more used slots than allocated slots
@@ -180,8 +200,10 @@ static uint64_t makeRoomAtIdx(sparseList* l, uint64_t idx){
     const uint64_t newAlloc = l->allocatedSlots + (l->allocatedSlots >> 1);
     newList = realloc(l->list, newAlloc * sizeof(entryI));
 
-    if(NULL == newList)
-      exit(EXIT_FAILURE); // Out of memory, can't do much
+    if(NULL == newList){
+      errno = ENOMEM;
+      return NoMemory; // Out of memory, can't do much
+    }
 
     l->list = newList;
     l->allocatedSlots = newAlloc;
@@ -227,11 +249,13 @@ static uint64_t makeRoomAtIdx(sparseList* l, uint64_t idx){
   e = l->list + actualIdx;
   e->occupied = false;
 
-  return actualIdx;
+  *newIdx = actualIdx;
+
+  return NoError;
 }
 
-static bool assertListInvariants(sparseList* l){
 #ifdef ExpensiveAsserts
+static void assertListInvariants(sparseList* l){
   const uint64_t u = l->usedSlots;
   uint64_t occupied = 0;
 
@@ -253,12 +277,14 @@ static bool assertListInvariants(sparseList* l){
 
   // We saw the correct number of elements, right?
   assert(l->size == occupied);
-#endif
-  return true;
 }
+#else
+#define assertListInvariants(l) ({})
+#endif
 
 int listAdd(sparseList_t list_t, void* ptr, uint64_t length){
   sparseList* l = (sparseList*) list_t;
+  const uint32_t modCt = incGetModCt(l);
 
   /* this return one of
    *  • the first indx in the list where the e@idx is larger than the elemnt we are trying to add
@@ -285,10 +311,13 @@ int listAdd(sparseList_t list_t, void* ptr, uint64_t length){
      */
     e = l->list + insertionPoint.idx;
     //if the index is one larger than the list OR the element we ar targeting is occupied then make room
-    if(actualIdx == l->usedSlots ||  e->occupied)
-      actualIdx = makeRoomAtIdx(l, insertionPoint.idx);
+    if(actualIdx == l->usedSlots ||  e->occupied){
+      int err = makeRoomAtIdx(l, &actualIdx, insertionPoint.idx);
+      if(err) return err;
+    }
   }else{ // No space left, the list will have to grow
-    actualIdx = makeRoomAtIdx(l, insertionPoint.idx);
+    int err = makeRoomAtIdx(l, &actualIdx, insertionPoint.idx);
+    if(err) return err;
   }
 
   //Always re-read e with the new index
@@ -313,7 +342,13 @@ int listAdd(sparseList_t list_t, void* ptr, uint64_t length){
   assert(actualIdx+1 == l->usedSlots || 1 == eCompare(l->list[actualIdx+1].ptrI, e));
 
   // Expensive assertion of all list invariants that we can think of
-  assert(assertListInvariants(l));
+  // Will be a nop if turned off
+  assertListInvariants(l);
+
+  if(modCt != l->modCt){
+    assert(false);
+    return ConcurrentModificationError;
+  }
 
   return NoError;
 }
@@ -321,6 +356,8 @@ int listAdd(sparseList_t list_t, void* ptr, uint64_t length){
 
 int listRemove(sparseList_t list, void* ptr){
   sparseList* l = (sparseList*) list;
+  const uint32_t modCt = incGetModCt(l);
+
   searchResult r = binarySearch(l, (uint64_t) ptr);
 
   if(!r.contains)
@@ -330,7 +367,13 @@ int listRemove(sparseList_t list, void* ptr){
   l->size--;
 
   // Expensive assertion of all list invariants that we can think of
-  assert(assertListInvariants(l));
+  // Will be a nop when expensive assertions are not enabled
+  assertListInvariants(l);
+
+  if(modCt != l->modCt){
+    assert(false);
+    return ConcurrentModificationError;
+  }
 
   return NoError;
 }

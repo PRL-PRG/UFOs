@@ -33,6 +33,8 @@ enum{
   EntryConflict,
 
   // Critical errors, the program should not continue
+  NoMemory,
+  ConcurrentModificationError,
   AssertError
 };
 
