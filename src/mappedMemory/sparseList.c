@@ -22,6 +22,7 @@ typedef struct {
   };
   uint64_t occupied  :  1;
   uint64_t length    : 63;
+  void*    valuePtr;
 } entryI;
 
 typedef struct {
@@ -282,7 +283,7 @@ static void assertListInvariants(sparseList* l){
 #define assertListInvariants(l) ({})
 #endif
 
-int listAdd(sparseList_t list_t, void* ptr, uint64_t length){
+int listAdd(sparseList_t list_t, void* ptr, uint64_t length, void* value){
   sparseList* l = (sparseList*) list_t;
   const uint32_t modCt = incGetModCt(l);
 
@@ -332,6 +333,7 @@ int listAdd(sparseList_t list_t, void* ptr, uint64_t length){
   e->occupied = true;
   e->length = length;
   e->ptr = ptr;
+  e->valuePtr = value;
 
   l->size++;
 
@@ -387,6 +389,7 @@ int listFind(sparseList_t list, entry* entry,  void* ptr){
     if(e->occupied){ // Slot had something, but that something was removed
       if(NULL != entry){
         entry->ptr = e->ptr;
+        entry->valuePtr = e->valuePtr;
         entry->length = e->length;
       }
       return NoError;
@@ -394,6 +397,7 @@ int listFind(sparseList_t list, entry* entry,  void* ptr){
   }
   if(NULL != entry){
     entry->ptr = NULL;
+    entry->valuePtr = NULL;
     entry->length = 0;
   }
   return NotFound;

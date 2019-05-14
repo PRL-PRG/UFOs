@@ -30,11 +30,11 @@ int main(int argc, char **argv) {
       int ret;
       if(exists){
         // already in the list, make sure that re-adding is a conflict
-        ret = listAdd(l, (void*)(i << 8), 128);
+        ret = listAdd(l, (void*)(i << 8), 128, NULL);
         assert(EntryConflict == ret);
       }else{
         // add to the list
-        ret = listAdd(l, (void*)(i << 8), 128);
+        ret = listAdd(l, (void*)(i << 8), 128, (void*)i);
         assert(!ret);
         // mark it as in the list
         setBit(i);
@@ -44,9 +44,10 @@ int main(int argc, char **argv) {
       assert(testBit(i));
 
       entry e;
-      ret = listFind(l, &e, iPtr );
+      ret = listFind(l, &e, iPtr);
       assert(!ret);
       assert((uint64_t)e.ptr == i << 8);
+      assert((uint64_t)e.valuePtr == i);
     }else{
       // Remove something or ensure it isn't there
       if(testBit(i)){

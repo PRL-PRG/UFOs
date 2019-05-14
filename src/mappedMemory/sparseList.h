@@ -9,6 +9,7 @@ typedef any_t sparseList_t;
 typedef struct {
   void*    ptr;
   uint64_t length;
+  void* valuePtr;
 } entry;
 
 
@@ -16,7 +17,7 @@ sparseList_t newList();
 void freeList(sparseList_t list);
 
 
-int listAdd(sparseList_t list, void* ptr, uint64_t length);
+int listAdd(sparseList_t list, void* ptr, uint64_t length, void* value);
 int listRemove(sparseList_t list, void* ptr);
 int listFind(sparseList_t list, entry* result, void* ptr);
 
