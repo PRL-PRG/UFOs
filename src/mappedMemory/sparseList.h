@@ -5,6 +5,7 @@
 typedef void* any_t;
 
 typedef any_t sparseList_t;
+typedef any_t dataPtr;
 
 typedef struct {
   void*    ptr;
@@ -17,7 +18,7 @@ sparseList_t newList();
 void freeList(sparseList_t list);
 
 
-int listAdd(sparseList_t list, void* ptr, uint64_t length, void* value);
+int listAdd(sparseList_t list, void* ptr, uint64_t length, dataPtr value);
 int listRemove(sparseList_t list, void* ptr);
 int listFind(sparseList_t list, entry* result, void* ptr);
 
@@ -38,4 +39,3 @@ enum{
   ConcurrentModificationError,
   AssertError
 };
-

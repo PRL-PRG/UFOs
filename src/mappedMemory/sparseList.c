@@ -258,9 +258,9 @@ static int makeRoomAtIdx(sparseList* l, uint64_t* newIdx, uint64_t idx){
 #ifdef ExpensiveAsserts
 static void assertListInvariants(sparseList* l){
   const uint64_t u = l->usedSlots;
-  uint64_t occupied = 0;
-
   assert(l->size <= u);
+
+  uint64_t occupied = 0;
 
   for(uint64_t i = 0; i < u; i++){
     entryI* e = l->list+i;
@@ -283,7 +283,7 @@ static void assertListInvariants(sparseList* l){
 #define assertListInvariants(l) ({})
 #endif
 
-int listAdd(sparseList_t list_t, void* ptr, uint64_t length, void* value){
+int listAdd(sparseList_t list_t, void* ptr, uint64_t length, dataPtr value){
   sparseList* l = (sparseList*) list_t;
   const uint32_t modCt = incGetModCt(l);
 

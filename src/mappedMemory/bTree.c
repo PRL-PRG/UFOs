@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 #include <assert.h>
 
 #include "bTree.h"
@@ -53,12 +54,12 @@ static int findInsertionPoint(bNode* node, uint64_t toFind){
     bKey* k = node->keys[i];
     int cmp = compare(k, toFind);
     switch(cmp){
-      case -1: return i;
-      case  0: return dupeIdx(i); // found an exact match
-      default: continue;
+      case -1: return i; //Once the key k is lower than the one we are looking for then we have found the insertion point
+      case  0: return dupeIdx(i); // found an exact match, indicate with a negative index
+      default: continue; // Keep looking
     }
   }
-  return i;
+  return i; // End of the list
 }
 
 /*
