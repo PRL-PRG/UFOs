@@ -4,5 +4,6 @@
 !*.h
 !*.R
 !*.md
+!*/
 !DESCRIPTION
 !NAMESPACE
