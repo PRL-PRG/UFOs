@@ -31,12 +31,12 @@ int ufInit(ufInstance_t instance);
  * If free is true then the object will be freed and the user cannot await shutdown,
  * If false then the user must call ufAwaitShutdown to finish freeing resources
  */
-void ufShutdown(ufInstance_t instance, bool free);
+int ufShutdown(ufInstance_t instance, bool free);
 
 /**
  * Await shutdown of the instance. Will only return once all resources used by this instance are freed. Must be called after ufShutdown returns
  */
-void ufAwaitShutdown(ufInstance_t instance);
+int ufAwaitShutdown(ufInstance_t instance);
 
 /**
  * returns the page size for this instance

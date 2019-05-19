@@ -69,7 +69,8 @@ typedef struct {
   ufMessageType msgType;
   union{
     ufObject* toAllocate;
-    ufObject*   toFree;
+    ufObject* toFree;
+    bool      selfFree;
   };
   sem_t*    completionLock_p;
   int*      return_p;

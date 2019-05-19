@@ -25,6 +25,8 @@
 
 #include "userFaultCoreInternal.h"
 
+static int freeInstance(ufInstance* i);
+
 /* System init and initial worker thread */
 
 static size_t pageSize = 0;
@@ -179,12 +181,40 @@ static void sendMsg(ufInstance* i, ufAsyncMsg* msg){
   write(i->msgPipe[1], &msg, sizeof(ufAsyncMsg));
 }
 
-void ufAwaitShutdown(ufInstance_t instance){
-  //TODO: wait, call free
+int freeInstance(ufInstance* i){
+  pthread_mutex_destroy(&i->instanceShutdownMutex);
+  pthread_cond_destroy(&i->instanceShutdownCond);
+  free(i);
+  return 0;
 }
 
-void ufShutdown(ufInstance_t instance, bool free){
-  //TODO: send the message, optionally call await
+int ufAwaitShutdown(ufInstance_t instance){
+  ufInstance* i = asUfInstance(instance);
+  int res;
+  tryPerrInt(res, pthread_mutex_lock(&i->instanceShutdownMutex), "error locking mutex", lockErr);
+  do{
+    tryPerrInt(res, pthread_cond_wait(&i->instanceShutdownCond, &i->instanceShutdownMutex), "error awaiting condition", lockErr);
+  }while(!i->isInstanceShutdown);
+  tryPerrInt(res, pthread_mutex_unlock(&i->instanceShutdownMutex), "error unlocking mutex", lockErr);
+
+  return freeInstance(i);
+
+  lockErr:
+  return -1;
+}
+
+int ufShutdown(ufInstance_t instance, bool free){
+  ufInstance* i = asUfInstance(instance);
+
+  int res;
+
+  //Self free is the inverse of our argument. Our argument asks to wait for freeing, the msg argument is telling the instance if it should free itself, no waiting
+  ufAsyncMsg msg = (ufAsyncMsg){.msgType = ufShutdownMsg, .selfFree = !free };
+  sendMsg(i, &msg);
+  close(i->msgPipe[1]); // Close the write side promptly. May race with another writer, but the instance will clear those
+  if(!free)
+    return 0;
+  return ufAwaitShutdown(instance);
 }
 
 int ufCreateObject(ufInstance_t instance, ufObjectConfig_t objectConfig, ufObject_t* object_p){
