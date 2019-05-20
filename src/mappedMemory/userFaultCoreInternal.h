@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <sys/epoll.h>
 
 #include "sparseList.h"
 #include "userfaultCore.h"
@@ -30,17 +31,14 @@ typedef struct {
 } ufObjectConfig;
 
 typedef struct {
+  int               ufFd;
+  //From the docs: msgPipe[0] refers to the read end of the pipe. msgPipe[1] refers to the write end of the pipe.
+  int               msgPipe[2];
+  int               epollFd;
   pthread_t         userfaultThread;
-
-  bool              isInstanceShutdown;
-  pthread_cond_t    instanceShutdownCond;
-  pthread_mutex_t   instanceShutdownMutex;
 
   sparseList_t      instances;
 
-  //From the docs: msgPipe[0] refers to the read end of the pipe. msgPipe[1] refers to the write end of the pipe.
-  int               msgPipe[2];
-  int               ufFd;
   uint16_t          concurrency;
 } ufInstance;
 

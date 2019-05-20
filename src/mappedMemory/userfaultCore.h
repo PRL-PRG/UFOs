@@ -108,6 +108,7 @@ typedef int (*ufPopulateCallout)(ufPopulateCalloutMsg*);
 #define ufErrNoMem           4
 #define ufWarnNoChange       5
 #define ufBadArgs            6
+#define ufShuttingDown       7
 
 #define ufRoundUp   1
 #define ufRoundDown 2

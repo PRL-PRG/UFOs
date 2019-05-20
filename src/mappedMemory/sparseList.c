@@ -366,6 +366,7 @@ int listRemove(sparseList_t list, void* ptr){
     return NotRemoved;
 
   l->list[r.idx].occupied = false;
+  l->list[r.idx].valuePtr = NULL; // bonus safety
   l->size--;
 
   // Expensive assertion of all list invariants that we can think of
@@ -401,5 +402,20 @@ int listFind(sparseList_t list, entry* entry,  void* ptr){
     entry->length = 0;
   }
   return NotFound;
+}
+
+void listWalk(sparseList_t list, walkCallback callback){
+  sparseList* l = (sparseList*) list;
+
+  entry e;
+  for(uint64_t i = 0; i < l->usedSlots; i++){
+    entryI* en = l->list + i;
+    if(!en->occupied)
+      continue;
+    e.length   = en->length;
+    e.ptr      = en->ptr;
+    e.valuePtr = en->valuePtr;
+    callback(&e);
+  }
 }
 

@@ -1,15 +1,11 @@
-#define tryPerrInt(res, f, err, gotoE) ({       \
+#define tryPerr(res, errPred, f, errMsg, gotoE) ({    \
   res = f;                               \
-  if(0 != res){                          \
-    perror(err);                         \
+  if(errPred){                           \
+    perror(errMsg);                      \
     goto gotoE;                          \
   }                                      \
 })
 
-#define tryPerrNull(x, f, err, gotoE) ({       \
-  x = f;                                 \
-  if(NULL == x){                         \
-    perror(err);                         \
-    goto gotoE;                          \
-  }                                      \
-})
+#define tryPerrInt(res, f, errMsg, gotoE)    tryPerr(res, 0 != res,    f, errMsg, gotoE)
+#define tryPerrNull(x, f, errMsg, gotoE)     tryPerr(res, NULL == res, f, errMsg, gotoE)
+#define tryPerrNegOne(res, f, errMsg, gotoE) tryPerr(res, -1 == res,   f, errMsg, gotoE)

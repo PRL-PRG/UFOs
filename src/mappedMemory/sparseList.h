@@ -17,10 +17,13 @@ typedef struct {
 sparseList_t newList();
 void freeList(sparseList_t list);
 
+typedef void (*walkCallback)(entry* e);
 
 int listAdd(sparseList_t list, void* ptr, uint64_t length, dataPtr value);
 int listRemove(sparseList_t list, void* ptr);
 int listFind(sparseList_t list, entry* result, void* ptr);
+
+void listWalk(sparseList_t list, walkCallback);
 
 /* returns */
 

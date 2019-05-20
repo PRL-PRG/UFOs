@@ -15,8 +15,9 @@
 #include <poll.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <sys/epoll.h>
 #include <stdlib.h>
-#include <errno.h>
+#include <errno.h>1
 
 #include "userfaultCore.h"
 
@@ -41,11 +42,82 @@ static size_t get_page_size(){
   return ret;
 }
 
+static int readMsg(ufInstance* i, ufAsyncMsg* msg){
+  int toRead = sizeof(ufAsyncMsg);
+  char* m = (char*) msg;
+  do{
+    int readBytes = read(i->msgPipe[0], m, toRead);
+    if(readBytes < 0){
+      switch(errno){
+        case EAGAIN:
+        case EWOULDBLOCK:
+          return -1;
+        default:
+          return -2;
+      }
+    }
 
+    toRead -= readBytes;
+    if(0 == toRead)
+      return 0;
+    m += readBytes;
+  }while(true);
+}
+
+static void handlerShutdown(ufInstance* i, bool selfFree){
+  // don't need events anymore
+  close(i->epollFd);
+
+  // This should have been done already and we expect this to return an error
+  // nobody should write to us anymore
+  close(i->msgPipe[1]);
+
+  //Nuke all the objects
+  void nullObjectInstance(entry* e){
+    ufObject* ufo = asUfo(e->valuePtr);
+    if(NULL != ufo)
+      munmap(ufo->start, ufo->config.headerSzWithPadding + (ufo->config.elementCt * ufo->config.stride));
+    else
+      assert(false);
+  }
+  listWalk(i->instances, nullObjectInstance);
+
+  ufAsyncMsg msg;
+  while(readMsg(i, &msg)){
+    switch(msg.msgType){
+      case ufAllocateMsg:
+        *msg.return_p = ufShuttingDown;
+        sem_post(msg.completionLock_p);
+        break;
+
+      case ufFreeMsg:
+        *msg.return_p = 0;
+        sem_post(msg.completionLock_p);
+        break;
+
+      case ufShutdownMsg:
+        continue; // we know
+      default:
+        assert(false); // Huh?
+        break;
+    }
+  }
+  close(i->msgPipe[0]);
+
+  close(i->ufFd); //Do this last. If something is still (improperly) active this will likely crash the whole program
+  if(selfFree)
+    free(i);
+}
 
 static void* handler(void* arg){
-  ufObjectConfig* conf = asObjectConfig(arg);
+  ufInstance* i = asUfInstance(arg);
+  bool selfFree = true;
 
+  do{
+
+  }while(true);
+
+  handlerShutdown(i, selfFree);
   return NULL;
 }
 
@@ -112,18 +184,22 @@ int ufInit(ufInstance_t instance){
 
   int res;
   tryPerrInt(res, initUfFileDescriptor(ins), "error initializing User-Fault file descriptor", errFd);
-
-  ins->isInstanceShutdown = false;
-  tryPerrInt(res, pthread_cond_init(&ins->instanceShutdownCond, NULL), "error initializing shutdown considiton", errCondition);
-  tryPerrInt(res, pthread_mutex_init(&ins->instanceShutdownMutex, NULL), "error initializing shutdown considiton", errMutex);
+  int flags = fcntl(ins->ufFd, F_GETFL, 0);
+  fcntl(ins->ufFd, F_SETFL, flags | O_NONBLOCK); // set nonblocking
 
   tryPerrInt(res, pipe(ins->msgPipe), "error creating msg pipe", errPipe);
+  flags = fcntl(ins->msgPipe[0], F_GETFL, 0);
+  fcntl(ins->msgPipe[0], F_SETFL, flags | O_NONBLOCK); // set the read end to nonblocking
 
-// On Linux the pipe size is always at least one page
-//  tryPerrInt(res, fcntl(ins->msgPipe[1], F_SETPIPE_SZ, pageSize), "error manipulating msg pipe", errPipe1);
-//  errPipe1:
-//  close(ins->msgPipe[1]);
-//  close(ins->msgPipe[0]);
+  tryPerrNegOne(ins->epollFd, epoll_create1(0), "Err init epoll", errEpoll);
+
+  /* register events with epoll for the userfault file descriptor and our message pipe */
+  struct epoll_event event;
+  event.events = EPOLLIN;
+  event.data.fd = ins->ufFd;
+  tryPerrInt(res, epoll_ctl(ins->epollFd, EPOLL_CTL_ADD, 0, &event), "error registering uffd with epoll", errRegUf);
+  event.data.fd = ins->msgPipe[0];
+  tryPerrInt(res, epoll_ctl(ins->epollFd, EPOLL_CTL_ADD, 0, &event), "error registering pipe read end with epoll", errRegPipe);
 
   //Everything in place? Start the handler thread
   tryPerrInt(res, pthread_create(&ins->userfaultThread, NULL, handler, ins), "error starting thread", errThread);
@@ -131,16 +207,19 @@ int ufInit(ufInstance_t instance){
   return 0; //done and all good
 
   errThread:
+  errRegPipe:
+  errRegUf:
+
+  close(ins->epollFd);
+  errEpoll:
+
+  close(ins->msgPipe[0]);
+  close(ins->msgPipe[1]);
   errPipe:
 
-  pthread_mutex_consistent(&ins->instanceShutdownMutex);
-  errMutex:
-
-  pthread_cond_destroy(&ins->instanceShutdownCond);
-  errCondition:
-
+  close(ins->ufFd);
   errFd:
-  return res;
+  return -1;
 }
 
 
@@ -177,29 +256,20 @@ ufObjectConfig_t makeObjectConfig0(uint32_t headerSize, uint64_t ct, uint32_t st
   return (ufObjectConfig_t) conf;
 }
 
-static void sendMsg(ufInstance* i, ufAsyncMsg* msg){
-  write(i->msgPipe[1], &msg, sizeof(ufAsyncMsg));
-}
-
-int freeInstance(ufInstance* i){
-  pthread_mutex_destroy(&i->instanceShutdownMutex);
-  pthread_cond_destroy(&i->instanceShutdownCond);
-  free(i);
-  return 0;
+static int sendMsg(ufInstance* i, ufAsyncMsg* msg){
+  return write(i->msgPipe[1], &msg, sizeof(ufAsyncMsg));
 }
 
 int ufAwaitShutdown(ufInstance_t instance){
   ufInstance* i = asUfInstance(instance);
   int res;
-  tryPerrInt(res, pthread_mutex_lock(&i->instanceShutdownMutex), "error locking mutex", lockErr);
-  do{
-    tryPerrInt(res, pthread_cond_wait(&i->instanceShutdownCond, &i->instanceShutdownMutex), "error awaiting condition", lockErr);
-  }while(!i->isInstanceShutdown);
-  tryPerrInt(res, pthread_mutex_unlock(&i->instanceShutdownMutex), "error unlocking mutex", lockErr);
+  tryPerrInt(res, pthread_join(i->userfaultThread, NULL), "error joining thread", joinErr);
 
-  return freeInstance(i);
+  free(i);
+  return 0;
 
-  lockErr:
+//  lockErr:
+  joinErr:
   return -1;
 }
 
@@ -210,7 +280,7 @@ int ufShutdown(ufInstance_t instance, bool free){
 
   //Self free is the inverse of our argument. Our argument asks to wait for freeing, the msg argument is telling the instance if it should free itself, no waiting
   ufAsyncMsg msg = (ufAsyncMsg){.msgType = ufShutdownMsg, .selfFree = !free };
-  sendMsg(i, &msg);
+  sendMsg(i, &msg); // If this fails it was shutting down / already down anyway
   close(i->msgPipe[1]); // Close the write side promptly. May race with another writer, but the instance will clear those
   if(!free)
     return 0;
@@ -233,7 +303,7 @@ int ufCreateObject(ufInstance_t instance, ufObjectConfig_t objectConfig, ufObjec
   ufAsyncMsg msg = (ufAsyncMsg) {.msgType = ufAllocateMsg, .toAllocate = o, .completionLock_p = &completionLock, .return_p = &returnVal};
 
   // Ask the worker thread to allocate our object
-  sendMsg(i, &msg);
+  tryPerrInt(res, sendMsg(i, &msg), "error sending message, instance shutting down?", sendErr);
   // And wait for it to do so
   tryPerrInt(res, sem_wait(&completionLock), "error waiting for object creation", awaitErr);
 
@@ -251,6 +321,7 @@ int ufCreateObject(ufInstance_t instance, ufObjectConfig_t objectConfig, ufObjec
 
   initErr:
   awaitErr:
+  sendErr:
 
   sem_destroy(&completionLock);
   semErr:
@@ -266,30 +337,43 @@ int ufDestroyObject(ufObject_t object_p){
   ufObject*   o = asUfo(object_p);
   ufInstance* i = o->instance;
 
-  int res = -1, returnVal = -1;
-  sem_t completionLock;
-  tryPerrInt(res, sem_init(&completionLock, 0, 0), "error initializing the completion lock", semErr);
+  if(NULL != i){
+    int res = -1, returnVal = -1, sendErr = 0;
+    sem_t completionLock;
+    tryPerrInt(res, sem_init(&completionLock, 0, 0), "error initializing the completion lock", semErr);
 
-  // Init the free request
-  ufAsyncMsg msg = (ufAsyncMsg) {.msgType = ufFreeMsg, .toFree = o, .return_p = &returnVal, .completionLock_p = &completionLock};
-  // send the request
-  sendMsg(i, &msg);
+    // Init the free request
+    ufAsyncMsg msg = (ufAsyncMsg) {.msgType = ufFreeMsg, .toFree = o, .return_p = &returnVal, .completionLock_p = &completionLock};
+    // send the request
+    tryPerrInt(sendErr, sendMsg(i, &msg), "instance shutting down", manualFree);
 
-  tryPerrInt(res, sem_wait(&completionLock), "error waiting for object destruction", awaitErr);
-  if(returnVal) goto freeErr; // thats bad… don't free the object
+    tryPerrInt(res, sem_wait(&completionLock), "error waiting for object destruction", awaitErr);
+    if(returnVal) goto freeErr; // thats bad… don't free the object
 
-  // cleanup
-  free(o);
-  sem_destroy(&completionLock);
+    // cleanup
+    free(o);
+    sem_destroy(&completionLock);
 
-  return 0;
+    return 0;
 
-  freeErr:
-  awaitErr:
-  sem_destroy(&completionLock);
+    freeErr:
+    awaitErr:
+    sem_destroy(&completionLock);
 
-  semErr:
-  return res;
+    manualFree:
+    if(sendErr){
+      munmap(o->start, o->config.headerSzWithPadding + (o->config.elementCt * o->config.stride));
+      free(o);
+    }
+
+    semErr:
+    return res;
+
+
+  }else{
+    // instance shutting down, it frees everything
+    return 0;
+  }
 }
 
 
