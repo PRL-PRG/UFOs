@@ -102,7 +102,7 @@ typedef struct{
  *    ufBadArgs         if rounding mode was not understood
  *
  */
-typedef int (*ufPopulateCallout)(*ufPopulateCalloutMsg);
+typedef int (*ufPopulateCallout)(ufPopulateCalloutMsg*);
 
 #define ufErrAlreadyResolved 1
 #define ufErrOutOfBounds     2
@@ -122,7 +122,7 @@ typedef int (*ufPopulateCallout)(*ufPopulateCalloutMsg);
  * @arg target memory area to populate
  *
  * All requested memory must be populated when the function returns
- * target  [0     ... n*sdizeof(value)]
+ * target  [0     ... n*sizeof(value)]
  * indexes [start ... end]
  * n = end - start
  * Zero offset in the target is where the startValueidx should go

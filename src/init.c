@@ -1,11 +1,13 @@
 #include "ufos.h"
-#include "userfaultCore_wip.h"
+#include "sources.h"
+
 #include <R_ext/Rdynload.h>
 #include <R_ext/Visibility.h>
 
 // List of functions provided by the package.
 static const R_CallMethodDef CallEntries[] = {
     {"ufo_make_bin_file_source", (DL_FUNC) &ufo_make_bin_file_source, 1},
+
     {"ufo_new_intsxp", (DL_FUNC) &ufo_new_intsxp, 2},
     {"ufo_new_lglsxp", (DL_FUNC) &ufo_new_lglsxp, 2},
 

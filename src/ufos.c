@@ -6,6 +6,7 @@
 #include <R_ext/Rallocators.h>
 #include <stdlib.h>
 #include "ufos.h"
+#include "mappedMemory/userfaultCore.h"
 
 ufInstance_t ufInstance;
 void initializeUFOs () {
@@ -15,12 +16,11 @@ void initializeUFOs () {
 
 typedef SEXP (*__ufo_specific_vector_constructor)(size_t length);
 
-SEXP __ufo_new_any(SEXP/*INTSXP*/ vector_lengths, SEXP/*EXTPTRSXP*/ source,
+SEXP __ufo_new_any(SEXP/*INTSXP*/ lengths, SEXP/*EXTPTRSXP*/ source,
                    __ufo_specific_vector_constructor constructor) {
 
     if (TYPEOF(lengths) != INTSXP) {
         Rf_error("Lengths have to be an integer vector (INTSXP).\n");
-        return R_NilValue;
     }
 
     if (LENGTH(lengths) == 0) {
@@ -34,7 +34,7 @@ SEXP __ufo_new_any(SEXP/*INTSXP*/ vector_lengths, SEXP/*EXTPTRSXP*/ source,
 
     SEXP/*VECSXP<INTSXP>*/ results;
     PROTECT(results = allocVector(VECSXP, LENGTH(lengths)));
-    for (int i = 0; i < LENGTH(lengths); i++) {
+    for (size_t i = 0; i < LENGTH(lengths); i++) {
         size_t length = INTEGER_ELT(lengths, i);
         SET_VECTOR_ELT(results, i, constructor(length));
     }
@@ -60,6 +60,3 @@ SEXP/*INTSXP|VECSXP<INTSXP>*/ ufo_new_lglsxp(SEXP/*INTSXP*/ vector_lengths,
     return __ufo_new_any(vector_lengths, source, &__ufo_new_lglsxp);
 }
 
-SEXP/*EXTPTRSXP*/ ufo_make_bin_file_source(SEXP/*STRSXP*/ path) {
-    return R_NilValue; //TODO
-}
