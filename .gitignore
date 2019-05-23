@@ -7,3 +7,5 @@
 !*/
 !DESCRIPTION
 !NAMESPACE
+!CMakeLists.txt
+!cmake/FindR.cmake

@@ -1,9 +1,13 @@
-#ifndef __UFOS_H__
-#define __UFOS_H__
+#pragma once
 
 #include <R.h>
 #include <Rinternals.h>
 
-SEXP/*INTSXP|VECSXP<INTSXP>*/ ufo_new(SEXP/*INTSXP*/ vector_lengths);
+// Initialization
+void ufo_initialize();
 
-#endif
+// Constructor
+SEXP/*INTSXP|VECSXP<INTSXP>*/ ufo_new(SEXP/*EXTPTRSXP*/ source);
+
+// shutdown
+void ufo_shutdown();
