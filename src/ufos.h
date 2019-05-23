@@ -4,10 +4,10 @@
 #include <Rinternals.h>
 
 // Initialization
-void initializeUFOs();
+void ufo_initialize();
 
-// Vector constructors
-SEXP/*INTSXP|VECSXP<INTSXP>*/ ufo_new_intsxp(SEXP/*INTSXP*/ vector_lengths,
-                                             SEXP/*EXTPTRSXP*/ source);
-SEXP/*INTSXP|VECSXP<INTSXP>*/ ufo_new_lglsxp(SEXP/*INTSXP*/ vector_lengths,
-                                             SEXP/*EXTPTRSXP*/ source);
+// Constructor
+SEXP/*INTSXP|VECSXP<INTSXP>*/ ufo_new(SEXP/*EXTPTRSXP*/ source);
+
+// shutdown
+void ufo_shutdown();

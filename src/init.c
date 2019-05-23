@@ -1,15 +1,21 @@
 #include "ufos.h"
-#include "sources.h"
+#include "sources/bin_file_source.h"
 
 #include <R_ext/Rdynload.h>
 #include <R_ext/Visibility.h>
 
 // List of functions provided by the package.
 static const R_CallMethodDef CallEntries[] = {
-    {"ufo_make_bin_file_source", (DL_FUNC) &ufo_make_bin_file_source, 1},
+    // Creates a new UFO vector. The constructor takes 1 argument which defines
+    // a source. A source is specifically a EXTPTRSXP that points to a
+    // ufo_source_t struct.
+    {"ufo_new", (DL_FUNC) &ufo_new, 1},
 
-    {"ufo_new_intsxp", (DL_FUNC) &ufo_new_intsxp, 2},
-    {"ufo_new_lglsxp", (DL_FUNC) &ufo_new_lglsxp, 2},
+    // Creates a source that reads data from a binary file into a UFO vector.
+    // A source is specifically a EXTPTRSXP that points to a ufo_source_t
+    // struct. The constructor takes 1 argument that defines a path to a
+    // binary file.
+    {"ufo_bin_file_source", (DL_FUNC) &ufo_make_bin_file_source, 1},
 
     // Terminates the function list. Necessary.
     {NULL, NULL, 0} 
