@@ -1,14 +1,12 @@
-#include <stdio>
-#include <stdlib>
+#include <stdio.h>
+#include <stdlib.h>
 #include <Rinternals.h>
 
-#include "sources/sources.h"
-#include "mappedMemory/userfaultCore.h"
+#include "ufo_sources.h"
+#include "bin_file_source.h"
+#include "mappedMemory/userfaultCore_dummy.h"
 
-typedef struct {
-    const char* path;
-    size_t element_size; /* in bytes */
-} ufo_file_source_data;
+
 
 void __validate_path_or_die(SEXP/*STRSXP*/ path) {
     if (TYPEOF(path) != STRSXP) {
@@ -31,7 +29,7 @@ void __validate_path_or_die(SEXP/*STRSXP*/ path) {
 
 int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
                      ufUserData user_data, void* target) {
-    ufo_source_data* data = (ufo_source_data*) user_data;
+    ufo_file_source_data_t* data = (ufo_file_source_data_t*) user_data;
     FILE* file = fopen(data->path, "rb");
 
     if (file) {
@@ -51,7 +49,7 @@ int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
 // TODO not actually implementing anything in userfaultCore.h
 int __save_to_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
                    ufUserData user_data, void* target) {
-    ufo_source_data* data = (ufo_source_data*) user_data;
+    ufo_file_source_data_t* data = (ufo_file_source_data_t*) user_data;
     FILE* file = fopen(data->path, "wb");
 
     if (file) {
@@ -69,7 +67,7 @@ int __save_to_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
     fclose(file);
 }
 
-size_t __get_element_size(enum vector_type_t vector_type) {
+size_t __get_element_size(ufo_vector_type_t vector_type) {
     switch (vector_type) {
         case UFO_CHAR:
             return sizeof(Rbyte);
@@ -93,18 +91,18 @@ size_t __get_element_size(enum vector_type_t vector_type) {
  * @param path
  * @return SEXP of type EXTPTR,
  */
-SEXP/*EXTPTRSXP*/ ufo_make_bin_file_source(SEXP/*STRSXP*/ path) {
-    __validate_path_or_die(path);
+SEXP/*EXTPTRSXP*/ ufo_bin_file_source(SEXP/*STRSXP*/ sexp) {
+    __validate_path_or_die(sexp);
 
-    const char* path = CHAR(STRING_ELT(path, 0));
+    const char* path = CHAR(STRING_ELT(sexp, 0));
 
-    ufo_file_source_data *data =
-            (ufo_file_source_data*) malloc(sizeof(ufo_file_source_data));
+    ufo_file_source_data_t *data =
+            (ufo_file_source_data_t*) malloc(sizeof(ufo_file_source_data_t));
     data->path = path;
 
     ufo_source_t* source = (ufo_source_t*) malloc(sizeof(ufo_source_t));
     source->population_function = &__load_from_file;
-    source->data = (ufo_source_data*) data;
+    source->data = (ufUserData*) data;
 
     data->element_size = __get_element_size(source->vector_type);
 

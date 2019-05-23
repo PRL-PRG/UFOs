@@ -6,8 +6,8 @@
 #include <R_ext/Rallocators.h>
 
 #include "ufos.h"
-#include "includes/sources.h"
-#include "mappedMemory/userfaultCore.h"
+#include "ufo_sources.h"
+#include "mappedMemory/userfaultCore_dummy.h"
 
 ufInstance_t ufo_system;
 
@@ -87,7 +87,7 @@ SEXP/*CPLXSXP*/ __ufo_new_cplxsxp(ufo_source_t* source) {
     return __ufo_new_anysxp(CPLXSXP, source);
 }
 
-__ufo_specific_vector_constructor __select_constructor(enum ufo_vector_type_t type) {
+__ufo_specific_vector_constructor __select_constructor(ufo_vector_type_t type) {
     switch (type) {
 //        case UFO_CHAR:
 //            return &__ufo_new_charsxp;

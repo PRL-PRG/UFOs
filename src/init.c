@@ -1,5 +1,5 @@
 #include "ufos.h"
-#include "sources/bin_file_source.h"
+#include "bin_file_source.h"
 
 #include <R_ext/Rdynload.h>
 #include <R_ext/Visibility.h>
@@ -15,7 +15,7 @@ static const R_CallMethodDef CallEntries[] = {
     // A source is specifically a EXTPTRSXP that points to a ufo_source_t
     // struct. The constructor takes 1 argument that defines a path to a
     // binary file.
-    {"ufo_bin_file_source", (DL_FUNC) &ufo_make_bin_file_source, 1},
+    {"ufo_bin_file_source", (DL_FUNC) &ufo_bin_file_source, 1},
 
     // Terminates the function list. Necessary.
     {NULL, NULL, 0} 
