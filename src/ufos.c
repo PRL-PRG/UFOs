@@ -112,7 +112,7 @@ void __validate_source_or_die(SEXP/*EXTPTRSXP*/ source) {
 }
 
 SEXP __ufo_new(SEXP/*EXTPTRSXP*/ source) {
-    ufo_source_t* source_details = CAR(source);
+    ufo_source_t* source_details = (ufo_source_t*) CAR(source);
     __ufo_specific_vector_constructor constructor =
             __select_constructor(source_details->vector_type);
     return constructor(source_details);
