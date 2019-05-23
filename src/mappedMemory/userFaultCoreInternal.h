@@ -37,6 +37,9 @@ typedef struct {
   int               epollFd;
   pthread_t         userfaultThread;
 
+  char*             buffer;
+  uint64_t          bufferSize;
+
   sparseList_t      instances;
 
   uint16_t          concurrency;
@@ -45,7 +48,11 @@ typedef struct {
 typedef struct {
   ufObjectConfig    config;
   ufInstance*       instance;
-  char*             start;
+  union{
+    char*           start;
+    uint64_t        startI;
+  };
+  uint64_t          trueSize;
 } ufObject;
 
 #define _as(t, o) ((t*)o)

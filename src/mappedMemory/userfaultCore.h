@@ -125,6 +125,8 @@ typedef int (*ufPopulateCallout)(ufPopulateCalloutMsg*);
  * indexes [start ... end)
  * n = end - start
  * Zero offset in the target is where the startValueidx should go
+ *
+ * return 0 on success, any other value is an error
  */
 typedef int (*ufPopulateRange)(uint64_t startValueIdx, uint64_t endValueIdx, ufPopulateCallout callout, ufUserData userData, char* target);
 
