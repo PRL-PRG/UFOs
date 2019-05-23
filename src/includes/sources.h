@@ -1,6 +1,8 @@
 #pragma once
 
-typedef int (*reader_function)(FILE* file, uint64_t start, uint64_t end,
+#include "../mappedMemory/userfaultCore.h"
+
+typedef int (*reader_function)(FILE* file, u_int64_t start, u_int64_t end,
                                ufUserData user_data);
 
 enum ufo_vector_type_t {
@@ -13,9 +15,9 @@ enum ufo_vector_type_t {
 
 typedef struct {
     ufUserData*         data;
-    ufPopulateRange*    population_function;
+    ufPopulateRange     population_function;
     enum ufo_vector_type_t vector_type;
-    //ufUpdateRange*    update_function;
+    //ufUpdateRange     update_function;
     R_xlen_t            length;
 } ufo_source_t;
 

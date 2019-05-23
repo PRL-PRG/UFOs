@@ -64,7 +64,7 @@ SEXP __ufo_new_anysxp(SEXPTYPE type, ufo_source_t* source) {
     allocator->data = source; /* custom data: used for source */
 
     // Create a new vector of the appropriate type using the allocator.
-    return allocVector3(INTSXP, length, allocator);
+    return allocVector3(INTSXP, source->length, allocator);
 }
 
 //SEXP/*CHARSXP*/ __ufo_new_lglsxp(ufo_source_t* source) {
