@@ -7,7 +7,7 @@
 
 #include "ufos.h"
 #include "ufo_sources.h"
-#include "mappedMemory/userfaultCore_dummy.h"
+#include "mappedMemory/userfaultCore.h"
 
 ufInstance_t ufo_system;
 
@@ -47,6 +47,7 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
 
 void __ufo_free(R_allocator_t *allocator, void * ptr) {
     // FIXME translate from ptr to object
+
 }
 
 SEXP __ufo_new_anysxp(SEXPTYPE type, ufo_source_t* source) {
