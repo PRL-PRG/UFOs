@@ -4,6 +4,7 @@
 !*.h
 !*.R
 !*.md
+!*/
 !DESCRIPTION
 !NAMESPACE
 !CMakeLists.txt
