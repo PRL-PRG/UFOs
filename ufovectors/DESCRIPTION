@@ -1,0 +1,10 @@
+Package: ufovectors
+Type: Package
+Title: Implementation of R vectors using UFOs
+Version: 0.1.0
+Author: Colette Kerr <colette.m.y.kerr@gmail.com>, Konrad Siek <siekkonr@fit.cvut.cz>
+Maintainer: Colette Kerr <colette.m.y.kerr@gmail.com>, Konrad Siek <siekkonr@fit.cvut.cz>
+Description: Example implementation of R vectors using UserFault Objects to materialize data on demand from file sources.
+License: who knows?
+Encoding: UTF-8
+LazyData: true

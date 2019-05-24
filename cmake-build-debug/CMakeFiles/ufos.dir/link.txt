@@ -1,1 +1,0 @@
-/usr/bin/cc  -fPIC -g  -shared -Wl,-soname,libufos.so -o libufos.so CMakeFiles/ufos.dir/src/init.c.o CMakeFiles/ufos.dir/src/ufos.c.o  -L/usr/lib/R/lib -Wl,-rpath,/usr/lib/R/lib -lR -lblas -llapack -lR -lreadline -lblas -llapack -lreadline 
