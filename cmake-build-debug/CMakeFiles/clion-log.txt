@@ -1,0 +1,6 @@
+/opt/clion-2017.1.2/bin/cmake/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G "CodeBlocks - Unix Makefiles" /home/kondziu/Workspace/UFOs
+R libraries: /usr/lib/R/lib/libR.so;/usr/lib/x86_64-linux-gnu/libblas.so;/usr/lib/x86_64-linux-gnu/liblapack.so;/usr/lib/R/lib/libR.so;/usr/lib/x86_64-linux-gnu/libreadline.so
+R include dirs: /usr/share/R/include /usr/lib/R/site-library/Rcpp/include
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/kondziu/Workspace/UFOs/cmake-build-debug

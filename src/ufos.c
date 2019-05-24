@@ -6,7 +6,6 @@
 #include <R_ext/Rallocators.h>
 
 #include "ufos.h"
-#include "ufo_sources.h"
 #include "mappedMemory/userfaultCore.h"
 
 ufInstance_t ufo_system;
@@ -105,22 +104,9 @@ __ufo_specific_vector_constructor __select_constructor(ufo_vector_type_t type) {
     }
 }
 
-void __validate_source_or_die(SEXP/*EXTPTRSXP*/ source) {
-    if (TYPEOF(source) != EXTPTRSXP) {
-        Rf_error("Invalid source type: expecting EXTPTRSXP");
-    }
-    //ufo_source_t* source_details = CAR(source);
-}
-
-SEXP __ufo_new(SEXP/*EXTPTRSXP*/ source) {
-    ufo_source_t* source_details = (ufo_source_t*) CAR(source);
+SEXP ufo_new(ufo_source_t* source) {
     __ufo_specific_vector_constructor constructor =
-            __select_constructor(source_details->vector_type);
-    return constructor(source_details);
-}
-
-SEXP ufo_new(SEXP/*EXTPTRSXP*/ source) {
-    __validate_source_or_die(source);
-    return __ufo_new(source);
+            __select_constructor(source->vector_type);
+    return constructor(source);
 }
 

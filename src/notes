@@ -1,0 +1,109 @@
+typedef struct {
+    ufObjectConfig_t config;
+} ufo_allocator_metadata;
+
+typedef struct {
+    size_t size;
+    size_t header_size;
+    size_t data_size;
+    size_t length;
+} ufo_allocator_data;
+
+//typedef int (*ufPopulateRange)();
+int ufo_populate_intsxp42(uint64_t start, uint64_t end, ufPopulateCallout pc,
+                          ufUserData userData, void* target) {
+    int* data = (int*) target;
+    uint64_t size = end - start;
+    for (uint64_t i = 0; i < size; i++) {
+        data[i] = 42;
+    }
+}
+
+// Custom allocator function.
+void* ufo_malloc(R_allocator_t* allocator, size_t size) {
+    ufo_allocator_data * allocator_data =
+            ((ufo_allocator_data *) allocator->data);
+
+    allocator_data->size = size;
+    allocator_data->header_size = sizeof(SEXPREC_ALIGN);
+    allocator_data->data_size = size - sizeof(SEXPREC_ALIGN);
+
+#ifdef UFOS_DEBUG
+    fprintf(stderr, "UFO alloc %ld + %ld = %ld, %ld elements\n",
+           allocator_data->header_size, allocator_data->data_size,
+           allocator_data->size, allocator_data->length);
+#endif //UFOS_DEBUG
+
+    ufObject_t ufo;
+    ufObjectConfig_t cfg = makeObjectConfig((int), size, 1); // TODO minLoadCt
+    int status = ufCreateObject(ufInstance, cfg, &ufo);
+    ufSetUserConfig(cfg, ufo_user_data);
+    ufSetPopulateFunction(cfg, ufo_populate_intsxp42);
+}
+
+// Custom deallocator function.
+// FIXME Placeholder implementation.
+void ufo_free(R_allocator_t* allocator, void* addr) {
+
+#ifdef UFO_DEBUG
+    cheater_allocator_data* allocator_data = ufGetUserConfig(ufObjectConfig_t config);
+
+    fprintf(stderr, "cheater dealloc %ld + %ld = %ld, %ld elements\n",
+           allocator_data->header_size, allocator_data->data_size,
+           allocator_data->size, allocator_data->length);
+#endif //UFO_DEBUG
+
+    free(addr);
+}
+
+SEXP/*INTSXP*/ ufo_new_intsxp_(size_t length) {
+    // Initialize an allocator.
+    R_allocator_t* cheater_allocator =
+            (R_allocator_t*) malloc(sizeof(R_allocator_t));
+
+    // Initialize an allocator data struct.
+    cheater_allocator_data* cheater_data =
+            (cheater_allocator_data*) malloc(sizeof(cheater_allocator_data));
+
+    // Configure the allocator: provide function to allocate and free memory,
+    // as well as a structure to keep the allocator's data.
+    cheater_allocator->mem_alloc = &cheater_malloc;
+    cheater_allocator->mem_free = &cheater_free;
+    cheater_allocator->res; /* reserved, must be NULL */
+    cheater_allocator->data = cheater_data; /* custom data */
+
+    // Pass information to the allocator.
+    cheater_data->length = length;
+
+    // Create a new vector of the same type and length as the old vector.
+    return allocVector3(INTSXP, length, cheater_allocator);
+}
+
+// Function that creates a custom vector with a custom allocator.
+SEXP/*INTSXP|VECSXP<INTSXP>*/ ufo_new_intsxp(SEXP/*INTSXP*/ lengths) {
+    if (TYPEOF(lengths) != INTSXP) {
+        Rf_error("Lengths have to be an integer vector (INTSXP).\n");
+    }
+
+    if (LENGTH(lengths) == 0) {
+        return R_NilValue;
+    }
+
+    if (LENGTH(lengths) == 1) {
+        size_t length = INTEGER(lengths)[0];
+        return ufo_new_intsxp_(length);
+    }
+
+    SEXP/*VECSXP<INTSXP>*/ results = allocVector(VECSXP, LENGTH(lengths));      // FIXME PROTECT
+    for (int i = 0; i < LENGTH(lengths); i++) {
+        size_t length = INTEGER_ELT(lengths, i);
+        SET_VECTOR_ELT(results, i, ufo_new_intsxp_(length));
+    }
+    return results;
+}
+
+// TODO question: do we need to free the space used by the allocator and its
+// paraphrenalia?
+
+
+

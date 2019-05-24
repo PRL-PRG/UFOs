@@ -188,13 +188,13 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
 
 
   // allocate a memory region to be managed by userfaultfd
-  tryPerrNull(ufo->start, mmap(NULL, ufo->trueSize, PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0), "error allocating ufo memory", callerErr);
+  tryPerrNull(ufo->start, mmap(NULL, ufo->trueSize, PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0), "error allocating ufos memory", callerErr);
   // |PROT_WRITE // don't allow write for now
 
   // register with the kernel
   struct uffdio_register ufM;
   ufM = (struct uffdio_register) {.range = {.start = ufo->startI, .len = size}, .mode = UFFDIO_REGISTER_MODE_MISSING, .ioctls = 0};
-  tryPerrInt(res, ioctl(i->ufFd, UFFDIO_REGISTER, &ufM), "error registering ufo with UF", callerErr);
+  tryPerrInt(res, ioctl(i->ufFd, UFFDIO_REGISTER, &ufM), "error registering ufos with UF", callerErr);
 
   if((ufM.ioctls & UFFD_API_RANGE_IOCTLS) != UFFD_API_RANGE_IOCTLS) {
     perror("unexpected userfaultfd ioctl set\n");
@@ -206,7 +206,7 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
   // zero the header area so it doesn't fault
   if(ufo->config.headerSzWithPadding > 0){
     struct uffdio_zeropage ufZ = (struct uffdio_zeropage) {.mode = 0, .range = {.start = ufo->startI, .len = ufo->config.headerSzWithPadding}};
-    tryPerrInt(res, ioctl(i->ufFd, UFFDIO_ZEROPAGE, &ufZ), "error zeroing ufo header", callerErr);
+    tryPerrInt(res, ioctl(i->ufFd, UFFDIO_ZEROPAGE, &ufZ), "error zeroing ufos header", callerErr);
   }
 
   callerErr:
@@ -226,7 +226,7 @@ static int freeUfo(ufInstance* i, ufAsyncMsg* msg){
 
   const uint64_t size = ufo->trueSize;
   ufM = (struct uffdio_register) {.range = {.start = ufo->startI, .len = size}};
-  tryPerrInt(res, ioctl(i->ufFd, UFFDIO_UNREGISTER, &ufM), "error unregistering ufo with UF", callerErr);
+  tryPerrInt(res, ioctl(i->ufFd, UFFDIO_UNREGISTER, &ufM), "error unregistering ufos with UF", callerErr);
 
   tryPerrInt(res, listRemove(i->instances, ufo->start), "unknown UFO", callerErr);
 
@@ -257,11 +257,11 @@ static int readHandleMsg(ufInstance* i){
   // Soft errors are handled in the calls, we only worry about hard errors (ones that bring down the system)
   switch(msg.msgType){
     case ufAllocateMsg:
-      tryPerrInt(res, allocateUfo(i, &msg), "error allocating ufo", error);
+      tryPerrInt(res, allocateUfo(i, &msg), "error allocating ufos", error);
       break;
 
     case ufFreeMsg:
-      tryPerrInt(res, freeUfo(i, &msg), "error freeing ufo", error);
+      tryPerrInt(res, freeUfo(i, &msg), "error freeing ufos", error);
       break;
 
     case ufShutdownMsg:
