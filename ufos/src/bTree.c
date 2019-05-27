@@ -7,7 +7,7 @@
 #include <assert.h>
 
 #include "bTree.h"
-#include "../unstdLib/vars.h"
+#include "unstdLib/vars.h"
 
 
 /* getters */

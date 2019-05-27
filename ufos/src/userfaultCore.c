@@ -19,10 +19,10 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include "userfaultCore.h"
+#include "../include/userfaultCore.h"
 
-#include "../unstdLib/math.h"
-#include "../unstdLib/errors.h"
+#include "unstdLib/math.h"
+#include "unstdLib/errors.h"
 
 #include "userFaultCoreInternal.h"
 

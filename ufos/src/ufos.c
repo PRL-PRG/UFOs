@@ -5,8 +5,8 @@
 #include <Rinternals.h>
 #include <R_ext/Rallocators.h>
 
-#include "ufos.h"
-#include "mappedMemory/userfaultCore.h"
+#include "../include/ufos.h"
+#include "../include/userfaultCore.h"
 
 ufInstance_t ufo_system;
 
@@ -33,7 +33,7 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
     ufo_source_t* source = (ufo_source_t*) allocator->data;
 
     ufObject_t object;
-    ufObjectConfig_t cfg = makeObjectConfig(int, size, 1); // FIXME
+    ufObjectConfig_t cfg = makeObjectConfig(sizeof(struct sxpinfo_struct) + 2*sizeof(struct SEXPREC*), int, size, 1); // FIXME
 
     int status = ufCreateObject(ufo_system, cfg, &object);
     __validate_status_or_die(status);

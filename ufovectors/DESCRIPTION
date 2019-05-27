@@ -8,3 +8,7 @@ Description: Example implementation of R vectors using UserFault Objects to mate
 License: who knows?
 Encoding: UTF-8
 LazyData: true
+Imports:
+    ufos
+LinkingTo:
+    ufos

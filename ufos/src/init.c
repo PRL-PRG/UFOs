@@ -1,4 +1,4 @@
-#include "ufos.h"
+#include "../include/ufos.h"
 
 #include <R_ext/Rdynload.h>
 #include <R_ext/Visibility.h>
@@ -16,6 +16,10 @@ void attribute_visible R_init_ufos(DllInfo *dll) {
     //R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     //R_useDynamicSymbols(dll, FALSE);
     //R_forceSymbols(dll, TRUE);
+
+    R_RegisterCCallable("ufos", "ufo_initialize", (DL_FUNC) &ufo_initialize);
+    R_RegisterCCallable("ufos", "ufo_new", (DL_FUNC) &ufo_new);
+    R_RegisterCCallable("ufos", "ufo_shutdown", (DL_FUNC) &ufo_shutdown);
 }
 
 

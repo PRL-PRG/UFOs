@@ -138,7 +138,7 @@ typedef any_t ufObject_t;
 
 ufObjectConfig_t makeObjectConfig0(uint32_t headerBytes, uint64_t ct, uint32_t stride, int32_t minLoadCt);
 //TODO: document
-#define makeObjectConfig(type, ct, minLoadCt) \
+#define makeObjectConfig(headerBytes, type, ct, minLoadCt) \
   makeObjectConfig0(headerBytes, ct, strideOf(type), minLoadCt)
 
 void ufSetPopulateFunction(ufObjectConfig_t config, ufPopulateRange populateF);

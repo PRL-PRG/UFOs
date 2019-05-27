@@ -6,13 +6,13 @@
 #include <sys/epoll.h>
 
 #include "sparseList.h"
-#include "userfaultCore.h"
+#include "../include/userfaultCore.h"
 
 /*
  * This is an internals file. This is not meant for use by developers\
  */
 #ifndef __UFOs_CoreDev__
-  #error It looks like you're not a UFO core dev. Don't use this file. You have been warned.
+  //#error It looks like you're not a UFO core dev. Don't use this file. You have been warned.
 #endif
 
 typedef struct {

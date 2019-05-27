@@ -27,3 +27,8 @@ void ufo_shutdown();
 
 // Constructor
 SEXP ufo_new(ufo_source_t*);
+
+// Function types for R dynloader.
+typedef void (*ufo_initialize_t)(void);
+typedef void (*ufo_shutdown_t)(void);
+typedef SEXP (*ufo_new_t)(ufo_source_t*);

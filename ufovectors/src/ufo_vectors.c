@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "include/ufos.h"
+#include "../include/ufos.h"
 #include "ufo_vectors.h"
 
-#include "include/userfaultCore.h"
+#include "../include/userfaultCore.h"
 
 typedef struct {
     const char* path;
@@ -79,7 +79,7 @@ int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
     return 0;
 }
 
-// TODO not actually implementing anything in userfaultCore.h
+// TODO this does not actually implement anything in userfaultCore.h yet
 int __save_to_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
                    ufUserData user_data, void* target) {
     ufo_file_source_data_t* data = (ufo_file_source_data_t*) user_data;
@@ -143,6 +143,7 @@ ufo_source_t* __make_source(ufo_vector_type_t type, const char* path) {
 SEXP __make_vector(ufo_vector_type_t type, SEXP sexp) {
     const char * path = __extract_path_or_die(sexp);
     ufo_source_t* source = __make_source(type, path);
+    ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
     return ufo_new(source);
 }
 
@@ -168,5 +169,6 @@ SEXP ufo_vectors_lglsxp_bin(SEXP/*STRSXP*/ path) {
 }
 
 void ufo_vectors_shutdown() {
+    ufo_shutdown_t ufo_shutdown = (ufo_shutdown_t) R_GetCCallable("ufos", "ufo_shutdown");
     ufo_shutdown();
 }

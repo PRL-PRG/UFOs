@@ -1,5 +1,6 @@
-#include "include/ufos.h"
+#include "../include/ufos.h"
 #include "ufo_vectors.h"
+#include "../include/ufos.h"
 
 #include <R_ext/Rdynload.h>
 #include <R_ext/Visibility.h>
@@ -21,13 +22,20 @@ static const R_CallMethodDef CallEntries[] = {
     {NULL, NULL, 0} 
 };
 
+//ufo_initialize_t ufo_initialize;
+//ufo_new_t ufo_new;
+//ufo_shutdown_t ufo_shutdown;
+
 // Initializes the package and registers the routines with the Rdynload 
 // library. Name follows the pattern: R_init_<package_name> 
 void attribute_visible R_init_ufovectors(DllInfo *dll) {
+//    ufo_new = R_GetCCallable("ufos", "ufo_new");
+//    ufo_shutdown = R_GetCCallable("ufos", "ufo_shutdown");
     //InitUFOAltRepClass(dll);
     //R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     //R_useDynamicSymbols(dll, FALSE);
     //R_forceSymbols(dll, TRUE);
+    ufo_initialize_t ufo_initialize = (ufo_initialize_t) R_GetCCallable("ufos", "ufo_initialize");
     ufo_initialize();
 }
 
