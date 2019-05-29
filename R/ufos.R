@@ -17,10 +17,14 @@ ufo_bin_file_source <-function(path) {
 # Create new UFO vector using a specified source. If multiple lengths
 # are given, it creates a list of integer vectors that matches the number of
 # provided lengths.
-ufo <- function(lengths, source) {
+ufo_new <- function(lengths, source) {
   if (typeof(lengths) != "double" && typeof(lengths) != "integer")
     stop(paste0("Vector is of type", typeof(lengths),
                 ", must be either integer or double."))
 
   .Call("ufo_new", as.integer(lengths), source)
+}
+
+ufo_shutdown <- function() {
+  .Call("ufo_shutdown", source)
 }

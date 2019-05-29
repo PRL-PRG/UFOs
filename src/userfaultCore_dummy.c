@@ -1,4 +1,4 @@
-#include "mappedMemory/userfaultCore_dummy.h"
+#include "mappedMemory/userfaultCore.h"
 ufInstance_t ufMakeInstance(){}
 int ufInit(ufInstance_t instance){}
 void ufShutdown(ufInstance_t instance, bool free){}

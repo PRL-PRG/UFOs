@@ -4,7 +4,16 @@
 #include <stdbool.h>
 #include <pthread.h>
 
+<<<<<<< HEAD
 #define strideOf(_type) ( (uint32_t) (uint64_t) ( ((_type*) 0) + 1) )
+||||||| merged common ancestors
+#define _stride(_type) ({  \
+  _type* _t = (_type*) 0;  \
+  (uint64_t) (_t+1);       \
+  })
+=======
+#define strideOf(_type) ( (uint32_t) ( ((_type*) 0) + 1) )
+>>>>>>> origin/master
 
 
 typedef void* any_t;

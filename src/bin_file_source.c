@@ -4,10 +4,20 @@
 
 #include "ufo_sources.h"
 #include "bin_file_source.h"
-#include "mappedMemory/userfaultCore_dummy.h"
+#include "mappedMemory/userfaultCore.h"
 
-
-
+/**
+ * Check if the path provided via this SEXP makes sense:
+ *  - it contains strings,
+ *  - it's has at least one element,
+ *  - preferably it has only one element.
+ *
+ * If the number of elements in the path vector is too large the function exits
+ * but prints a warning in the R interpreter. If the other requirements are not
+ * met the function dies and shows a message to the R interpreter.
+ *
+ * @param path A SEXP containing the file path to validate.
+ */
 void __validate_path_or_die(SEXP/*STRSXP*/ path) {
     if (TYPEOF(path) != STRSXP) {
         Rf_error("Invalid type for paths: %d\n", TYPEOF(path));
@@ -27,6 +37,18 @@ void __validate_path_or_die(SEXP/*STRSXP*/ path) {
     }
 }
 
+/**
+ * Load a range of values from a binary file.
+ *
+ * @param start First index of the range.
+ * @param end Last index within the range.
+ * @param cf Callout function (not used).
+ * @param user_data Structure containing configuration information for the.
+ *                  loader (path, element size), must be ufo_file_source_data_t.
+ * @param target The area of memory where the data from the file will be loaded.
+ * @return 0 on success, 42 if seek failed to find the required index in the
+ *         file, 44 if reading failed.
+ */
 int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
                      ufUserData user_data, void* target) {
     ufo_file_source_data_t* data = (ufo_file_source_data_t*) user_data;
@@ -44,6 +66,7 @@ int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
     }
 
     fclose(file);
+    return 0;
 }
 
 // TODO not actually implementing anything in userfaultCore.h
@@ -67,6 +90,14 @@ int __save_to_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
     fclose(file);
 }
 
+/**
+ * Translates the type of UFO vector to the size of its element in bytes.
+ *
+ * @param vector_type The type of the vector as specified by the ufo_vector_type
+ *                    enum.
+ * @return Returns the size of the element vector or dies in case of an
+ *         unrecognized vector type.
+ */
 size_t __get_element_size(ufo_vector_type_t vector_type) {
     switch (vector_type) {
         case UFO_CHAR:
@@ -89,7 +120,7 @@ size_t __get_element_size(ufo_vector_type_t vector_type) {
  * to/from a binary file.
  *
  * @param path
- * @return SEXP of type EXTPTR,
+ * @return Returns SEXP of type EXTPTR, containing a pointer to a
  */
 SEXP/*EXTPTRSXP*/ ufo_bin_file_source(SEXP/*STRSXP*/ sexp) {
     __validate_path_or_die(sexp);
