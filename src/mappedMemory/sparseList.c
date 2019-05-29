@@ -405,11 +405,12 @@ int listFind(sparseList_t list, entry* entry,  void* ptr){
 }
 
 void listWalk(sparseList_t list, walkCallback callback){
+  assert(NULL != list);
   sparseList* l = (sparseList*) list;
 
   entry e;
-  for(uint64_t i = 0; i < l->usedSlots; i++){
-    entryI* en = l->list + i;
+  for(uint64_t x = 0; x < l->usedSlots; x++){
+    entryI* en = l->list + x;
     if(!en->occupied)
       continue;
     e.length   = en->length;
