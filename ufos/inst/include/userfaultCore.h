@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <pthread.h>
 
-#define strideOf(_type) ( (uint32_t) (uint64_t) ( ((_type*) 0) + 1) )
+#define strideOf(_type) ( (uint32_t) ( ((_type*) 0) + 1) )
 
 
 typedef void* any_t;
@@ -14,7 +14,7 @@ typedef void* any_t;
 typedef any_t ufInstance_t;
 
 /**
- * Allocate, set default options, and return an insatnce object. This does not intialize the object, which must be done before it is used
+ * Allocate, set default options, and return an instnce object. This does not intialize the object, which must be done before it is used
  */
 ufInstance_t ufMakeInstance();
 
@@ -138,7 +138,7 @@ typedef any_t ufObject_t;
 
 ufObjectConfig_t makeObjectConfig0(uint32_t headerBytes, uint64_t ct, uint32_t stride, int32_t minLoadCt);
 //TODO: document
-#define makeObjectConfig(type, headerBytes, ct, minLoadCt) \
+#define makeObjectConfig(headerBytes, type, ct, minLoadCt) \
   makeObjectConfig0(headerBytes, ct, strideOf(type), minLoadCt)
 
 void ufSetPopulateFunction(ufObjectConfig_t config, ufPopulateRange populateF);

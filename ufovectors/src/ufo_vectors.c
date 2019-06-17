@@ -60,7 +60,7 @@ const char* __extract_path_or_die(SEXP/*STRSXP*/ path) {
  *         file, 44 if reading failed.
  */
 int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
-                     ufUserData user_data, void* target) {
+                     ufUserData user_data, char* target) { // FIXME ASK COLETTE
     ufo_file_source_data_t* data = (ufo_file_source_data_t*) user_data;
     FILE* file = fopen(data->path, "rb");
 

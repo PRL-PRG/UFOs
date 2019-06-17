@@ -19,12 +19,12 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include "../include/userfaultCore.h"
+#include "userfaultCore.h"
 
-#include "unstdLib/math.h"
-#include "unstdLib/errors.h"
+#include "math.h"
+#include "errors.h"
 
-#include "userFaultCoreInternal.h"
+#include "userfaultCoreInternal.h"
 
 /* System init and initial worker thread */
 
@@ -44,6 +44,8 @@ static int readMsgSlowPath(const int fd, const int sz, char* m, int readBytes){
   assert(readBytes != sz);
   int toRead = sz;
   do{
+    if(readBytes == 0)
+      return 2;
     if(readBytes < 0){
       if(errno == EAGAIN || errno == EWOULDBLOCK)
         return 1;
@@ -121,33 +123,74 @@ static void handlerShutdown(ufInstance* i, bool selfFree){
     free(i);
 }
 
+static int ufCopy(ufInstance* i, struct uffdio_copy* copy){
+  int res;
+  do{
+    assert(errno == 0);
+    res = ioctl(i->ufFd, UFFDIO_COPY, copy);
+    if(res == 0){
+      assert(copy->copy == copy->len);
+      return 0;
+    }else{
+      assert(-1 == res);
+      if(errno == EAGAIN){
+        const int64_t copied = copy->copy;
+        assert(copied > 0);
+        assert(copied < copy->len);
+        copy->len -= copied;
+        copy->src += copied;
+        copy->dst += copied;
+        copy->copy = 0;
+        errno = 0;
+      }else{
+        return -1;
+      }
+    }
+  }while(1);
+}
+
 static int readHandleUfEvent(ufInstance* i){
   struct uffd_msg msg;
 
   int res;
   tryPerrNegOne(res, readMsg(i->ufFd, sizeof(msg), (char*)&msg), "error reading from userfault", error);
-  if(1 == res){
-    // Huh… read nothing? Not really an error, though we should only get here when threre is something to read
-    perror("nothing to read");
-    return 0;
+  switch(res){
+    case 1:
+      // Huh… read nothing? Not really an error, though we should only get here when threre is something to read
+      perror("nothing to read");
+      return 0;
+    case 2:
+      return 0; // File handle closed? We shouldn't see this
   }
 
   if(msg.event & UFFD_EVENT_PAGEFAULT){
-    uint64_t faultAt = msg.arg.pagefault.address;
+    const uint64_t faultAtAddr = msg.arg.pagefault.address;
+    assert(0 == (faultAtAddr % pageSize));
+
     entry e;
-    tryPerrInt(res, listFind(i->instances, &e, (void*)faultAt), "no known object for fault", error);
+    tryPerrInt(res, listFind(i->instances, &e, (void*)faultAtAddr), "no known object for fault", error);
     ufObject* ufo = asUfo(e.valuePtr);
 
     const uint64_t bodyStart = (uint64_t) ufo->start + ufo->config.headerSzWithPadding;
-    const uint64_t offsetB = (faultAt -  bodyStart);
-    assert(0 == offsetB % pageSize);
-    const uint64_t idx = offsetB / pageSize;
+    const uint64_t faultRelBody = faultAtAddr - bodyStart; // Translate the fault address to an address relative to the body of the object
+    const uint64_t bytesAtOnce = ufo->config.objectsAtOnce * ufo->config.stride;
 
-    const uint64_t fillSizeB = ufo->config.objectsAtOnce * ufo->config.stride;
+    const uint64_t faultAtLoadBoundaryRelBody  = (faultRelBody / bytesAtOnce) * bytesAtOnce; // Round down to the next loading boundary
+    assert(0 == faultAtLoadBoundaryRelBody % bytesAtOnce);
+    assert(0 == faultAtLoadBoundaryRelBody % ufo->config.stride);
+    const uint64_t faultAtLoadBoundaryAbsolute = faultAtLoadBoundaryRelBody + bodyStart;
 
-    if(__builtin_expect(i->bufferSize < fillSizeB, 0)){
-      tryPerrNull(i->buffer, realloc(i->buffer, fillSizeB), "cannot realloc buffer", error);
-      i->bufferSize = fillSizeB;
+    const uint64_t idx = faultAtLoadBoundaryRelBody / ufo->config.stride;
+
+    uint64_t actualFillCt = ufo->config.objectsAtOnce;
+    if(idx + actualFillCt > ufo->config.elementCt)
+      actualFillCt = ufo->config.elementCt - idx;
+
+    const uint64_t fillSizeBytes = ceilDiv(actualFillCt * ufo->config.stride, pageSize) * pageSize;
+
+    if(__builtin_expect(i->bufferSize < fillSizeBytes, 0)){
+      tryPerrNull(i->buffer, realloc(i->buffer, fillSizeBytes), "cannot realloc buffer", error);
+      i->bufferSize = fillSizeBytes;
     }
 
     int callout(ufPopulateCalloutMsg* msg){
@@ -166,8 +209,8 @@ static int readHandleUfEvent(ufInstance* i){
         ufo->config.populateFunction(idx, idx + ufo->config.objectsAtOnce, callout, ufo->config.userConfig, i->buffer),
         "populate error", error);
 
-    struct uffdio_copy copy = (struct uffdio_copy){.src = (uint64_t) i->buffer, .dst = faultAt, .len = fillSizeB, .mode = 0};
-    tryPerrNegOne(res, ioctl(i->ufFd, UFFDIO_COPY, &copy), "error copying", error);
+    struct uffdio_copy copy = (struct uffdio_copy){.src = (uint64_t) i->buffer, .dst = faultAtLoadBoundaryAbsolute, .len = fillSizeBytes, .mode = 0};
+    tryPerrNegOne(res, ufCopy(i, &copy), "error copying", error);
   }else{
     perror("Unknown userfault event");
     assert(false);
@@ -206,8 +249,14 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
   // zero the header area so it doesn't fault
   if(ufo->config.headerSzWithPadding > 0){
     struct uffdio_zeropage ufZ = (struct uffdio_zeropage) {.mode = 0, .range = {.start = ufo->startI, .len = ufo->config.headerSzWithPadding}};
-    tryPerrInt(res, ioctl(i->ufFd, UFFDIO_ZEROPAGE, &ufZ), "error zeroing ufos header", callerErr);
+    tryPerrInt(res, ioctl(i->ufFd, UFFDIO_ZEROPAGE, &ufZ), "error zeroing ufo header", error);
   }
+
+  *msg->return_p = 0;
+
+  tryPerrInt(res, sem_post(msg->completionLock_p), "error unlocking waiter", error);
+
+  return 0;
 
   callerErr:
   *msg->return_p = -2; // error
@@ -247,13 +296,17 @@ static int freeUfo(ufInstance* i, ufAsyncMsg* msg){
 static int readHandleMsg(ufInstance* i){
   ufAsyncMsg msg;
   int res;
-  tryPerrNegOne(res, readMsg(i->msgPipe[0], sizeof(msg), (char*)&msg), "error reading from pipe", error);
-  if(1 == res){
-    // Huh… read nothing? Not really an error, though we should only get here when threre is something to read
-    perror("nothing to read");
-    return 0;
+  tryPerrNegOne(res, readMsg(i->msgPipe[0], sizeof(ufAsyncMsg), (char*)&msg), "error reading from pipe", error);
+  switch(res){
+    case 1:
+      // Huh… read nothing? Not really an error, though we should only get here when threre is something to read
+      perror("nothing to read");
+      return 0;
+    case 2:
+      goto shutdown;
   }
 
+  assert(msg.msgType >= ufShutdownMsg && msg.msgType <= ufFreeMsg);
   // Soft errors are handled in the calls, we only worry about hard errors (ones that bring down the system)
   switch(msg.msgType){
     case ufAllocateMsg:
@@ -265,6 +318,7 @@ static int readHandleMsg(ufInstance* i){
       break;
 
     case ufShutdownMsg:
+      shutdown:
       return 1;
   }
   return 0; // Success
@@ -282,7 +336,8 @@ static void* handler(void* arg){
   int nRdy, res;
 
   do{
-    tryPerrNegOne(nRdy, epoll_wait(i->epollFd, events, MAX_EVENTS, -1), "Error while polling, shutting down abnormally", error);
+    tryPerrNegOne(nRdy, epoll_wait(i->epollFd, events, MAX_EVENTS, 200), "Error while polling, shutting down abnormally", error);
+
     for(int x = 0; x < nRdy; x++){
       if(events[x].data.fd == i->ufFd){
         tryPerrInt(res, readHandleUfEvent(i), "error handling an event, shutting down", error);
@@ -291,13 +346,15 @@ static void* handler(void* arg){
         tryPerr(res, res < 0, readHandleMsg(i), "error handling an event, shutting down", error);
         switch(res){
           case 0:  continue; // No worries
-          case 1:  goto shutdown; // got the sh8tdown signalk
+          case 1:  goto shutdown; // got the shutdown signal
           default: goto error;
         }
       }
     }
   }while(true);
   shutdown:
+  handlerShutdown(i, selfFree);
+  return NULL;
 
   error:
   handlerShutdown(i, selfFree);
@@ -360,9 +417,9 @@ int ufInit(ufInstance_t instance){
   struct epoll_event event;
   event.events = EPOLLIN;
   event.data.fd = ins->ufFd;
-  tryPerrInt(res, epoll_ctl(ins->epollFd, EPOLL_CTL_ADD, 0, &event), "error registering uffd with epoll", errRegUf);
+  tryPerrInt(res, epoll_ctl(ins->epollFd, EPOLL_CTL_ADD, ins->ufFd, &event), "error registering uffd with epoll", errRegUf);
   event.data.fd = ins->msgPipe[0];
-  tryPerrInt(res, epoll_ctl(ins->epollFd, EPOLL_CTL_ADD, 0, &event), "error registering pipe read end with epoll", errRegPipe);
+  tryPerrInt(res, epoll_ctl(ins->epollFd, EPOLL_CTL_ADD, ins->msgPipe[0], &event), "error registering pipe read end with epoll", errRegPipe);
 
   //Everything in place? Start the handler thread
   tryPerrInt(res, pthread_create(&ins->userfaultThread, NULL, handler, ins), "error starting thread", errThread);
@@ -387,6 +444,11 @@ int ufInit(ufInstance_t instance){
   return -1;
 }
 
+ufInstance_t ufMakeInstance(){
+  ufInstance* i = calloc(1, sizeof(ufInstance));
+  i->instances = newList();
+  return i;
+}
 
 /* Objects and Object config */
 
@@ -422,7 +484,13 @@ ufObjectConfig_t makeObjectConfig0(uint32_t headerSize, uint64_t ct, uint32_t st
 }
 
 static int sendMsg(ufInstance* i, ufAsyncMsg* msg){
-  return write(i->msgPipe[1], &msg, sizeof(ufAsyncMsg));
+  assert(msg->msgType >= ufShutdownMsg && msg->msgType <= ufFreeMsg);
+  int res = write(i->msgPipe[1], msg, sizeof(ufAsyncMsg));
+  if(res != sizeof(ufAsyncMsg)){
+    perror("write error");
+    assert(false);
+  }
+  return 0;
 }
 
 int ufAwaitShutdown(ufInstance_t instance){

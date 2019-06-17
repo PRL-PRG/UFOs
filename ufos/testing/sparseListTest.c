@@ -8,14 +8,14 @@
 
 #include <assert.h>
 
-#include "../sparseList.h"
+#include "../src/sparseList.h"
 
 int main(int argc, char **argv) {
 
   uint64_t* bitmap = calloc(256, 8);
-  #define setBit(i) ( bitmap[i >> 6] |= 1ull << (i & 0x3f) )
+  #define setBit(i)   ( bitmap[i >> 6] |= 1ull << (i & 0x3f) )
   #define clearBit(i) ( bitmap[i >> 6] &= ~(1ull << (i & 0x3f)) )
-  #define testBit(i) (0 != (bitmap[i >> 6] & (1ull << (i & 0x3f))) )
+  #define testBit(i)  (0 != (bitmap[i >> 6] & (1ull << (i & 0x3f))) )
 
   #define iPtr ( (void*)((i << 8) + (random() & 0x0f)) )
   srand(12);

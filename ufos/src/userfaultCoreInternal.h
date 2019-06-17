@@ -6,7 +6,7 @@
 #include <sys/epoll.h>
 
 #include "sparseList.h"
-#include "../include/userfaultCore.h"
+#include "userfaultCore.h"
 
 /*
  * This is an internals file. This is not meant for use by developers\
