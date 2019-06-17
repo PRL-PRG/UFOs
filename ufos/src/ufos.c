@@ -8,6 +8,8 @@
 #include "ufos.h"
 #include "userfaultCore.h"
 
+#include <assert.h>
+
 ufInstance_t ufo_system;
 
 typedef SEXP (*__ufo_specific_vector_constructor)(ufo_source_t*);
@@ -32,9 +34,19 @@ void __validate_status_or_die (int status) {
 void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
     ufo_source_t* source = (ufo_source_t*) allocator->data;
 
-    ufObject_t object;
-    ufObjectConfig_t cfg = makeObjectConfig(sizeof(struct sxpinfo_struct) + 2*sizeof(struct SEXPREC*), int, size, 1); // FIXME
+    size_t sexp_header_size = sizeof(struct sxpinfo_struct)
+                              + 2 * sizeof(struct SEXPREC*);
 
+    size_t sexp_metadata_size = sizeof(R_allocator_t);
+
+    assert((size - sexp_header_size - sexp_metadata_size)
+           == (source->length *  sizeof(int)));
+
+                         //makeObjectConfig(headerBytes, type, ct, minLoadCt)
+    ufObjectConfig_t cfg = makeObjectConfig(sexp_header_size + sexp_metadata_size,
+                                            int, source->length, 16); // FIXME
+
+    ufObject_t object;
     int status = ufCreateObject(ufo_system, cfg, &object);
     __validate_status_or_die(status);
 

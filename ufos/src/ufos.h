@@ -18,7 +18,7 @@ typedef struct {
     ufPopulateRange     population_function;
     ufo_vector_type_t   vector_type;
     //ufUpdateRange     update_function;
-    R_xlen_t            length;
+    uint64_t            length;
 } ufo_source_t;
 
 // Initialization and shutdown
