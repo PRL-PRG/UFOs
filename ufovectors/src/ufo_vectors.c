@@ -168,7 +168,14 @@ SEXP ufo_vectors_lglsxp_bin(SEXP/*STRSXP*/ path) {
     return __make_vector(UFO_LGL, path);
 }
 
-void ufo_vectors_shutdown() {
+SEXP ufo_vectors_initialize() {
+    ufo_initialize_t ufo_initialize = (ufo_initialize_t) R_GetCCallable("ufos", "ufo_initialize");
+    ufo_initialize();
+    return R_NilValue;
+}
+
+SEXP ufo_vectors_shutdown() {
     ufo_shutdown_t ufo_shutdown = (ufo_shutdown_t) R_GetCCallable("ufos", "ufo_shutdown");
     ufo_shutdown();
+    return R_NilValue;
 }

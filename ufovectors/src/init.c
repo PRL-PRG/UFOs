@@ -7,6 +7,9 @@
 // List of functions provided by the package.
 static const R_CallMethodDef CallEntries[] = {
 
+    // Initialize the system.
+    {"ufo_vectors_initialize",  (DL_FUNC) &ufo_vectors_initialize,  0},
+
     // Vectors that parially materialize on-demand from binary files.
     {"ufo_vectors_intsxp_bin",  (DL_FUNC) &ufo_vectors_intsxp_bin,  1},
     {"ufo_vectors_realsxp_bin", (DL_FUNC) &ufo_vectors_realsxp_bin, 1},
@@ -14,7 +17,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"ufo_vectors_cplxsxp_bin", (DL_FUNC) &ufo_vectors_cplxsxp_bin, 1},
     {"ufo_vectors_lglsxp_bin",  (DL_FUNC) &ufo_vectors_lglsxp_bin,  1},
 
-    // Shutdown the
+    // Shutdown the system.
     {"ufo_vectors_shutdown",    (DL_FUNC) &ufo_vectors_shutdown,    0},
 
     // Terminates the function list. Necessary.
@@ -34,8 +37,6 @@ void attribute_visible R_init_ufovectors(DllInfo *dll) {
     //R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     //R_useDynamicSymbols(dll, FALSE);
     //R_forceSymbols(dll, TRUE);
-    ufo_initialize_t ufo_initialize = (ufo_initialize_t) R_GetCCallable("ufos", "ufo_initialize");
-    ufo_initialize();
 }
 
 

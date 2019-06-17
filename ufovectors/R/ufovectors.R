@@ -1,3 +1,7 @@
+ufo_init <- function() {
+  .Call("ufo_vectors_initialize");
+}
+
 ufo_integer_bin <- function(path) {
   .check_path(path)
   .Call("ufo_vectors_intsxp_bin", path)
