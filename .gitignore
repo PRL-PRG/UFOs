@@ -5,6 +5,7 @@
 !*.R
 !*.md
 !*/
+!Makevars
 !DESCRIPTION
 !NAMESPACE
 !CMakeLists.txt
