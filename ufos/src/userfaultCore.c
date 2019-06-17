@@ -19,12 +19,12 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include "../include/userfaultCore.h"
+#include "userfaultCore.h"
 
-#include "unstdLib/math.h"
-#include "unstdLib/errors.h"
+#include "math.h"
+#include "errors.h"
 
-#include "userFaultCoreInternal.h"
+#include "userfaultCoreInternal.h"
 
 /* System init and initial worker thread */
 

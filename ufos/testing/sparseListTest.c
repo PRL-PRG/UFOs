@@ -8,7 +8,7 @@
 
 #include <assert.h>
 
-#include "../sparseList.h"
+#include "../src/sparseList.h"
 
 int main(int argc, char **argv) {
 

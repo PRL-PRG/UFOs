@@ -5,8 +5,8 @@
 #include <Rinternals.h>
 #include <R_ext/Rallocators.h>
 
-#include "../include/ufos.h"
-#include "../include/userfaultCore.h"
+#include "ufos.h"
+#include "userfaultCore.h"
 
 ufInstance_t ufo_system;
 

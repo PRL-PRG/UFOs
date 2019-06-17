@@ -1,6 +1,6 @@
 
-#include "../include/userfaultCore.h"
-#include "userFaultCoreInternal.h"
+#include "userfaultCore.h"
+#include "userfaultCoreInternal.h"
 
 
 void ufSetPopulateFunction(ufObjectConfig_t config, ufPopulateRange populateF){

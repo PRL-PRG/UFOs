@@ -1,14 +1,17 @@
 Package: ufovectors
 Type: Package
-Title: Implementation of R vectors using UFOs
+Title: Implementation of R vectors using UserFault Objects
+Description: Example implementation of R vectors using UserFault Objects to
+             materialize data on demand from file sources.
 Version: 0.1.0
-Author: Colette Kerr <colette.m.y.kerr@gmail.com>, Konrad Siek <siekkonr@fit.cvut.cz>
-Maintainer: Colette Kerr <colette.m.y.kerr@gmail.com>, Konrad Siek <siekkonr@fit.cvut.cz>
-Description: Example implementation of R vectors using UserFault Objects to materialize data on demand from file sources.
-License: who knows?
+Authors@R: c(person(given = "Colette", family = "Kerr", role = c("aut"),
+                    email = "colette.m.y.kerr@gmail.com"),
+             person(given = "Konrad",  family = "Siek", role = c("aut", "cre"),
+                    email = "siekkonr@fit.cvut.cz"))
+Maintainer: Konrad Siek <siekkonr@fit.cvut.cz>
+License: GPL-2 | GPL-3
 Encoding: UTF-8
 LazyData: true
-Imports:
-    ufos
-LinkingTo:
-    ufos
+Depends: ufos
+LinkingTo: ufos
+NeedsCompilation: yes
