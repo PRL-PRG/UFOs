@@ -4,10 +4,7 @@
 #include <stdbool.h>
 #include <pthread.h>
 
-#define _stride(_type) ({  \
-  _type* _t = (_type*) 0;  \
-  (uint64_t) (_t+1);       \
-  })
+#define strideOf(_type) ( (uint32_t) (uint64_t) ( ((_type*) 0) + 1) )
 
 
 typedef void* any_t;
@@ -17,7 +14,7 @@ typedef void* any_t;
 typedef any_t ufInstance_t;
 
 /**
- * Allocate, set default options, and return an instnce object. This does not intialize the object, which must be done before it is used
+ * Allocate, set default options, and return an insatnce object. This does not intialize the object, which must be done before it is used
  */
 ufInstance_t ufMakeInstance();
 
@@ -31,14 +28,15 @@ int ufInit(ufInstance_t instance);
  * Free all resources associated with this instance
  * Will make best efforts to stop issuing fill requests in a timely fashion, but no guarantees are made about the status of resources when this call returns
  * To wait for all resources to be freed call ufAwayShutdown after this returns
- * If free is true then the object will be freed and the user cannot away shutdown, if false then the user must await shuitdown and free the object herself
+ * If free is true then the object will be freed and the user cannot await shutdown,
+ * If false then the user must call ufAwaitShutdown to finish freeing resources
  */
-void ufShutdown(ufInstance_t instance, bool free);
+int ufShutdown(ufInstance_t instance, bool free);
 
 /**
  * Await shutdown of the instance. Will only return once all resources used by this instance are freed. Must be called after ufShutdown returns
  */
-void ufAwaitShutdown(ufInstance_t instance);
+int ufAwaitShutdown(ufInstance_t instance);
 
 /**
  * returns the page size for this instance
@@ -102,7 +100,7 @@ typedef struct{
  *    ufBadArgs         if rounding mode was not understood
  *
  */
-typedef int (*ufPopulateCallout)(*ufPopulateCalloutMsg);
+typedef int (*ufPopulateCallout)(ufPopulateCalloutMsg*);
 
 #define ufErrAlreadyResolved 1
 #define ufErrOutOfBounds     2
@@ -110,6 +108,7 @@ typedef int (*ufPopulateCallout)(*ufPopulateCalloutMsg);
 #define ufErrNoMem           4
 #define ufWarnNoChange       5
 #define ufBadArgs            6
+#define ufShuttingDown       7
 
 #define ufRoundUp   1
 #define ufRoundDown 2
@@ -122,12 +121,14 @@ typedef int (*ufPopulateCallout)(*ufPopulateCalloutMsg);
  * @arg target memory area to populate
  *
  * All requested memory must be populated when the function returns
- * target  [0     ... n*sdizeof(value)]
- * indexes [start ... end]
+ * target  [0     ... n*strideOf(value)]
+ * indexes [start ... end)
  * n = end - start
  * Zero offset in the target is where the startValueidx should go
+ *
+ * return 0 on success, any other value is an error
  */
-typedef int (*ufPopulateRange)(uint64_t startValueIdx, uint64_t endValueIdx, ufPopulateCallout callout, ufUserData userData, void* target);
+typedef int (*ufPopulateRange)(uint64_t startValueIdx, uint64_t endValueIdx, ufPopulateCallout callout, ufUserData userData, char* target);
 
 
 /* Object */
@@ -135,10 +136,10 @@ typedef int (*ufPopulateRange)(uint64_t startValueIdx, uint64_t endValueIdx, ufP
 typedef any_t ufObjectConfig_t;
 typedef any_t ufObject_t;
 
-ufObjectConfig_t _makeObjectConfig(uint64_t ct, uint32_t stride, int32_t minLoadCt);
+ufObjectConfig_t makeObjectConfig0(uint32_t headerBytes, uint64_t ct, uint32_t stride, int32_t minLoadCt);
 //TODO: document
-#define makeObjectConfig(type, ct, minLoadCt) \
-  _makeObjectConfig(ct, _stride(type), minLoadCt)
+#define makeObjectConfig(type, headerBytes, ct, minLoadCt) \
+  makeObjectConfig0(headerBytes, ct, strideOf(type), minLoadCt)
 
 void ufSetPopulateFunction(ufObjectConfig_t config, ufPopulateRange populateF);
 void ufSetUserConfig(ufObjectConfig_t config, ufUserData userData);
@@ -146,7 +147,7 @@ void ufSetUserConfig(ufObjectConfig_t config, ufUserData userData);
 /*
  * returns 0 on success
  * allocates a new UFO and writes a pointer to it in object_p
- * The object config may be resued once this returns
+ * The object config may be reused once this returns
  */
 int ufCreateObject(ufInstance_t instance, ufObjectConfig_t objectConfig, ufObject_t* object_p);
 
@@ -160,12 +161,12 @@ int ufDestroyObject(ufObject_t object_p);
 /*
  * Get the pointer to the R header section of the object
  */
-void* ufGetHeaderPointer(ufObject_t object);
+char* ufGetHeaderPointer(ufObject_t object);
 
 /*
  * Get the pointer to the value section of the object
  */
-void* ufGetValuePointer(ufObject_t object);
+char* ufGetValuePointer(ufObject_t object);
 
 
 

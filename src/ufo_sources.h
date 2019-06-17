@@ -2,28 +2,22 @@
 
 #include "mappedMemory/userfaultCore.h"
 
-#include <R.h>
-#include <Rinternals.h>
+typedef int (*reader_function)(FILE* file, u_int64_t start, u_int64_t end,
+                               ufUserData user_data);
 
 typedef enum {
     UFO_CHAR = 9,
-    UFO_LGL  = 10,
-    UFO_INT  = 13,
+    UFO_LGL = 10,
+    UFO_INT = 13,
     UFO_REAL = 14,
     UFO_CPLX = 15
-} ufo_vector_type_t; // IS THIS NECESSARY
+} ufo_vector_type_t;
 
 typedef struct {
     ufUserData*         data;
     ufPopulateRange     population_function;
-    ufo_vector_type_t   vector_type;
+    ufo_vector_type_t vector_type;
     //ufUpdateRange     update_function;
     R_xlen_t            length;
 } ufo_source_t;
 
-// Initialization and shutdown
-void ufo_initialize();
-void ufo_shutdown();
-
-// Constructor
-SEXP ufo_new(ufo_source_t*);
