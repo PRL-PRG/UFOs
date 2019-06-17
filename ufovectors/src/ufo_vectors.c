@@ -61,21 +61,27 @@ const char* __extract_path_or_die(SEXP/*STRSXP*/ path) {
  */
 int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
                      ufUserData user_data, char* target) { // FIXME ASK COLETTE
-    ufo_file_source_data_t* data = (ufo_file_source_data_t*) user_data;
-    FILE* file = fopen(data->path, "rb");
+//    ufo_file_source_data_t* data = (ufo_file_source_data_t*) user_data;
+//    FILE* file = fopen(data->path, "rb");
+//
+//    if (file) {
+//        int seek_status = fseek(file, data->element_size * start, SEEK_SET);
+//        if (seek_status < 0) {
+//            return 42;
+//        }
+//        int read_status = fread(target, data->element_size, end-start, file);
+//        if (read_status < end-start || read_status == 0) {
+//            return 44;
+//        }
+//    }
+//
+//    fclose(file);
 
-    if (file) {
-        int seek_status = fseek(file, data->element_size * start, SEEK_SET);
-        if (seek_status < 0) {
-            return 42;
-        }
-        int read_status = fread(target, data->element_size, end-start, file);
-        if (read_status < end-start || read_status == 0) {
-            return 44;
-        }
+    int *x = (int *) target;
+    for(int i = 0; i < end - start; i++) {
+        x[i] = start + i;
     }
 
-    fclose(file);
     return 0;
 }
 
@@ -134,6 +140,7 @@ ufo_source_t* __make_source(ufo_vector_type_t type, const char* path) {
     source->population_function = &__load_from_file;
     source->data = (ufUserData*) data;
     source->vector_type = type;
+    source->length = 256; //FIXME this should be arbitrary or discovered
 
     data->element_size = __get_element_size(source->vector_type);
 
@@ -151,22 +158,22 @@ SEXP ufo_vectors_intsxp_bin(SEXP/*STRSXP*/ path) {
     return __make_vector(UFO_INT, path);
 }
 
-SEXP ufo_vectors_realsxp_bin(SEXP/*STRSXP*/ path) {
-    return __make_vector(UFO_REAL, path);
-}
-
-SEXP ufo_vectors_cplxsxp_bin(SEXP/*STRSXP*/ path) {
-    return __make_vector(UFO_CPLX, path);
-}
-
-SEXP ufo_vectors_strsxp_bin(SEXP/*STRSXP*/ path) {
-    Rf_error("ufo_vectors_strsxp_bin not implemented");
-    //return __make_vector(UFO_STR, path);
-}
-
-SEXP ufo_vectors_lglsxp_bin(SEXP/*STRSXP*/ path) {
-    return __make_vector(UFO_LGL, path);
-}
+//SEXP ufo_vectors_realsxp_bin(SEXP/*STRSXP*/ path) {
+//    return __make_vector(UFO_REAL, path);
+//}
+//
+//SEXP ufo_vectors_cplxsxp_bin(SEXP/*STRSXP*/ path) {
+//    return __make_vector(UFO_CPLX, path);
+//}
+//
+//SEXP ufo_vectors_strsxp_bin(SEXP/*STRSXP*/ path) {
+//    Rf_error("ufo_vectors_strsxp_bin not implemented");
+//    //return __make_vector(UFO_STR, path);
+//}
+//
+//SEXP ufo_vectors_lglsxp_bin(SEXP/*STRSXP*/ path) {
+//    return __make_vector(UFO_LGL, path);
+//}
 
 SEXP ufo_vectors_initialize() {
     ufo_initialize_t ufo_initialize = (ufo_initialize_t) R_GetCCallable("ufos", "ufo_initialize");

@@ -12,10 +12,10 @@ static const R_CallMethodDef CallEntries[] = {
 
     // Vectors that parially materialize on-demand from binary files.
     {"ufo_vectors_intsxp_bin",  (DL_FUNC) &ufo_vectors_intsxp_bin,  1},
-    {"ufo_vectors_realsxp_bin", (DL_FUNC) &ufo_vectors_realsxp_bin, 1},
-    {"ufo_vectors_strsxp_bin",  (DL_FUNC) &ufo_vectors_strsxp_bin,  1},
-    {"ufo_vectors_cplxsxp_bin", (DL_FUNC) &ufo_vectors_cplxsxp_bin, 1},
-    {"ufo_vectors_lglsxp_bin",  (DL_FUNC) &ufo_vectors_lglsxp_bin,  1},
+//    {"ufo_vectors_realsxp_bin", (DL_FUNC) &ufo_vectors_realsxp_bin, 1},
+//    {"ufo_vectors_strsxp_bin",  (DL_FUNC) &ufo_vectors_strsxp_bin,  1},
+//    {"ufo_vectors_cplxsxp_bin", (DL_FUNC) &ufo_vectors_cplxsxp_bin, 1},
+//    {"ufo_vectors_lglsxp_bin",  (DL_FUNC) &ufo_vectors_lglsxp_bin,  1},
 
     // Shutdown the system.
     {"ufo_vectors_shutdown",    (DL_FUNC) &ufo_vectors_shutdown,    0},
