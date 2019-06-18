@@ -104,7 +104,6 @@ int __save_to_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
     }
 
     fclose(file);
-    
     return 0;
 }
 
