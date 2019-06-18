@@ -2,9 +2,9 @@ MkInclude = $(R_HOME)/etc${R_ARCH}/Makeconf
 
 #PKG_CXXFLAGS =
 #PKG_CPPFLAGS = -pthread
-PKG_LIBS = -pthread -LmappedMemory -lmappedMemory
+PKG_LIBS = -pthread -LmappedMemory -lmappedMemory -O2 -ggdb
 
-SOURCES_C = *.c
+SOURCES_C = init.c ufos.c
 
 OBJECTS = $(SOURCES_C:.c=.o)
 
