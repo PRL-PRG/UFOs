@@ -1,0 +1,2 @@
+PKG_CPPFLAGS = -pthread -D__UFOs_CoreDev__
+PKG_LIBS = -pthread -D__UFOs_CoreDev__

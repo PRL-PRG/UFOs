@@ -1,0 +1,10 @@
+useDynLib(ufovectors, .registration = TRUE, .fixes = "")
+
+export(ufo_integer_bin)
+#export(ufo_numeric_bin)
+#export(ufo_character_bin)
+#export(ufo_complex_bin)
+#export(ufo_logical_bin)
+
+export(ufo_init)
+export(ufo_shutdown)

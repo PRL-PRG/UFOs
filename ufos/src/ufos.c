@@ -6,8 +6,9 @@
 #include <R_ext/Rallocators.h>
 
 #include "ufos.h"
-#include "ufo_sources.h"
 #include "mappedMemory/userfaultCore.h"
+
+#include <assert.h>
 
 ufInstance_t ufo_system;
 
@@ -33,9 +34,21 @@ void __validate_status_or_die (int status) {
 void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
     ufo_source_t* source = (ufo_source_t*) allocator->data;
 
-    ufObject_t object;
-    ufObjectConfig_t cfg = makeObjectConfig(int, size, 1); // FIXME
+    size_t sexp_header_size = sizeof(struct sxpinfo_struct)
+                              + 2 * sizeof(struct SEXPREC*);
 
+    size_t sexp_metadata_size = sizeof(R_allocator_t);
+
+    assert((size - sexp_header_size - sexp_metadata_size)
+           == (source->length *  sizeof(int)));
+
+                         //makeObjectConfig(headerBytes, type, ct, minLoadCt)
+    ufObjectConfig_t cfg = makeObjectConfig(int,
+                                            sexp_header_size + sexp_metadata_size,
+                                            source->length,
+                                            16); // FIXME
+
+    ufObject_t object;
     int status = ufCreateObject(ufo_system, cfg, &object);
     __validate_status_or_die(status);
 
@@ -105,22 +118,9 @@ __ufo_specific_vector_constructor __select_constructor(ufo_vector_type_t type) {
     }
 }
 
-void __validate_source_or_die(SEXP/*EXTPTRSXP*/ source) {
-    if (TYPEOF(source) != EXTPTRSXP) {
-        Rf_error("Invalid source type: expecting EXTPTRSXP");
-    }
-    //ufo_source_t* source_details = CAR(source);
-}
-
-SEXP __ufo_new(SEXP/*EXTPTRSXP*/ source) {
-    ufo_source_t* source_details = (ufo_source_t*) CAR(source);
+SEXP ufo_new(ufo_source_t* source) {
     __ufo_specific_vector_constructor constructor =
-            __select_constructor(source_details->vector_type);
-    return constructor(source_details);
-}
-
-SEXP ufo_new(SEXP/*EXTPTRSXP*/ source) {
-    __validate_source_or_die(source);
-    return __ufo_new(source);
+            __select_constructor(source->vector_type);
+    return constructor(source);
 }
 

@@ -8,4 +8,6 @@
 !DESCRIPTION
 !NAMESPACE
 !CMakeLists.txt
-!cmake/FindR.cmake
+!Makefile
+!Makevars
+!*/cmake/FindR.cmake
