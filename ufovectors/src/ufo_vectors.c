@@ -68,7 +68,7 @@ int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
                      ufUserData user_data, char* target) {
 
     ufo_file_source_data_t* data = (ufo_file_source_data_t*) user_data;
-    size_t size_of_memory_fragment = end - start + 1;
+    //size_t size_of_memory_fragment = end - start + 1;
 
     // FIXME concurrency
     FILE* file = fopen(data->path, "rb");
@@ -111,9 +111,10 @@ int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
         return 2;
     }
 
-    int read_status = fread(target, data->element_size, end-start, file);
-    if (read_status < end-start || read_status == 0) {
+    size_t read_status = fread(target, data->element_size, end - start, file);
+    if (read_status < end - start || read_status == 0) {
         // Read failed.
+        fprintf(stderr, "Read failed. Read %li out of %li elements.\n", read_status, end - start); //TODO use proper channels
         return 44;
     }
 
@@ -133,7 +134,7 @@ int __save_to_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
         if (seek_status < 0) {
             return 42;
         }
-        int write_status = fwrite(target, data->element_size, end-start, file);
+        size_t write_status = fwrite(target, data->element_size, end-start, file);
         if (write_status < end-start || write_status == 0) {
             return 47;
         }
@@ -219,8 +220,8 @@ ufo_source_t* __make_source(ufo_vector_type_t type, const char* path) {
 }
 
 SEXP __make_vector(ufo_vector_type_t type, SEXP sexp) {
-    const char * path = __extract_path_or_die(sexp);
-    ufo_source_t* source = __make_source(type, path);
+    const char *path = __extract_path_or_die(sexp);
+    ufo_source_t *source = __make_source(type, path);
     ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
     return ufo_new(source);
 }
@@ -229,30 +230,58 @@ SEXP ufo_vectors_intsxp_bin(SEXP/*STRSXP*/ path) {
     return __make_vector(UFO_INT, path);
 }
 
-//SEXP ufo_vectors_realsxp_bin(SEXP/*STRSXP*/ path) {
-//    return __make_vector(UFO_REAL, path);
-//}
-//
-//SEXP ufo_vectors_cplxsxp_bin(SEXP/*STRSXP*/ path) {
-//    return __make_vector(UFO_CPLX, path);
-//}
-//
+SEXP ufo_vectors_realsxp_bin(SEXP/*STRSXP*/ path) {
+    return __make_vector(UFO_REAL, path);
+}
+
+SEXP ufo_vectors_cplxsxp_bin(SEXP/*STRSXP*/ path) {
+    return __make_vector(UFO_CPLX, path);
+}
+
 //SEXP ufo_vectors_strsxp_bin(SEXP/*STRSXP*/ path) {
 //    Rf_error("ufo_vectors_strsxp_bin not implemented");
 //    //return __make_vector(UFO_STR, path);
 //}
-//
-//SEXP ufo_vectors_lglsxp_bin(SEXP/*STRSXP*/ path) {
-//    return __make_vector(UFO_LGL, path);
-//}
 
-SEXP ufo_vectors_initialize() {
+SEXP ufo_vectors_lglsxp_bin(SEXP/*STRSXP*/ path) {
+    return __make_vector(UFO_LGL, path);
+}
+
+void __write_bytes_to_disk(const char *path, size_t size, const char *bytes) {
+    fprintf(stderr, "__write_bytes_to_disk(%s,%li,...)\n", path, size);
+
+    FILE* file = fopen(path, "wb");
+
+    if (!file) {
+        fclose(file);
+        Rf_error("Error opening file '%s'.", path);
+    }
+
+    size_t write_status = fwrite(bytes, sizeof(const char), size, file);
+    if (write_status < size || write_status == 0) {
+        fclose(file);
+        Rf_error("Error writing to file '%s'. Written: %i out of %li",
+                 path, write_status, size);
+    }
+
+    fclose(file);
+}
+
+SEXP/*NILSXP*/ ufo_store_bin(SEXP/*STRSXP*/ _path, SEXP vector) {
+    __write_bytes_to_disk(__extract_path_or_die(_path),
+                          Rf_length(vector) * __get_element_size(TYPEOF(vector)),
+                          (const char *) DATAPTR_RO(vector));
+    return R_NilValue;
+}
+
+
+SEXP/*NILSXP*/ ufo_vectors_initialize() {
     ufo_initialize_t ufo_initialize = (ufo_initialize_t) R_GetCCallable("ufos", "ufo_initialize");
     ufo_initialize();
     return R_NilValue;
 }
 
-SEXP ufo_vectors_shutdown() {
+SEXP/*NILSXP*/ ufo_vectors_shutdown() {
     ufo_shutdown_t ufo_shutdown = (ufo_shutdown_t) R_GetCCallable("ufos", "ufo_shutdown");
     ufo_shutdown();
     return R_NilValue;

@@ -11,7 +11,7 @@ typedef enum {
     UFO_INT  = 13,
     UFO_REAL = 14,
     UFO_CPLX = 15
-} ufo_vector_type_t; // IS THIS NECESSARY
+} ufo_vector_type_t;
 
 typedef struct {
     ufUserData*         data;
@@ -29,7 +29,11 @@ void ufo_shutdown();
 // Constructor
 SEXP ufo_new(ufo_source_t*);
 
+// Auxiliary functions.
+SEXPTYPE ufo_type_to_vector_type (ufo_vector_type_t);
+
 // Function types for R dynloader.
 typedef void (*ufo_initialize_t)(void);
 typedef void (*ufo_shutdown_t)(void);
 typedef SEXP (*ufo_new_t)(ufo_source_t*);
+typedef SEXPTYPE (*ufo_type_to_vector_type_t)(ufo_vector_type_t);

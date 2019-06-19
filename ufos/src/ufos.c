@@ -79,7 +79,7 @@ SEXP __ufo_new_anysxp(SEXPTYPE type, ufo_source_t* source) {
     allocator->data = source; /* custom data: used for source */
 
     // Create a new vector of the appropriate type using the allocator.
-    return allocVector3(INTSXP, source->vector_size, allocator);
+    return allocVector3(type, source->vector_size, allocator);
 }
 
 //SEXP/*CHARSXP*/ __ufo_new_lglsxp(ufo_source_t* source) {
@@ -102,26 +102,29 @@ SEXP/*CPLXSXP*/ __ufo_new_cplxsxp(ufo_source_t* source) {
     return __ufo_new_anysxp(CPLXSXP, source);
 }
 
-__ufo_specific_vector_constructor __select_constructor(ufo_vector_type_t type) {
-    switch (type) {
+SEXPTYPE ufo_type_to_vector_type (ufo_vector_type_t ufo_type) {
+    switch (ufo_type) {
 //        case UFO_CHAR:
 //            return &__ufo_new_charsxp;
         case UFO_LGL:
-            return &__ufo_new_lglsxp;
+            return LGLSXP;
         case UFO_INT:
-            return &__ufo_new_intsxp;
+            return INTSXP;
         case UFO_REAL:
-            return &__ufo_new_realsxp;
+            return REALSXP;
         case UFO_CPLX:
-            return &__ufo_new_cplxsxp;
+            return CPLXSXP;
         default:
-            Rf_error("No available vector constructor for this type.");
+            return -1;
     }
 }
 
 SEXP ufo_new(ufo_source_t* source) {
-    __ufo_specific_vector_constructor constructor =
-            __select_constructor(source->vector_type);
-    return constructor(source);
+
+    SEXPTYPE type = ufo_type_to_vector_type(source->vector_type);
+    if (type < 0) {
+        Rf_error("No available vector constructor for this type.");
+    }
+    return __ufo_new_anysxp(type, source);
 }
 
