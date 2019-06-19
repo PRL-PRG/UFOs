@@ -196,7 +196,7 @@ static int readHandleUfEvent(ufInstance* i){
     int callout(ufPopulateCalloutMsg* msg){
       switch(msg->cmd){
         case ufResolveRangeCmd:
-          return 0; // Not yet implemented, but this is advisory only so no huge loss
+          return 0; // Not yet implemented, but this is advisory only so no error
         case ufExpandRange:
           return ufWarnNoChange; // Not yet implemented, but callers have to deal with this anyway, even spuriously
         default:
@@ -206,7 +206,7 @@ static int readHandleUfEvent(ufInstance* i){
     }
     //uint64_t startValueIdx, uint64_t endValueIdx, ufPopulateCallout callout, ufUserData userData, char* target
     tryPerrInt(res,
-        ufo->config.populateFunction(idx, idx + ufo->config.objectsAtOnce, callout, ufo->config.userConfig, i->buffer),
+        ufo->config.populateFunction(idx, idx + actualFillCt, callout, ufo->config.userConfig, i->buffer),
         "populate error", error);
 
     struct uffdio_copy copy = (struct uffdio_copy){.src = (uint64_t) i->buffer, .dst = faultAtLoadBoundaryAbsolute, .len = fillSizeBytes, .mode = 0};

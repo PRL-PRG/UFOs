@@ -16,6 +16,9 @@
 
 int testpopulate(uint64_t startValueIdx, uint64_t endValueIdx, ufPopulateCallout callout, ufUserData userData, char* target){
   uint64_t* t = (uint64_t*) target;
+  uint64_t* requestCt = (uint64_t*) userData;
+  assert(startValueIdx >= 0);
+  assert(endValueIdx <= *requestCt);
   for(int i = startValueIdx; i < endValueIdx; i++)
     t[i - startValueIdx] = ~i;
 
@@ -37,10 +40,11 @@ int main(int argc, char **argv) {
 
 //  uint64_t* bitmap = calloc(1024*1024*1024, 8);
   do{
-    const uint64_t ct = 1024ull*1024*((rand() & 0xffull) + 1), sz = ct*8 ;
+    uint64_t ct = 1024ull*1024*((rand() & 0xffull) + 1), sz = ct*8 ;
 
     ufObjectConfig_t config = makeObjectConfig(uint64_t, 64, ct, (rand() & 0xffff) + 1);
     ufSetPopulateFunction(config, testpopulate);
+    ufSetUserConfig(config, &ct);
 
     ufObject_t o;
     tryPerrInt(res, ufCreateObject(ufI, config, &o), "Err init obj", error1);
