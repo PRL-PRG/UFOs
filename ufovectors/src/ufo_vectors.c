@@ -7,9 +7,10 @@
 #include "../include/mappedMemory/userfaultCore.h"
 
 typedef struct {
-    const char* path;
-    size_t element_size; /* in bytes */
-    size_t vector_size;
+    const char*         path;
+    ufo_vector_type_t   vector_type;
+    size_t              element_size; /* in bytes */
+    size_t              vector_size;
 } ufo_file_source_data_t;
 
 /**
@@ -64,31 +65,59 @@ const char* __extract_path_or_die(SEXP/*STRSXP*/ path) {
  *         file, 44 if reading failed.
  */
 int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
-                     ufUserData user_data, char* target) { // FIXME ASK COLETTE
+                     ufUserData user_data, char* target) {
 
     ufo_file_source_data_t* data = (ufo_file_source_data_t*) user_data;
     size_t size_of_memory_fragment = end - start + 1;
 
+    // FIXME concurrency
     FILE* file = fopen(data->path, "rb");
 
-    if (file) {
-        int seek_status = fseek(file, data->element_size * start, SEEK_SET);
-        if (seek_status < 0) {
-            return 42;
-        }
-//        int read_status = fread(target, data->element_size, end-start, file);
-//        if (read_status < end-start || read_status == 0) {
-//            return 44;
-//        }
+    if (!file) {
+        fprintf(stderr, "Could not open file.\n"); //TODO use proper channels
+        return -1;
     }
+
+    int initial_seek_status = fseek(file, 0L, SEEK_END);
+    if (initial_seek_status < 0) {
+        // Could not seek in from file.
+        fprintf(stderr, "Could not seek to the end of file.\n"); //TODO use proper channels
+        return 1;
+    }
+
+    long file_size_in_bytes = ftell(file);
+    fprintf(stderr, "file_size=%li\n", file_size_in_bytes);
+
+    long start_reading_from = data->element_size * start;
+    fprintf(stderr, "start_reading_from=%li\n", start_reading_from);
+    if (start_reading_from > file_size_in_bytes) {
+        // Start index out of bounds of the file.
+        fprintf(stderr, "Start index out of bounds of the file.\n"); //TODO use proper channels
+        return 42;
+    }
+
+    long end_reading_at = data->element_size * end;
+    fprintf(stderr, "end_reading_at=%li\n", end_reading_at);
+    if (end_reading_at > file_size_in_bytes) {
+        // End index out of bounds of the file.
+        fprintf(stderr, "End index out of bounds of the file.\n"); //TODO use proper channels
+        return 43;
+    }
+
+    int rewind_seek_status = fseek(file, start_reading_from, SEEK_SET);
+    if (rewind_seek_status < 0) {
+        // Could not seek in the file to position at start index.
+        fprintf(stderr, "Could not seek in the file to position at start index.\n"); //TODO use proper channels
+        return 2;
+    }
+
+    int read_status = fread(target, data->element_size, end-start, file);
+    if (read_status < end-start || read_status == 0) {
+        // Read failed.
+        return 44;
+    }
+
     fclose(file);
-
-    int *x = (int *) target;
-    for(int i = 0; i < size_of_memory_fragment && i < data->vector_size; i++) {
-        x[i] = start + i;
-        fprintf(stderr, "%i -> %i\n", i, x[i]);
-    }
-
     return 0;
 }
 
@@ -139,19 +168,52 @@ size_t __get_element_size(ufo_vector_type_t vector_type) {
     }
 }
 
+long __get_vector_length_from_file_or_die(const char * path, size_t element_size) {
+
+    // FIXME concurrency
+    FILE* file = fopen(path, "rb");
+
+    int seek_status = fseek(file, 0L, SEEK_END);
+    if (seek_status < 0) {
+        // Could not seek in from file.
+        fclose(file);
+        Rf_error("Could not seek to the end of file.\n");
+    }
+
+    long file_size_in_bytes = ftell(file);
+    fclose(file);
+
+    if (file_size_in_bytes % element_size != 0) {
+        Rf_error("File size not divisible by element size.\n");
+    }
+
+    return file_size_in_bytes / element_size;
+}
+
+void __check_file_path_or_die(const char * path) {
+
+}
+
 ufo_source_t* __make_source(ufo_vector_type_t type, const char* path) {
-    ufo_file_source_data_t *data =
-            (ufo_file_source_data_t*) malloc(sizeof(ufo_file_source_data_t));
-    data->path = path;
+    __check_file_path_or_die(path);
+
+    ufo_file_source_data_t *data = (ufo_file_source_data_t*) malloc(sizeof(ufo_file_source_data_t));
 
     ufo_source_t* source = (ufo_source_t*) malloc(sizeof(ufo_source_t));
     source->population_function = &__load_from_file;
     source->data = (ufUserData*) data;
     source->vector_type = type;
-    source->length = 256; //FIXME this should be arbitrary or discovered
+    source->element_size = __get_element_size(type);
+    source->vector_size = __get_vector_length_from_file_or_die(path, source->element_size);
 
-    data->element_size = __get_element_size(source->vector_type);
-    data->vector_size = source->length;
+//    fprintf(stderr, "source->vector_type=%i\n",source->vector_type);
+//    fprintf(stderr, "source->element_size=%li\n",source->element_size);
+//    fprintf(stderr, "source->vector_size=%li\n",source->vector_size);
+
+    data->path = path;
+    data->vector_type = source->vector_type;
+    data->vector_size = source->vector_size;
+    data->element_size = source->element_size;
 
     return source;
 }

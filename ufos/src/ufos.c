@@ -38,12 +38,12 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
     size_t sexp_metadata_size = sizeof(R_allocator_t);
 
     assert((size - sexp_header_size - sexp_metadata_size)
-           == (source->length *  sizeof(int)));
+           == (source->vector_size *  sizeof(int)));
 
                          //makeObjectConfig(headerBytes, type, ct, minLoadCt)
     ufObjectConfig_t cfg = makeObjectConfig(int, /* I use int not uint32 because that's how R defines the contents of an INTSXP vector. */
                                             sexp_header_size + sexp_metadata_size,
-                                            source->length,
+                                            source->vector_size,
                                             16); // FIXME
 
     ufSetPopulateFunction(cfg, source->population_function);
@@ -79,7 +79,7 @@ SEXP __ufo_new_anysxp(SEXPTYPE type, ufo_source_t* source) {
     allocator->data = source; /* custom data: used for source */
 
     // Create a new vector of the appropriate type using the allocator.
-    return allocVector3(INTSXP, source->length, allocator);
+    return allocVector3(INTSXP, source->vector_size, allocator);
 }
 
 //SEXP/*CHARSXP*/ __ufo_new_lglsxp(ufo_source_t* source) {

@@ -41,6 +41,18 @@ ufo_shutdown <- function() {
   }
   if (length(path) > 1) {
     warning(paste0("Path is a vector containing multiple values, picking the",
-    "first one, ignoring the rest"));
+    "first one, ignoring the rest"))
+  }
+  if (!file.exists(path)) {
+    stop(paste0("File '", path, "' does not exist."))
+  }
+  if (!file_test("-f", path)) {
+    stop(paste0("File '", path, "' exists but is not a file."))
+  }
+  if (0 != file.access(path, 4)) { # 0: existence, 1: execute, 2: write, 4: read
+    stop(paste0("File '", path, "' exists but is not readable."))
+  }
+  if (0 != file.access(path, 2)) { # 0: existence, 1: execute, 2: write, 4: read
+    warning(paste0("File '", path, "' exists but is not writeable."))
   }
 }
