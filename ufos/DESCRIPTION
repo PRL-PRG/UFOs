@@ -1,0 +1,20 @@
+Package: ufos
+Type: Package
+Title: UserFault Objects: framework for implementing of custom objects
+       masquerading as plain R objects via user faults
+Description: Experiments in making custom objects with complex behavior
+             appearing as ordinary R data structures (data.frames, matrices,
+             etc.) to both R functions and C functions. This uses user faults
+             (memory faults) to capture memory accesses and override them.
+Version: 0.1.0
+Authors@R: c(person(given = "Colette", family = "Kerr", role = c("aut"),
+                    email = "colette.m.y.kerr@gmail.com"),
+             person(given = "Konrad",  family = "Siek", role = c("aut", "cre"),
+                    email = "siekkonr@fit.cvut.cz"))
+Maintainer: Konrad Siek <siekkonr@fit.cvut.cz>
+License: GPL-2 | GPL-3
+Encoding: UTF-8
+LazyData: true
+NeedsCompilation: yes
+Suggests: ufovectors
+

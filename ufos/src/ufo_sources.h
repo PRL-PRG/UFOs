@@ -16,7 +16,7 @@ typedef enum {
 typedef struct {
     ufUserData*         data;
     ufPopulateRange     population_function;
-    ufo_vector_type_t vector_type;
+    ufo_vector_type_t   vector_type;
     //ufUpdateRange     update_function;
     R_xlen_t            length;
 } ufo_source_t;

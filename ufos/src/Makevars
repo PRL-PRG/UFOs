@@ -1,0 +1,35 @@
+MkInclude = $(R_HOME)/etc${R_ARCH}/Makeconf
+
+#PKG_CXXFLAGS =
+#PKG_CPPFLAGS = -pthread
+PKG_LIBS = -pthread -LmappedMemory -lmappedMemory -O2 -ggdb
+
+SOURCES_C = init.c ufos.c
+
+OBJECTS = $(SOURCES_C:.c=.o)
+
+SUBDIRS = mappedMemory
+SUBLIBS = $(SUBDIRS:=.a)
+
+all: $(SHLIB)
+$(SHLIB): $(OBJECTS) sublibs
+
+sublibs: subclean sublibraries
+
+sublibraries: subclean
+	@for d in $(SUBDIRS); do \
+	  (cd $${d} && CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" MAKE="$(MAKE) -f \"$(MkInclude)\" -f Makefile" $(MAKE) -f "$(MkInclude)" -f Makefile library) || exit 1; \
+	done
+
+clean: subclean
+	@-rm -rf .libs _libs
+	@-rm -f *.o $(SHLIB)
+
+subclean:
+	@-rm -f *.a
+	@for d in $(SUBDIRS); do \
+	  (cd $${d} && MkInclude="$(MkInclude)" $(MAKE) clean) || exit 1; \
+	done
+
+init.o: init.c ufos.h mappedMemory/userfaultCore.h
+ufoTest.o: ufos.c ufos.h mappedMemory/userfaultCore.h
