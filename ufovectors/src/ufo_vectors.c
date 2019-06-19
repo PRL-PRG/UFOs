@@ -9,6 +9,7 @@
 typedef struct {
     const char* path;
     size_t element_size; /* in bytes */
+    size_t vector_size;
 } ufo_file_source_data_t;
 
 /**
@@ -50,6 +51,11 @@ const char* __extract_path_or_die(SEXP/*STRSXP*/ path) {
 /**
  * Load a range of values from a binary file.
  *
+ * Note to self: careful, start and end may exceed the actual size of the vector
+ * if the vector's size is smaller than a memory page. For instance, for a
+ * vector loaded from disk that is supposed to be of size 256, this function may
+ * still ask for start=0 and end=4096.
+ *
  * @param start First index of the range.
  * @param end Last index within the range.
  * @param cf Callout function (not used).
@@ -61,7 +67,11 @@ const char* __extract_path_or_die(SEXP/*STRSXP*/ path) {
  */
 int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
                      ufUserData user_data, char* target) { // FIXME ASK COLETTE
-//    ufo_file_source_data_t* data = (ufo_file_source_data_t*) user_data;
+
+    ufo_file_source_data_t* data = (ufo_file_source_data_t*) user_data;
+    size_t size_of_memory_fragment = end - start + 1;
+
+//
 //    FILE* file = fopen(data->path, "rb");
 //
 //    if (file) {
@@ -78,8 +88,9 @@ int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
 //    fclose(file);
 
     int *x = (int *) target;
-    for(int i = 0; i < end - start; i++) {
+    for(int i = 0; i < size_of_memory_fragment && i < data->vector_size; i++) {
         x[i] = start + i;
+        fprintf(stderr, "%i -> %i\n", i, x[i]);
     }
 
     return 0;
@@ -144,6 +155,7 @@ ufo_source_t* __make_source(ufo_vector_type_t type, const char* path) {
     source->length = 256; //FIXME this should be arbitrary or discovered
 
     data->element_size = __get_element_size(source->vector_type);
+    data->vector_size = source->length;
 
     return source;
 }
