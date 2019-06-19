@@ -233,6 +233,7 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
   // allocate a memory region to be managed by userfaultfd
   tryPerrNull(ufo->start, mmap(NULL, ufo->trueSize, PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0), "error allocating ufo memory", callerErr);
   // |PROT_WRITE // don't allow write for now
+  tryPerrInt(res, mprotect(ufo->start, ufo->config.headerSzWithPadding, PROT_READ|PROT_WRITE), "error changing header write protections", mprotectErr); // make the header writeable
 
   // register with the kernel
   struct uffdio_register ufM;
@@ -257,6 +258,9 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
   tryPerrInt(res, sem_post(msg->completionLock_p), "error unlocking waiter", error);
 
   return 0;
+
+  mprotectErr:
+  munmap(ufo->start, size);
 
   callerErr:
   *msg->return_p = -2; // error

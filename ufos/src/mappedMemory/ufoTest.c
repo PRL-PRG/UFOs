@@ -46,6 +46,8 @@ int main(int argc, char **argv) {
     tryPerrInt(res, ufCreateObject(ufI, config, &o), "Err init obj", error1);
     uint64_t* h = (uint64_t*) ufGetHeaderPointer(o);
     assert(h[0] == 0x00);
+    h[0] = 0x01;
+    assert(h[0] == 0x01);
 
 
     uint64_t* ptr = (uint64_t*) ufGetValuePointer(o);
