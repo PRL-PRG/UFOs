@@ -56,6 +56,9 @@ const char* __extract_path_or_die(SEXP/*STRSXP*/ path) {
  * vector loaded from disk that is supposed to be of size 256, this function may
  * still ask for start=0 and end=4096.
  *
+ * Note to self (2): apparently the behavior described above is a bug. Start and
+ * end should never exceed the actual size of the vector.
+ *
  * @param start First index of the range.
  * @param end Last index within the range.
  * @param cf Callout function (not used).
@@ -71,19 +74,18 @@ int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
     ufo_file_source_data_t* data = (ufo_file_source_data_t*) user_data;
     size_t size_of_memory_fragment = end - start + 1;
 
-//
-//    FILE* file = fopen(data->path, "rb");
-//
-//    if (file) {
-//        int seek_status = fseek(file, data->element_size * start, SEEK_SET);
-//        if (seek_status < 0) {
-//            return 42;
-//        }
+    FILE* file = fopen(data->path, "rb");
+
+    if (file) {
+        int seek_status = fseek(file, data->element_size * start, SEEK_SET);
+        if (seek_status < 0) {
+            return 42;
+        }
 //        int read_status = fread(target, data->element_size, end-start, file);
-//        if (read_status < end-start || read_status == 0) {
-//            return 44;
+ //       if (read_status < end-start || read_status == 0) {
+ //           return 44;
 //        }
-//    }
+    }
 //
 //    fclose(file);
 
