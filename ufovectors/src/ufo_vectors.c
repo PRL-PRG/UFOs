@@ -51,13 +51,8 @@ const char* __extract_path_or_die(SEXP/*STRSXP*/ path) {
 /**
  * Load a range of values from a binary file.
  *
- * Note to self: careful, start and end may exceed the actual size of the vector
- * if the vector's size is smaller than a memory page. For instance, for a
- * vector loaded from disk that is supposed to be of size 256, this function may
- * still ask for start=0 and end=4096.
- *
- * Note to self (2): apparently the behavior described above is a bug. Start and
- * end should never exceed the actual size of the vector.
+ * Note: MappedMemory core should ensure that start and end never exceed the
+ * actual size of the vector.
  *
  * @param start First index of the range.
  * @param end Last index within the range.
@@ -82,12 +77,11 @@ int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
             return 42;
         }
 //        int read_status = fread(target, data->element_size, end-start, file);
- //       if (read_status < end-start || read_status == 0) {
- //           return 44;
+//        if (read_status < end-start || read_status == 0) {
+//            return 44;
 //        }
     }
-//
-//    fclose(file);
+    fclose(file);
 
     int *x = (int *) target;
     for(int i = 0; i < size_of_memory_fragment && i < data->vector_size; i++) {
