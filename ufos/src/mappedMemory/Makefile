@@ -3,7 +3,7 @@
 UFO_KEY = -D__UFOs_CoreDev__
 PKG_LIBS = -pthread
 OBJ = sparseList.o userfaultCore.o userfaultGettersSetters.o
-CFLAGS = -O2 -ggdb -Wall -Werror -fPIC
+CFLAGS = -O0 -ggdb -Wall -Werror -fPIC
 LIB = libmappedMemory.a
 
 all: $(LIB) strideTest sparseListTest userfaultSpeedTest ufoTest

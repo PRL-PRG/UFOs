@@ -34,26 +34,27 @@ void __validate_status_or_die (int status) {
 void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
     ufo_source_t* source = (ufo_source_t*) allocator->data;
 
-    size_t sexp_header_size = sizeof(struct sxpinfo_struct)
-                              + 2 * sizeof(struct SEXPREC*);
-
+    size_t sexp_header_size = sizeof(SEXPREC_ALIGN);
     size_t sexp_metadata_size = sizeof(R_allocator_t);
 
     assert((size - sexp_header_size - sexp_metadata_size)
            == (source->length *  sizeof(int)));
 
                          //makeObjectConfig(headerBytes, type, ct, minLoadCt)
-    ufObjectConfig_t cfg = makeObjectConfig(int,
+    ufObjectConfig_t cfg = makeObjectConfig(int, /* I use int not uint32 because that's how R defines the contents of an INTSXP vector. */
                                             sexp_header_size + sexp_metadata_size,
                                             source->length,
                                             16); // FIXME
+
+    ufSetPopulateFunction(cfg, source->population_function);
+    ufSetUserConfig(cfg, source->data);
 
     ufObject_t object;
     int status = ufCreateObject(ufo_system, cfg, &object);
     __validate_status_or_die(status);
 
-    ufSetPopulateFunction(cfg, source->population_function);
-    ufSetUserConfig(cfg, source->data);
+    //fprintf(stderr, "header ptr %p\n", ufGetHeaderPointer(object));
+    //fprintf(stderr, "value ptr  %p\n", ufGetValuePointer(object));
 
     return ufGetHeaderPointer(object); // FIXME
 }
