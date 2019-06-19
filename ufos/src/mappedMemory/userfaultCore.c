@@ -331,16 +331,37 @@ static int readHandleMsg(ufInstance* i){
   return -1;
 }
 
+#define MAX_EVENTS 2 // We only register 2 handles. 2 is literally the max for us
+
+static int ePollLoop(ufInstance* i, struct epoll_event* events){
+  int interruptCt = 0, nRdy;
+  do{
+    nRdy = epoll_wait(i->epollFd, events, MAX_EVENTS, 200);
+    if(nRdy >= 0)
+      return nRdy;
+    if(errno != EINTR){
+      perror("epoll error");
+      return -1;
+    }
+
+    errno = 0;
+    interruptCt++;
+    if(interruptCt >= 3){
+      perror("Interrupted 3 times in a row in epoll");
+      return -1;
+    }
+  }while(true);
+}
+
 static void* handler(void* arg){
   ufInstance* i = asUfInstance(arg);
   bool selfFree = true;
 
-  #define MAX_EVENTS 2 // We only registered 2 handles. 2 is literally the max for us
   struct epoll_event events[MAX_EVENTS];
   int nRdy, res;
 
   do{
-    tryPerrNegOne(nRdy, epoll_wait(i->epollFd, events, MAX_EVENTS, 200), "Error while polling, shutting down abnormally", error);
+    tryPerrNegOne(nRdy, ePollLoop(i, events), "Error while polling for events", error);
 
     for(int x = 0; x < nRdy; x++){
       if(events[x].data.fd == i->ufFd){
