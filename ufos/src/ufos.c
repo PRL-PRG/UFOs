@@ -100,26 +100,6 @@ SEXP __ufo_new_anysxp(SEXPTYPE type, ufo_source_t* source) {
     return allocVector3(type, source->vector_size, allocator);
 }
 
-//SEXP/*CHARSXP*/ __ufo_new_lglsxp(ufo_source_t* source) {
-//    return __ufo_new_anysxp(LGLSXP, source);
-//}
-
-SEXP/*INTSXP*/ __ufo_new_intsxp(ufo_source_t* source) {
-    return __ufo_new_anysxp(INTSXP, source);
-}
-
-SEXP/*REALSXP*/ __ufo_new_realsxp(ufo_source_t* source) {
-    return __ufo_new_anysxp(REALSXP, source);
-}
-
-SEXP/*LGLSXP*/ __ufo_new_lglsxp(ufo_source_t* source) {
-    return __ufo_new_anysxp(LGLSXP, source);
-}
-
-SEXP/*CPLXSXP*/ __ufo_new_cplxsxp(ufo_source_t* source) {
-    return __ufo_new_anysxp(CPLXSXP, source);
-}
-
 SEXPTYPE ufo_type_to_vector_type (ufo_vector_type_t ufo_type) {
     switch (ufo_type) {
         case UFO_CHAR:
