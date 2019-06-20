@@ -6,11 +6,12 @@
 #include <Rinternals.h>
 
 typedef enum {
-    UFO_CHAR = 9,
-    UFO_LGL  = 10,
-    UFO_INT  = 13,
-    UFO_REAL = 14,
-    UFO_CPLX = 15
+    UFO_CHAR = CHARSXP,
+    UFO_LGL  = LGLSXP,
+    UFO_INT  = INTSXP,
+    UFO_REAL = REALSXP,
+    UFO_CPLX = CPLXSXP,
+    UFO_RAW  = RAWSXP
 } ufo_vector_type_t;
 
 typedef struct {

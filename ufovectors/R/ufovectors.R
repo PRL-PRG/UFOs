@@ -27,6 +27,11 @@ ufo_logical_bin <- function(path) {
   .Call("ufo_vectors_lglsxp_bin", path)
 }
 
+ufo_raw_bin <- function(path) {
+  .check_path(path)
+  .Call("ufo_vectors_rawsxp_bin", path)
+}
+
 ufo_shutdown <- function() {
   invisible(.Call("ufo_vectors_shutdown"))
 }

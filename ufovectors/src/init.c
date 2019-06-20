@@ -16,6 +16,7 @@ static const R_CallMethodDef CallEntries[] = {
 //    {"ufo_vectors_strsxp_bin",  (DL_FUNC) &ufo_vectors_strsxp_bin,  1},
     {"ufo_vectors_cplxsxp_bin", (DL_FUNC) &ufo_vectors_cplxsxp_bin, 1},
     {"ufo_vectors_lglsxp_bin",  (DL_FUNC) &ufo_vectors_lglsxp_bin,  1},
+    {"ufo_vectors_rawsxp_bin",  (DL_FUNC) &ufo_vectors_rawsxp_bin,  1},
 
     // Storage.
     {"ufo_store_bin", (DL_FUNC) &ufo_store_bin, 2},

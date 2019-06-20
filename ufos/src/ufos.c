@@ -43,6 +43,8 @@ uint32_t __get_stride_from_type_or_die(ufo_vector_type_t type) {
             return strideOf(double);
         case UFO_CPLX:
             return strideOf(Rcomplex);
+        case UFO_RAW:
+            return strideOf(Rbyte);
         default:
             Rf_error("Cannot derive stride for vector type: %d\n", type);
     }
@@ -120,8 +122,8 @@ SEXP/*CPLXSXP*/ __ufo_new_cplxsxp(ufo_source_t* source) {
 
 SEXPTYPE ufo_type_to_vector_type (ufo_vector_type_t ufo_type) {
     switch (ufo_type) {
-//        case UFO_CHAR:
-//            return &__ufo_new_charsxp;
+        case UFO_CHAR:
+            return CHARSXP;
         case UFO_LGL:
             return LGLSXP;
         case UFO_INT:
@@ -130,6 +132,8 @@ SEXPTYPE ufo_type_to_vector_type (ufo_vector_type_t ufo_type) {
             return REALSXP;
         case UFO_CPLX:
             return CPLXSXP;
+        case UFO_RAW:
+            return RAWSXP;
         default:
             return -1;
     }

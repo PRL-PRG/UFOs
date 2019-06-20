@@ -164,6 +164,8 @@ size_t __get_element_size(ufo_vector_type_t vector_type) {
             return sizeof(double);
         case UFO_CPLX:
             return sizeof(Rcomplex);
+        case UFO_RAW:
+            return sizeof(Rbyte);
         default:
             Rf_error("Unrecognized vector type: %d\n", vector_type);
     }
@@ -245,6 +247,10 @@ SEXP ufo_vectors_cplxsxp_bin(SEXP/*STRSXP*/ path) {
 
 SEXP ufo_vectors_lglsxp_bin(SEXP/*STRSXP*/ path) {
     return __make_vector(UFO_LGL, path);
+}
+
+SEXP ufo_vectors_rawsxp_bin(SEXP/*STRSXP*/ path) {
+    return __make_vector(UFO_RAW, path);
 }
 
 void __write_bytes_to_disk(const char *path, size_t size, const char *bytes) {
