@@ -274,7 +274,6 @@ SEXP/*NILSXP*/ ufo_store_bin(SEXP/*STRSXP*/ _path, SEXP vector) {
     return R_NilValue;
 }
 
-
 SEXP/*NILSXP*/ ufo_vectors_initialize() {
     ufo_initialize_t ufo_initialize = (ufo_initialize_t) R_GetCCallable("ufos", "ufo_initialize");
     ufo_initialize();

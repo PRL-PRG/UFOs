@@ -31,6 +31,23 @@ void __validate_status_or_die (int status) {
     }
 }
 
+uint32_t __get_stride_from_type_or_die(ufo_vector_type_t type) {
+    switch(type) {
+        case UFO_CHAR:
+            return strideOf(Rbyte);
+        case UFO_LGL:
+            return strideOf(Rboolean);
+        case UFO_INT:
+            return strideOf(int);
+        case UFO_REAL:
+            return strideOf(double);
+        case UFO_CPLX:
+            return strideOf(Rcomplex);
+        default:
+            Rf_error("Cannot derive stride for vector type: %d\n", type);
+    }
+}
+
 void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
     ufo_source_t* source = (ufo_source_t*) allocator->data;
 
@@ -40,11 +57,10 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
     assert((size - sexp_header_size - sexp_metadata_size)
            == (source->vector_size *  sizeof(int)));
 
-                         //makeObjectConfig(headerBytes, type, ct, minLoadCt)
-    ufObjectConfig_t cfg = makeObjectConfig(int, /* I use int not uint32 because that's how R defines the contents of an INTSXP vector. */
-                                            sexp_header_size + sexp_metadata_size,
-                                            source->vector_size,
-                                            16); // FIXME
+    ufObjectConfig_t cfg = makeObjectConfig0(sexp_header_size + sexp_metadata_size,
+                                             source->vector_size,
+                                             __get_stride_from_type_or_die(source->vector_type),
+                                             16);
 
     ufSetPopulateFunction(cfg, source->population_function);
     ufSetUserConfig(cfg, source->data);
