@@ -75,5 +75,5 @@ ufo_store_bin <- function(path, vector) {
     "first one, ignoring the rest"))
   }
 
-  .Call("ufo_store_bin", path, vector)
+  invisible(.Call("ufo_store_bin", path, vector))
 }

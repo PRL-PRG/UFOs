@@ -86,10 +86,10 @@ int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
     }
 
     long file_size_in_bytes = ftell(file);
-    fprintf(stderr, "file_size=%li\n", file_size_in_bytes);
+    //fprintf(stderr, "file_size=%li\n", file_size_in_bytes);
 
     long start_reading_from = data->element_size * start;
-    fprintf(stderr, "start_reading_from=%li\n", start_reading_from);
+    //fprintf(stderr, "start_reading_from=%li\n", start_reading_from);
     if (start_reading_from > file_size_in_bytes) {
         // Start index out of bounds of the file.
         fprintf(stderr, "Start index out of bounds of the file.\n"); //TODO use proper channels
@@ -97,7 +97,7 @@ int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
     }
 
     long end_reading_at = data->element_size * end;
-    fprintf(stderr, "end_reading_at=%li\n", end_reading_at);
+    //fprintf(stderr, "end_reading_at=%li\n", end_reading_at);
     if (end_reading_at > file_size_in_bytes) {
         // End index out of bounds of the file.
         fprintf(stderr, "End index out of bounds of the file.\n"); //TODO use proper channels
@@ -254,7 +254,7 @@ SEXP ufo_vectors_rawsxp_bin(SEXP/*STRSXP*/ path) {
 }
 
 void __write_bytes_to_disk(const char *path, size_t size, const char *bytes) {
-    fprintf(stderr, "__write_bytes_to_disk(%s,%li,...)\n", path, size);
+    //fprintf(stderr, "__write_bytes_to_disk(%s,%li,...)\n", path, size);
 
     FILE* file = fopen(path, "wb");
 
