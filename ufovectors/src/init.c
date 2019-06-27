@@ -8,7 +8,7 @@
 static const R_CallMethodDef CallEntries[] = {
 
     // Initialize the system.
-    {"ufo_vectors_initialize",  (DL_FUNC) &ufo_vectors_initialize,  0},
+    //{"ufo_vectors_initialize",  (DL_FUNC) &ufo_vectors_initialize,  0},
 
     // Vectors that parially materialize on-demand from binary files.
     {"ufo_vectors_intsxp_bin",  (DL_FUNC) &ufo_vectors_intsxp_bin,  1},

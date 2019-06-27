@@ -13,6 +13,8 @@ typedef struct {
     size_t              vector_size;
 } ufo_file_source_data_t;
 
+int ufo_initialized = 0;
+
 /**
  * Check if the path provided via this SEXP makes sense:
  *  - it contains strings,
@@ -221,9 +223,30 @@ ufo_source_t* __make_source(ufo_vector_type_t type, const char* path) {
     return source;
 }
 
+
+SEXP/*NILSXP*/ ufo_vectors_shutdown() {
+    if (ufo_initialized != 0) {
+        ufo_shutdown_t ufo_shutdown =
+                (ufo_shutdown_t) R_GetCCallable("ufos", "ufo_shutdown");
+        ufo_shutdown();
+        ufo_initialized = 0;
+    }
+    return R_NilValue;
+}
+
+void ufo_vectors_initialize_if_necessary() {
+    if (ufo_initialized == 0) {
+        ufo_initialize_t ufo_initialize =
+                (ufo_initialize_t) R_GetCCallable("ufos", "ufo_initialize");
+        ufo_initialize();
+        ufo_initialized = 1;
+    }
+}
+
 SEXP __make_vector(ufo_vector_type_t type, SEXP sexp) {
     const char *path = __extract_path_or_die(sexp);
     ufo_source_t *source = __make_source(type, path);
+    ufo_vectors_initialize_if_necessary();
     ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
     return ufo_new(source);
 }
@@ -277,17 +300,5 @@ SEXP/*NILSXP*/ ufo_store_bin(SEXP/*STRSXP*/ _path, SEXP vector) {
     __write_bytes_to_disk(__extract_path_or_die(_path),
                           Rf_length(vector) * __get_element_size(TYPEOF(vector)),
                           (const char *) DATAPTR_RO(vector));
-    return R_NilValue;
-}
-
-SEXP/*NILSXP*/ ufo_vectors_initialize() {
-    ufo_initialize_t ufo_initialize = (ufo_initialize_t) R_GetCCallable("ufos", "ufo_initialize");
-    ufo_initialize();
-    return R_NilValue;
-}
-
-SEXP/*NILSXP*/ ufo_vectors_shutdown() {
-    ufo_shutdown_t ufo_shutdown = (ufo_shutdown_t) R_GetCCallable("ufos", "ufo_shutdown");
-    ufo_shutdown();
     return R_NilValue;
 }

@@ -11,5 +11,5 @@ SEXP/*RAWSXP*/ ufo_vectors_rawsxp_bin(SEXP/*STRSXP*/ path);
 
 SEXP/*NILSXP*/ ufo_store_bin(SEXP/*STRSXP*/ path, SEXP vector);
 
-SEXP/*NILSXP*/ ufo_vectors_initialize();
+//SEXP/*NILSXP*/ ufo_vectors_initialize();
 SEXP/*NILSXP*/ ufo_vectors_shutdown();
