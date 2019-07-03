@@ -13,3 +13,5 @@ SEXP/*NILSXP*/ ufo_store_bin(SEXP/*STRSXP*/ path, SEXP vector);
 
 //SEXP/*NILSXP*/ ufo_vectors_initialize();
 SEXP/*NILSXP*/ ufo_vectors_shutdown();
+
+SEXP/*NILSXP*/ ufo_vectors_set_debug_mode(SEXP/*LGLSXP*/ debug);

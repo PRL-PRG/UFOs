@@ -14,6 +14,30 @@ typedef struct {
 } ufo_file_source_data_t;
 
 int ufo_initialized = 0;
+int ufo_debug_mode = 0;
+
+int __extract_boolean_or_die(SEXP/*STRSXP*/ sexp) {
+    if (TYPEOF(sexp) != LGLSXP) {
+        Rf_error("Invalid type for boolean vector: %d\n", TYPEOF(sexp));
+    }
+
+    if (LENGTH(sexp) == 0) {
+        Rf_error("Provided a zero length vector for boolean vector\n");
+    }
+
+    if (LENGTH(sexp) > 1) {
+        Rf_warning("Provided multiple values for boolean vector, "
+                           "using the first one only\n");
+    }
+
+    int element = LOGICAL_ELT(sexp, 0);
+    return element == 1;
+}
+
+SEXP/*NILSXP*/ ufo_vectors_set_debug_mode(SEXP/*LGLSXP*/ debug) {
+    ufo_debug_mode = __extract_boolean_or_die(debug);
+    return R_NilValue;
+}
 
 /**
  * Check if the path provided via this SEXP makes sense:
@@ -71,6 +95,17 @@ int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
 
     ufo_file_source_data_t* data = (ufo_file_source_data_t*) user_data;
     //size_t size_of_memory_fragment = end - start + 1;
+
+    if (ufo_debug_mode) {
+        Rprintf("__load_from_file\n");
+        Rprintf("    start index: %li\n", start);
+        Rprintf("      end index: %li\n", end);
+        Rprintf("  target memory: %p\n", (void *) target);
+        Rprintf("    source file: %s\n", data->path);
+        Rprintf("    vector type: %d\n", data->vector_type);
+        Rprintf("    vector size: %li\n", data->vector_size);
+        Rprintf("   element size: %li\n", data->element_size);
+    }
 
     // FIXME concurrency
     FILE* file = fopen(data->path, "rb");

@@ -24,6 +24,9 @@ static const R_CallMethodDef CallEntries[] = {
     // Shutdown the system.
     {"ufo_vectors_shutdown",    (DL_FUNC) &ufo_vectors_shutdown,    0},
 
+    // Turn on debug mode.
+    {"ufo_vectors_set_debug_mode",  (DL_FUNC) &ufo_vectors_set_debug_mode,  1},
+
     // Terminates the function list. Necessary.
     {NULL, NULL, 0} 
 };

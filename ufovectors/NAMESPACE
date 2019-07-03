@@ -10,5 +10,5 @@ export(ufo_raw_bin)
 
 export(ufo_store_bin)
 
-export(ufo_init)
+export(ufo_set_debug_mode)
 export(ufo_shutdown)

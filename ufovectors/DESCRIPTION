@@ -15,3 +15,7 @@ LazyData: true
 Depends: ufos
 LinkingTo: ufos
 NeedsCompilation: yes
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr

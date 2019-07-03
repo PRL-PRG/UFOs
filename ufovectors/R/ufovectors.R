@@ -1,5 +1,16 @@
-ufo_init <- function() {
-  invisible(.Call("ufo_vectors_initialize"))
+ufo_set_debug_mode <- function(debug=TRUE) {
+  if (typeof(debug) != "logical") {
+    stop(paste0("Argument is of type", typeof(debug),
+    ", must be a logical vector."))
+  }
+  if (length(debug) == 0) {
+    stop("Argument is a 0-length vector")
+  }
+  if (length(debug) > 1) {
+    warning(paste0("Argument is a vector containing multiple values, picking the",
+    "first one, ignoring the rest"))
+  }
+  invisible(.Call("ufo_vectors_set_debug_mode", debug))
 }
 
 ufo_integer_bin <- function(path) {
