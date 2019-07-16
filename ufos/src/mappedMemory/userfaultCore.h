@@ -158,6 +158,12 @@ int ufCreateObject(ufInstance_t instance, ufObjectConfig_t objectConfig, ufObjec
  */
 int ufDestroyObject(ufObject_t object_p);
 
+/**
+ * returns the parent UFO for the address, which may be any valid address in the UFO's range
+ * or null if there is no currently active UFO for this address
+ */
+ufObject_t ufLookupObjectByMemberAddress(ufInstance_t instance, void*);
+
 /*
  * Get the pointer to the R header section of the object
  */
