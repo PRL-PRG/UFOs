@@ -212,6 +212,9 @@ long __get_vector_length_from_file_or_die(const char * path, size_t element_size
 
     // FIXME concurrency
     FILE* file = fopen(path, "rb");
+    if (file == NULL) {
+        Rf_error("Could not open file.\n");
+    }
 
     int seek_status = fseek(file, 0L, SEEK_END);
     if (seek_status < 0) {

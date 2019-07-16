@@ -15,12 +15,12 @@ ufo_set_debug_mode <- function(debug=TRUE) {
 
 ufo_integer_bin <- function(path) {
   .check_path(path)
-  .Call("ufo_vectors_intsxp_bin", path)
+  .Call("ufo_vectors_intsxp_bin", path.expand(path))
 }
 
 ufo_numeric_bin <- function(path) {
   .check_path(path)
-  .Call("ufo_vectors_realsxp_bin", path)
+  .Call("ufo_vectors_realsxp_bin", path.expand(path))
 }
 
 # ufo_character_bin <- function(path) {
@@ -30,17 +30,17 @@ ufo_numeric_bin <- function(path) {
 
 ufo_complex_bin <- function(path) {
   .check_path(path)
-  .Call("ufo_vectors_cplxsxp_bin", path)
+  .Call("ufo_vectors_cplxsxp_bin", path.expand(path))
 }
 
 ufo_logical_bin <- function(path) {
   .check_path(path)
-  .Call("ufo_vectors_lglsxp_bin", path)
+  .Call("ufo_vectors_lglsxp_bin", path.expand(path))
 }
 
 ufo_raw_bin <- function(path) {
   .check_path(path)
-  .Call("ufo_vectors_rawsxp_bin", path)
+  .Call("ufo_vectors_rawsxp_bin", path.expand(path))
 }
 
 ufo_shutdown <- function() {
