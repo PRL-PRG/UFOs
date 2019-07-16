@@ -77,9 +77,13 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
     return ufGetHeaderPointer(object); // FIXME
 }
 
-void __ufo_free(R_allocator_t *allocator, void * ptr) {
-    // FIXME translate from ptr to object
-
+void __ufo_free(R_allocator_t *allocator, void* ptr) {
+    ufObject_t* object = ufLookupObjectByMemberAddress(ufo_system, ptr);
+    if (object == NULL) {
+        Rf_error("Tried freeing a UFO, "
+                 "but the provided address is not a UFO header address.");
+    }
+    ufDestroyObject(object);
 }
 
 SEXP __ufo_new_array(SEXPTYPE type, ufo_source_t* source) {
