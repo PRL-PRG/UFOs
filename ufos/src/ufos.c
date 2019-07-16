@@ -86,24 +86,6 @@ void __ufo_free(R_allocator_t *allocator, void* ptr) {
     ufDestroyObject(object);
 }
 
-SEXP __ufo_new_array(SEXPTYPE type, ufo_source_t* source) {
-    // Initialize an allocator.
-    R_allocator_t* allocator = (R_allocator_t*) malloc(sizeof(R_allocator_t));
-
-    // Initialize an allocator data struct.
-    ufo_source_t* data = (ufo_source_t*) malloc(sizeof(ufo_source_t));
-
-    // Configure the allocator: provide function to allocate and free memory,
-    // as well as a structure to keep the allocator's data.
-    allocator->mem_alloc = &__ufo_alloc;
-    allocator->mem_free = &__ufo_free;
-    allocator->res; /* reserved, must be NULL */
-    allocator->data = source; /* custom data: used for source */
-
-    // Create a new vector of the appropriate type using the allocator.
-    return allocVector3(type, source->vector_size, allocator);
-}
-
 SEXPTYPE ufo_type_to_vector_type (ufo_vector_type_t ufo_type) {
     switch (ufo_type) {
         case UFO_CHAR:
