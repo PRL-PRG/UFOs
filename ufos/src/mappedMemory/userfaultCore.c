@@ -84,14 +84,14 @@ static void handlerShutdown(ufInstance* i, bool selfFree){
   close(i->msgPipe[1]);
 
   //Nuke all the objects
-  void nullObjectInstance(entry* e){
+  void nullObject(entry* e){
     ufObject* ufo = asUfo(e->valuePtr);
     if(NULL != ufo)
       munmap(ufo->start, ufo->trueSize);
     else
       assert(false);
   }
-  listWalk(i->instances, nullObjectInstance);
+  listWalk(i->objects, nullObject);
 
   ufAsyncMsg msg;
   while(!readMsg(i->msgPipe[0], sizeof(msg), (char*)&msg)){
@@ -168,7 +168,7 @@ static int readHandleUfEvent(ufInstance* i){
     assert(0 == (faultAtAddr % pageSize));
 
     entry e;
-    tryPerrInt(res, listFind(i->instances, &e, (void*)faultAtAddr), "no known object for fault", error);
+    tryPerrInt(res, listFind(i->objects, &e, (void*)faultAtAddr), "no known object for fault", error);
     ufObject* ufo = asUfo(e.valuePtr);
 
     const uint64_t bodyStart = (uint64_t) ufo->start + ufo->config.headerSzWithPadding;
@@ -245,7 +245,7 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
     goto error;
   }
 
-  tryPerrInt(res, listAdd(i->instances, ufo->start, ufo->trueSize, ufo), "unknown UFO", callerErr);
+  tryPerrInt(res, listAdd(i->objects, ufo->start, ufo->trueSize, ufo), "unknown UFO", callerErr);
 
   // zero the header area so it doesn't fault
   if(ufo->config.headerSzWithPadding > 0){
@@ -281,7 +281,7 @@ static int freeUfo(ufInstance* i, ufAsyncMsg* msg){
   ufM = (struct uffdio_register) {.range = {.start = ufo->startI, .len = size}};
   tryPerrInt(res, ioctl(i->ufFd, UFFDIO_UNREGISTER, &ufM), "error unregistering ufo with UF", callerErr);
 
-  tryPerrInt(res, listRemove(i->instances, ufo->start), "unknown UFO", callerErr);
+  tryPerrInt(res, listRemove(i->objects, ufo->start), "unknown UFO", callerErr);
 
   munmap(ufo->start, size);
   *msg->return_p = 0; // Success
@@ -471,7 +471,7 @@ int ufInit(ufInstance_t instance){
 
 ufInstance_t ufMakeInstance(){
   ufInstance* i = calloc(1, sizeof(ufInstance));
-  i->instances = newList();
+  i->objects = newList();
   return i;
 }
 
@@ -591,6 +591,17 @@ int ufCreateObject(ufInstance_t instance, ufObjectConfig_t objectConfig, ufObjec
   errAlloc:
 
   return res;
+}
+
+ufObject_t ufLookupObjectByMemberAddress(ufInstance_t instance, void* ptr){
+  ufInstance* i = asUfInstance(instance);
+
+  int res;
+  entry e;
+  res = listFind(i->objects, &e, ptr);
+  if(0 != res)
+    return NULL;
+  return asUfo(e.valuePtr);
 }
 
 int ufDestroyObject(ufObject_t object_p){
