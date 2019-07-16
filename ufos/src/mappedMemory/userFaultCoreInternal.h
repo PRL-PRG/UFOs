@@ -40,7 +40,7 @@ typedef struct {
   char*             buffer;
   uint64_t          bufferSize;
 
-  sparseList_t      instances;
+  sparseList_t      objects;
 
   uint16_t          concurrency;
 } ufInstance;
@@ -53,7 +53,15 @@ typedef struct {
     uint64_t        startI;
   };
   uint64_t          trueSize;
+  sparseList_t      rangeMetadata;
 } ufObject;
+
+typedef uint32_t loadOrder;
+
+typedef struct {
+  loadOrder order;
+  uint32_t  pageCt;
+} ufRangeMeta;
 
 #define _as(t, o) ((t*)o)
 #define asObjectConfig(o) _as(ufObjectConfig, o)
