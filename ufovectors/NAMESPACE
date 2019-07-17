@@ -5,6 +5,7 @@ export(ufo_numeric_bin)
 export(ufo_complex_bin)
 export(ufo_logical_bin)
 export(ufo_raw_bin)
+export(ufo_vector_bin)
 
 #export(ufo_character_bin)
 

@@ -13,6 +13,18 @@ ufo_set_debug_mode <- function(debug=TRUE) {
   invisible(.Call("ufo_vectors_set_debug_mode", debug))
 }
 
+ufo_vector_bin <- function(type, path) {
+  if (missing(type)) stop("Missing vector type.")
+
+  if (type == "integer") return(ufo_integer_bin(path))
+  if (type == "numeric") return(ufo_numeric_bin(path))
+  if (type == "complex") return(ufo_complex_bin(path))
+  if (type == "logical") return(ufo_logical_bin(path))
+  if (type == "raw")     return(ufo_raw_bin(path))
+
+  stop(paste0("Unknown UFO vector type: ", type))
+}
+
 ufo_integer_bin <- function(path) {
   .check_path(path)
   .Call("ufo_vectors_intsxp_bin", path.expand(path))
@@ -88,3 +100,4 @@ ufo_store_bin <- function(path, vector) {
 
   invisible(.Call("ufo_store_bin", path, vector))
 }
+
