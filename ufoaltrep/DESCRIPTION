@@ -1,0 +1,15 @@
+Package: ufoaltrep
+Type: Package
+Title: ALTREP re-implementation of ufovectors
+Description: An ALTREP re-implementation of the lazy-loaded User Fault Object vectors from the demo package ufovectors. This is created for performence comparisons, mostly.
+Version: 0.1.0
+Authors@R: c(person(given = "Colette", family = "Kerr", role = c("aut"),
+                    email = "colette.m.y.kerr@gmail.com"),
+             person(given = "Konrad",  family = "Siek", role = c("aut", "cre"),
+                    email = "siekkonr@fit.cvut.cz"))
+Maintainer: Konrad Siek <siekkonr@fit.cvut.cz>
+License: GPL-2 | GPL-3
+Encoding: UTF-8
+LazyData: true
+NeedsCompilation: yes
+

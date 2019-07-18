@@ -1,0 +1,10 @@
+useDynLib(ufoaltrep, .registration = TRUE, .fixes = "")
+
+export(altrep_ufo_integer_bin)
+export(altrep_ufo_numeric_bin)
+export(altrep_ufo_complex_bin)
+export(altrep_ufo_logical_bin)
+export(altrep_ufo_raw_bin)
+export(altrep_ufo_vector_bin)
+
+export(altrep_ufo_set_debug_mode)
