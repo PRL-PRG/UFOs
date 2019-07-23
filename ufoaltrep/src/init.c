@@ -33,3 +33,7 @@ void attribute_visible R_init_ufoaltrep(DllInfo *dll) {
     R_forceSymbols(dll, TRUE);
 }
 
+void attribute_visible R_unload_ufoaltrep(DllInfo *dll) {
+    printf("goodnight sweet prince\n");
+}
+

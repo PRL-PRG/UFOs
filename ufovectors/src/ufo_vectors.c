@@ -11,6 +11,8 @@ typedef struct {
     ufo_vector_type_t   vector_type;
     size_t              element_size; /* in bytes */
     size_t              vector_size;
+    FILE*               file_handle;
+    size_t              file_cursor;
 } ufo_file_source_data_t;
 
 int ufo_initialized = 0;
@@ -107,22 +109,14 @@ int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
         Rprintf("   element size: %li\n", data->element_size);
     }
 
-    // FIXME concurrency
-    FILE* file = fopen(data->path, "rb");
-
-    if (!file) {
-        fprintf(stderr, "Could not open file.\n"); //TODO use proper channels
-        return -1;
-    }
-
-    int initial_seek_status = fseek(file, 0L, SEEK_END);
+    int initial_seek_status = fseek(data->file_handle, 0L, SEEK_END);
     if (initial_seek_status < 0) {
         // Could not seek in from file.
         fprintf(stderr, "Could not seek to the end of file.\n"); //TODO use proper channels
         return 1;
     }
 
-    long file_size_in_bytes = ftell(file);
+    long file_size_in_bytes = ftell(data->file_handle);
     //fprintf(stderr, "file_size=%li\n", file_size_in_bytes);
 
     long start_reading_from = data->element_size * start;
@@ -141,27 +135,28 @@ int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
         return 43;
     }
 
-    int rewind_seek_status = fseek(file, start_reading_from, SEEK_SET);
+    int rewind_seek_status = fseek(data->file_handle, start_reading_from, SEEK_SET);
     if (rewind_seek_status < 0) {
         // Could not seek in the file to position at start index.
         fprintf(stderr, "Could not seek in the file to position at start index.\n"); //TODO use proper channels
         return 2;
     }
 
-    size_t read_status = fread(target, data->element_size, end - start, file);
+    size_t read_status = fread(target, data->element_size, end - start, data->file_handle);
     if (read_status < end - start || read_status == 0) {
         // Read failed.
         fprintf(stderr, "Read failed. Read %li out of %li elements.\n", read_status, end - start); //TODO use proper channels
         return 44;
     }
 
-    fclose(file);
+    //fclose(file);
     return 0;
 }
 
 // TODO this does not actually implement anything in userfaultCore.h yet
 int __save_to_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
                    ufUserData user_data, void* target) {
+    // FIXME
     ufo_file_source_data_t* data = (ufo_file_source_data_t*) user_data;
     FILE* file = fopen(data->path, "wb");
 
@@ -237,30 +232,49 @@ void __check_file_path_or_die(const char * path) {
 
 }
 
-ufo_source_t* __make_source(ufo_vector_type_t type, const char* path) {
+void __destroy(ufUserData *user_data) {
+    ufo_file_source_data_t *data = (ufo_file_source_data_t*) user_data;
+    if (ufo_debug_mode) {
+        Rprintf("__destroy\n");
+        Rprintf("    source file: %s\n", data->path);
+        Rprintf("    vector type: %d\n", data->vector_type);
+        Rprintf("    vector size: %li\n", data->vector_size);
+        Rprintf("   element size: %li\n", data->element_size);
+    }
+    fclose(data->file_handle);
+}
+
+FILE *__open_file_or_die(char const *path) {
+    FILE * file = fopen(path, "rb");
+    if (!file) {
+        Rf_error("Could not open file.\n");
+    }
+    return file;
+}
+
+ufo_source_t* __make_source_or_die(ufo_vector_type_t type, const char* path) {
     __check_file_path_or_die(path);
 
     ufo_file_source_data_t *data = (ufo_file_source_data_t*) malloc(sizeof(ufo_file_source_data_t));
 
     ufo_source_t* source = (ufo_source_t*) malloc(sizeof(ufo_source_t));
     source->population_function = &__load_from_file;
+    source->destructor_function = &__destroy;
     source->data = (ufUserData*) data;
     source->vector_type = type;
     source->element_size = __get_element_size(type);
     source->vector_size = __get_vector_length_from_file_or_die(path, source->element_size);
-
-//    fprintf(stderr, "source->vector_type=%i\n",source->vector_type);
-//    fprintf(stderr, "source->element_size=%li\n",source->element_size);
-//    fprintf(stderr, "source->vector_size=%li\n",source->vector_size);
 
     data->path = path;
     data->vector_type = source->vector_type;
     data->vector_size = source->vector_size;
     data->element_size = source->element_size;
 
+    data->file_handle = __open_file_or_die(path);
+    data->file_cursor = 0;
+
     return source;
 }
-
 
 SEXP/*NILSXP*/ ufo_vectors_shutdown() {
     if (ufo_initialized != 0) {
@@ -283,7 +297,7 @@ void ufo_vectors_initialize_if_necessary() {
 
 SEXP __make_vector(ufo_vector_type_t type, SEXP sexp) {
     const char *path = __extract_path_or_die(sexp);
-    ufo_source_t *source = __make_source(type, path);
+    ufo_source_t *source = __make_source_or_die(type, path);
     ufo_vectors_initialize_if_necessary();
     ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
     return ufo_new(source);

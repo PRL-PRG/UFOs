@@ -5,7 +5,6 @@ SET(EX_PLATFORM 64)
 SET(EX_PLATFORM_NAME "x64")
 
 add_definitions(-Wall -O2)
-                # -Wall -g
 
 file(GLOB_RECURSE SRC "src/*.c" "src/*.h")
 
