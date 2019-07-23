@@ -234,21 +234,21 @@ static void ufo_vector_element(SEXP x, R_xlen_t i, void *target) {
 
     __load_from_file(altrep_ufo_debug_mode, i, i+1,
                      cfg->path, cfg->element_size, cfg->vector_size,
-                     (char *) &target);
+                     (char *) target);
 }
 
 static int ufo_integer_element(SEXP x, R_xlen_t i) {
     if (R_altrep_data2(x) != R_NilValue)
         return INTEGER_ELT(R_altrep_data2(x), i);
-    int val;
-    ufo_vector_element(x, i, &val);
-    return val;
+    int ans = 0x5c5c5c5c;
+    ufo_vector_element(x, i, &ans);
+    return ans;
 }
 
 static double ufo_numeric_element(SEXP x, R_xlen_t i) {
     if (R_altrep_data2(x) != R_NilValue)
         return REAL_ELT(R_altrep_data2(x), i);
-    double val;
+    double val = 0x5c5c5c5c;
     ufo_vector_element(x, i, &val);
     return val;
 }
@@ -256,7 +256,7 @@ static double ufo_numeric_element(SEXP x, R_xlen_t i) {
 static Rbyte ufo_raw_element(SEXP x, R_xlen_t i) {
     if (R_altrep_data2(x) != R_NilValue)
         return RAW_ELT(R_altrep_data2(x), i);
-    Rbyte val;
+    Rbyte val = 0;
     ufo_vector_element(x, i, &val);
     return val;
 }
@@ -264,7 +264,7 @@ static Rbyte ufo_raw_element(SEXP x, R_xlen_t i) {
 static Rcomplex ufo_complex_element(SEXP x, R_xlen_t i) {
     if (R_altrep_data2(x) != R_NilValue)
         return COMPLEX_ELT(R_altrep_data2(x), i);
-    Rcomplex val;
+    Rcomplex val = {0x5c5c5c5c, 0x5c5c5c5c};
     ufo_vector_element(x, i, &val);
     return val;
 }
@@ -272,7 +272,7 @@ static Rcomplex ufo_complex_element(SEXP x, R_xlen_t i) {
 static int ufo_logical_element(SEXP x, R_xlen_t i) {
     if (R_altrep_data2(x) != R_NilValue)
         return LOGICAL_ELT(R_altrep_data2(x), i);
-    Rboolean val;
+    Rboolean val = FALSE;
     ufo_vector_element(x, i, &val);
     return (int) val;
 }

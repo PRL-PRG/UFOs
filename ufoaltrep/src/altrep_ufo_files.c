@@ -166,6 +166,9 @@ int __load_from_file(int debug, uint64_t start, uint64_t end, char const *path, 
     }
 
     size_t read_status = fread(target, element_size, end - start, file);
+    if (debug) {
+        Rprintf("    read status: %li\n", element_size);
+    }
     if (read_status < end - start || read_status == 0) {
         // Read failed.
         fprintf(stderr, "Read failed. Read %li out of %li elements.\n", read_status, end - start);
