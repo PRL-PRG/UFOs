@@ -83,6 +83,8 @@ void __ufo_free(R_allocator_t *allocator, void* ptr) {
         Rf_error("Tried freeing a UFO, "
                  "but the provided address is not a UFO header address.");
     }
+    ufo_source_t* source = (ufo_source_t*) allocator->data;
+    source->destructor_function(source->data);
     ufDestroyObject(object);
 }
 
