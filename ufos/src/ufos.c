@@ -6,6 +6,7 @@
 #include <R_ext/Rallocators.h>
 
 #include "ufos.h"
+#include "R_ext.h"
 #include "mappedMemory/userfaultCore.h"
 
 #include <assert.h>
@@ -136,4 +137,19 @@ SEXP ufo_new(ufo_source_t* source) {
 
     // Create a new vector of the appropriate type using the allocator.
     return allocVector3(type, source->vector_size, allocator);
+}
+
+SEXP ufo_new_multidim(ufo_source_t* source) {
+    // Check type.
+    SEXPTYPE type = ufo_type_to_vector_type(source->vector_type);
+    if (type < 0) {
+        Rf_error("No available vector constructor for this type.");
+    }
+
+    // Initialize an allocator.
+    R_allocator_t* allocator = __ufo_new_allocator(source);
+
+    // Create a new matrix of the appropriate type using the allocator.
+    return allocMatrix3(type, source->dimensions[0],
+                              source->dimensions[1], allocator);
 }

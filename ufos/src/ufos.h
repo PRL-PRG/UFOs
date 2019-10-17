@@ -24,8 +24,9 @@ typedef struct {
     ufo_destructor_t    destructor_function;
     ufo_vector_type_t   vector_type;
     //ufUpdateRange     update_function;
-    size_t              vector_size;
+    /*R_len_t*/size_t   vector_size;
     size_t              element_size;
+    size_t*             dimensions;
 } ufo_source_t;
 
 // Initialization and shutdown
@@ -34,6 +35,7 @@ void ufo_shutdown();
 
 // Constructor
 SEXP ufo_new(ufo_source_t*);
+SEXP ufo_new_multidim(ufo_source_t* source);
 
 // Auxiliary functions.
 SEXPTYPE ufo_type_to_vector_type (ufo_vector_type_t);

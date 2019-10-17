@@ -11,21 +11,21 @@ static const R_CallMethodDef CallEntries[] = {
     //{"ufo_vectors_initialize",  (DL_FUNC) &ufo_vectors_initialize,  0},
 
     // Vectors that parially materialize on-demand from binary files.
-    {"ufo_matrix_intsxp_bin",  (DL_FUNC) &ufo_vectors_intsxp_bin,  1},
-    {"ufo_matrix_realsxp_bin", (DL_FUNC) &ufo_vectors_realsxp_bin, 1},
-//    {"ufo_vectors_strsxp_bin",  (DL_FUNC) &ufo_vectors_strsxp_bin,  1},
-    {"ufo_matrix_cplxsxp_bin", (DL_FUNC) &ufo_vectors_cplxsxp_bin, 1},
-    {"ufo_matrix_lglsxp_bin",  (DL_FUNC) &ufo_vectors_lglsxp_bin,  1},
-    {"ufo_matrix_rawsxp_bin",  (DL_FUNC) &ufo_vectors_rawsxp_bin,  1},
+    {"ufo_matrix_intsxp_bin",  (DL_FUNC) &ufo_matrix_intsxp_bin,  1},
+    {"ufo_matrix_realsxp_bin", (DL_FUNC) &ufo_matrix_realsxp_bin, 1},
+//    {"ufo_vectors_strsxp_bin",  (DL_FUNC) &ufo_matrix_strsxp_bin,  1},
+    {"ufo_matrix_cplxsxp_bin", (DL_FUNC) &ufo_matrix_cplxsxp_bin, 1},
+    {"ufo_matrix_lglsxp_bin",  (DL_FUNC) &ufo_matrix_lglsxp_bin,  1},
+    {"ufo_matrix_rawsxp_bin",  (DL_FUNC) &ufo_matrix_rawsxp_bin,  1},
 
     // Storage.
-    {"ufo_matrix_store_bin", (DL_FUNC) &ufo_store_bin, 2},
+    {"ufo_matrix_store_bin", (DL_FUNC) &ufo_matrix_store_bin, 2},
 
     // Shutdown the system.
-    {"ufo_matrix_shutdown",    (DL_FUNC) &ufo_vectors_shutdown,    0},
+    {"ufo_matrix_shutdown",    (DL_FUNC) &ufo_matrix_shutdown,    0},
 
     // Turn on debug mode.
-    {"ufo_matrix_set_debug_mode",  (DL_FUNC) &ufo_vectors_set_debug_mode,  1},
+    {"ufo_matrix_set_debug_mode",  (DL_FUNC) &ufo_matrix_set_debug_mode,  1},
 
     // Terminates the function list. Necessary.
     {NULL, NULL, 0} 

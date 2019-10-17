@@ -264,6 +264,7 @@ ufo_source_t* __make_source_or_die(ufo_vector_type_t type, const char* path) {
     source->vector_type = type;
     source->element_size = __get_element_size(type);
     source->vector_size = __get_vector_length_from_file_or_die(path, source->element_size);
+    source->dimensions = NULL;
 
     data->path = path;
     data->vector_type = source->vector_type;

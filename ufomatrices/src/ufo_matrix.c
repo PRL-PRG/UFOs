@@ -7,10 +7,15 @@
 #include "../include/mappedMemory/userfaultCore.h"
 
 typedef struct {
+    size_t rows;
+    size_t cols;
+} matrix_dim_t;
+
+typedef struct {
     const char*         path;
-    ufo_vector_type_t   vector_type;
+    ufo_vector_type_t   matrix_type;
     size_t              element_size; /* in bytes */
-    size_t[2]              vector_sizes;
+    matrix_dim_t        matrix_dimensions;
     FILE*               file_handle;
     size_t              file_cursor;
 } ufo_file_source_data_t;
@@ -36,7 +41,7 @@ int __extract_boolean_or_die(SEXP/*STRSXP*/ sexp) {
     return element == 1;
 }
 
-SEXP/*NILSXP*/ ufo_vectors_set_debug_mode(SEXP/*LGLSXP*/ debug) {
+SEXP/*NILSXP*/ ufo_matrix_set_debug_mode(SEXP/*LGLSXP*/ debug) {
     ufo_debug_mode = __extract_boolean_or_die(debug);
     return R_NilValue;
 }
@@ -104,8 +109,9 @@ int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
         Rprintf("      end index: %li\n", end);
         Rprintf("  target memory: %p\n", (void *) target);
         Rprintf("    source file: %s\n", data->path);
-        Rprintf("    vector type: %d\n", data->vector_type);
-        Rprintf("    vector size: %li\n", data->vector_size);
+        Rprintf("    matrix type: %d\n", data->matrix_type);
+        Rprintf("    matrix dims: %li,%li\n", data->matrix_dimensions.rows,
+                                              data->matrix_dimensions.cols);
         Rprintf("   element size: %li\n", data->element_size);
     }
 
@@ -119,7 +125,7 @@ int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
     long file_size_in_bytes = ftell(data->file_handle);
     //fprintf(stderr, "file_size=%li\n", file_size_in_bytes);
 
-    long start_reading_from = data->element_size * start;
+    long start_reading_from = data->element_size * start + (2 * sizeof(size_t));
     //fprintf(stderr, "start_reading_from=%li\n", start_reading_from);
     if (start_reading_from > file_size_in_bytes) {
         // Start index out of bounds of the file.
@@ -127,7 +133,7 @@ int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
         return 42;
     }
 
-    long end_reading_at = data->element_size * end;
+    long end_reading_at = data->element_size * end + (2 * sizeof(size_t));
     //fprintf(stderr, "end_reading_at=%li\n", end_reading_at);
     if (end_reading_at > file_size_in_bytes) {
         // End index out of bounds of the file.
@@ -150,29 +156,6 @@ int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
     }
 
     //fclose(file);
-    return 0;
-}
-
-// TODO this does not actually implement anything in userfaultCore.h yet
-int __save_to_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
-                   ufUserData user_data, void* target) {
-    // FIXME
-    ufo_file_source_data_t* data = (ufo_file_source_data_t*) user_data;
-    FILE* file = fopen(data->path, "wb");
-
-    if (file) {
-        // TODO "allocate" if necessary.
-        int seek_status = fseek(file, data->element_size * start, SEEK_SET);
-        if (seek_status < 0) {
-            return 42;
-        }
-        size_t write_status = fwrite(target, data->element_size, end-start, file);
-        if (write_status < end-start || write_status == 0) {
-            return 47;
-        }
-    }
-
-    fclose(file);
     return 0;
 }
 
@@ -228,6 +211,30 @@ long __get_vector_length_from_file_or_die(const char * path, size_t element_size
     return file_size_in_bytes / element_size;
 }
 
+matrix_dim_t __get_matrix_dims_from_file_or_die(const char * path, size_t element_size) {
+
+    // FIXME concurrency
+    FILE* file = fopen(path, "rb");
+    if (file == NULL) {
+        Rf_error("Could not open file.\n");
+    }
+
+    matrix_dim_t dims;
+
+    size_t status;
+    status = fread(&dims.rows, sizeof(size_t), 1, file);
+    if (status != 1) {
+        Rf_error("Could not read matrix dimensions (rows) from file.\n");
+    }
+    status = fread(&dims.cols, sizeof(size_t), 1, file);
+    if (status != 1) {
+        Rf_error("Could not read matrix dimensions (cols) from file.\n");
+    }
+
+    fclose(file);
+    return dims;
+}
+
 void __check_file_path_or_die(const char * path) {
 
 }
@@ -237,8 +244,9 @@ void __destroy(ufUserData *user_data) {
     if (ufo_debug_mode) {
         Rprintf("__destroy\n");
         Rprintf("    source file: %s\n", data->path);
-        Rprintf("    vector type: %d\n", data->vector_type);
-        Rprintf("    vector size: %li\n", data->vector_size);
+        Rprintf("    matrix type: %d\n", data->matrix_type);
+        Rprintf("    matrix dims: %li,%li\n", data->matrix_dimensions.rows,
+                                              data->matrix_dimensions.cols);
         Rprintf("   element size: %li\n", data->element_size);
     }
     fclose(data->file_handle);
@@ -264,19 +272,23 @@ ufo_source_t* __make_source_or_die(ufo_vector_type_t type, const char* path) {
     source->vector_type = type;
     source->element_size = __get_element_size(type);
     source->vector_size = __get_vector_length_from_file_or_die(path, source->element_size);
+    source->dimensions = (size_t*) malloc(sizeof(size_t) * 2);
 
     data->path = path;
-    data->vector_type = source->vector_type;
-    data->vector_size = source->vector_size;
+    data->matrix_type = source->vector_type;
+    data->matrix_dimensions = __get_matrix_dims_from_file_or_die(path, source->element_size);
     data->element_size = source->element_size;
 
     data->file_handle = __open_file_or_die(path);
     data->file_cursor = 0;
 
+    source->dimensions[0] = data->matrix_dimensions.rows;
+    source->dimensions[1] = data->matrix_dimensions.cols;
+
     return source;
 }
 
-SEXP/*NILSXP*/ ufo_vectors_shutdown() {
+SEXP/*NILSXP*/ ufo_matrix_shutdown() {
     if (ufo_initialized != 0) {
         ufo_shutdown_t ufo_shutdown =
                 (ufo_shutdown_t) R_GetCCallable("ufos", "ufo_shutdown");
@@ -298,34 +310,35 @@ void ufo_matrix_initialize_if_necessary() {
 SEXP __make_matrix(ufo_vector_type_t type, SEXP sexp) {
     const char *path = __extract_path_or_die(sexp);
     ufo_source_t *source = __make_source_or_die(type, path);
-    ufo_vectors_initialize_if_necessary();
-    ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
+    ufo_matrix_initialize_if_necessary();
+    ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new_multidim");
+
     return ufo_new(source);
 }
 
 SEXP ufo_matrix_intsxp_bin(SEXP/*STRSXP*/ path) {
-    return __make_vector(UFO_INT, path);
+    return __make_matrix(UFO_INT, path);
 }
 
 SEXP ufo_matrix_realsxp_bin(SEXP/*STRSXP*/ path) {
-    return __make_vector(UFO_REAL, path);
+    return __make_matrix(UFO_REAL, path);
 }
 
 SEXP ufo_matrix_cplxsxp_bin(SEXP/*STRSXP*/ path) {
-    return __make_vector(UFO_CPLX, path);
+    return __make_matrix(UFO_CPLX, path);
 }
 
 //SEXP ufo_vectors_strsxp_bin(SEXP/*STRSXP*/ path) {
 //    Rf_error("ufo_vectors_strsxp_bin not implemented");
-//    //return __make_vector(UFO_STR, path);
+//    //return __make_matrix(UFO_STR, path);
 //}
 
 SEXP ufo_matrix_lglsxp_bin(SEXP/*STRSXP*/ path) {
-    return __make_vector(UFO_LGL, path);
+    return __make_matrix(UFO_LGL, path);
 }
 
 SEXP ufo_matrix_rawsxp_bin(SEXP/*STRSXP*/ path) {
-    return __make_vector(UFO_RAW, path);
+    return __make_matrix(UFO_RAW, path);
 }
 
 void __write_bytes_to_disk(const char *path, size_t size, const char *bytes) {
@@ -369,15 +382,16 @@ void __append_bytes_to_disk(const char *path, size_t size, const char *bytes) {
 }
 
 SEXP/*NILSXP*/ ufo_matrix_store_bin(SEXP/*STRSXP*/ _path, SEXP matrix) {
+
+    int *dims = INTEGER(coerceVector(getAttrib(matrix, R_DimSymbol), INTSXP));
+
     __write_bytes_to_disk(__extract_path_or_die(_path),
-                          Rf_length(vector) * __get_element_size(TYPEOF(vector)),
-                          (const char *) DATAPTR_RO(vector));
+                          2 * __get_element_size(TYPEOF(matrix)),
+                          (const char *) dims);
 
-    int *dimensions = INTEGER(coerceVector(getAttrib(matrix, R_DimSymbol), INTSXP));
-
-    ___append_bytes_to_disk(__extract_path_or_die(_path),
-            2 * __get_element_size(TYPEOF(vector)),
-            (const char *) dimensions);
+    __append_bytes_to_disk(__extract_path_or_die(_path),
+                          Rf_length(matrix) * __get_element_size(TYPEOF(matrix)),
+                          (const char *) DATAPTR_RO(matrix));
 
     return R_NilValue;
 }
