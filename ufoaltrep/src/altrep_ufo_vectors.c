@@ -6,8 +6,10 @@
 #include <R.h>
 #include <Rinternals.h>
 #include <R_ext/Altrep.h>
+#include <R_ext/Rallocators.h>
 
 #include "altrep_ufo_vectors.h"
+#include "R_ext.h"
 
 int altrep_ufo_debug_mode = 0;
 
@@ -274,6 +276,53 @@ SEXP/*CPLXSXP*/ altrep_ufo_vectors_cplxsxp_bin(SEXP/*STRSXP*/ path) {
 }
 SEXP/*RAWSXP*/ altrep_ufo_vectors_rawsxp_bin(SEXP/*STRSXP*/ path) {
     return ufo_vector_new_altrep(RAWSXP, __extract_path_or_die(path));
+}
+
+typedef struct {
+    SEXPTYPE            type;
+    /*R_len_t*/size_t   size;
+    char const *        path;
+    //size_t*             dimensions;
+} altrep_ufo_source_t;
+
+void* __ufo_altrep_alloc(R_allocator_t *allocator, size_t size) {
+    altrep_ufo_source_t *data = (altrep_ufo_source_t*) allocator->data;
+    return ufo_vector_new_altrep(data->type, data->path);
+}
+
+void* __ufo_altrep_free(R_allocator_t *allocator, void* ptr) {
+    // FIXME free allocator
+}
+
+R_allocator_t* __altrep_ufo_new_allocator(char const *path) {
+    // Initialize an allocator.
+    R_allocator_t* allocator = (R_allocator_t*) malloc(sizeof(R_allocator_t));
+
+    // Initialize an allocator data struct.
+    altrep_ufo_source_t* data = (altrep_ufo_source_t*) malloc(sizeof(altrep_ufo_source_t));
+
+    // Configure the allocator: provide function to allocate and free memory,
+    // as well as a structure to keep the allocator's data.
+    allocator->mem_alloc = &__ufo_altrep_alloc;
+    allocator->mem_free = &__ufo_altrep_free;
+    allocator->res; /* reserved, must be NULL */
+    allocator->data = data; /* custom data: used for source */
+
+    return allocator;
+}
+
+SEXP altrep_ufo_matrix_new_altrep(SEXPTYPE type, char const *path) {
+    // Check type.
+    if (type < 0) {
+        Rf_error("No available vector constructor for this type.");
+    }
+
+    // Initialize an allocator.
+    R_allocator_t* allocator = __altrep_ufo_new_allocator(path);
+
+    // Create a new matrix of the appropriate type using the allocator.
+    return allocMatrix3(type, dimensions[0], dimensions[1], allocator);
+    }
 }
 
 static SEXP ufo_vector_duplicate(SEXP x, Rboolean deep) {

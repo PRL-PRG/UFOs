@@ -5,7 +5,7 @@
 #include <R.h>
 #include <Rinternals.h>
 
-typedef enum {
+typedef enum {tion
     UFO_CHAR = CHARSXP,
     UFO_LGL  = LGLSXP,
     UFO_INT  = INTSXP,
