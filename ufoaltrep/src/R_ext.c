@@ -1,8 +1,12 @@
 #include "R_ext.h"
-typedef SEXP (*altrep_allocVector_t)(SEXPTYPE, R_xlen_t);
+//typedef SEXP (*altrep_allocVector_t)(SEXPTYPE, R_xlen_t);
+
+
 
 SEXP allocMatrix3(SEXPTYPE mode, int nrow, int ncol, R_allocator_t *allocator)
 {
+    printf("\n<.< mode=%d, dims=[%d,%d]\n", mode, nrow, ncol);
+
     SEXP s, t;
     R_xlen_t n;
 
@@ -14,6 +18,7 @@ SEXP allocMatrix3(SEXPTYPE mode, int nrow, int ncol, R_allocator_t *allocator)
 #endif
     n = ((R_xlen_t) nrow) * ncol;
     PROTECT(s = allocVector3(mode, n, allocator));
+
     PROTECT(t = allocVector(INTSXP, 2));
     INTEGER(t)[0] = nrow;
     INTEGER(t)[1] = ncol;

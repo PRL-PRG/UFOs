@@ -80,3 +80,50 @@ altrep_ufo_raw_bin <- function(path) {
     warning(paste0("File '", path, "' exists but is not writeable."))
   }
 }
+
+altrep_ufo_matrix_integer_bin <- function(path, nrows, ncols) {
+  .check_path(path)
+  .Call("altrep_ufo_matrix_intsxp_bin", path.expand(path),
+                                        as.integer(nrows),
+                                        as.integer(ncols))
+}
+
+altrep_ufo_matrix_numeric_bin <- function(path, nrows, ncols) {
+  .check_path(path)
+  .Call("altrep_ufo_matrix_realsxp_bin", path.expand(path),
+                                         as.integer(nrows),
+                                         as.integer(ncols))
+}
+
+altrep_ufo_matrix_complex_bin <- function(path, nrows, ncols) {
+  .check_path(path)
+  .Call("altrep_ufo_matrix_cplxsxp_bin", path.expand(path),
+                                         as.integer(nrows),
+                                         as.integer(ncols))
+}
+
+altrep_ufo_matrix_logical_bin <- function(path, nrows, ncols) {
+  .check_path(path)
+  .Call("altrep_ufo_matrix_lglsxp_bin", path.expand(path),
+                                        as.integer(nrows),
+                                        as.integer(ncols))
+}
+
+altrep_ufo_matrix_raw_bin <- function(path, nrows, ncols) {
+  .check_path(path)
+  .Call("altrep_ufo_matrix_rawsxp_bin", path.expand(path),
+                                        as.integer(nrows),
+                                        as.integer(ncols))
+}
+
+altrep_ufo_matrix_vector_bin <- function(type, path, nrows, ncols) {
+  if (missing(type)) stop("Missing matrix type.")
+
+  if (type == "integer") return(altrep_ufo_matrix_integer_bin(path, nrows, ncols))
+  if (type == "numeric") return(altrep_ufo_matrix_numeric_bin(path, nrows, ncols))
+  if (type == "complex") return(altrep_ufo_matrix_complex_bin(path, nrows, ncols))
+  if (type == "logical") return(altrep_ufo_matrix_logical_bin(path, nrows, ncols))
+  if (type == "raw")     return(altrep_ufo_matrix_raw_bin(path, nrows, ncols))
+
+  stop(paste0("Unknown UFO matrix type: ", type))
+}

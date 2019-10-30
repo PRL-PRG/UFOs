@@ -6,4 +6,6 @@
 #include <Rinternals.h>
 #include <R_ext/Rallocators.h>
 
-SEXP allocMatrix3(SEXPTYPE mode, int nrow, int ncol, R_allocator_t *allocator);
+SEXP allocMatrix3(SEXPTYPE mode, int nrow, int ncol,
+                  altrep_constructor_t *altrep_constructor,
+                  void *altrep_constructor_data);

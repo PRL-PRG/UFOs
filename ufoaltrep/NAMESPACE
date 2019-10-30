@@ -7,4 +7,11 @@ export(altrep_ufo_logical_bin)
 export(altrep_ufo_raw_bin)
 export(altrep_ufo_vector_bin)
 
+export(altrep_ufo_matrix_integer_bin)
+export(altrep_ufo_matrix_numeric_bin)
+export(altrep_ufo_matrix_complex_bin)
+export(altrep_ufo_matrix_logical_bin)
+export(altrep_ufo_matrix_raw_bin)
+export(altrep_ufo_matrix_vector_bin)
+
 export(altrep_ufo_set_debug_mode)

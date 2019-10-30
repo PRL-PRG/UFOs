@@ -9,10 +9,15 @@ static const R_CallMethodDef CallEntries[] = {
     // Vectors that parially materialize on-demand from binary files.
     {"altrep_ufo_vectors_intsxp_bin",  (DL_FUNC) &altrep_ufo_vectors_intsxp_bin,  1},
     {"altrep_ufo_vectors_realsxp_bin", (DL_FUNC) &altrep_ufo_vectors_realsxp_bin, 1},
-    // {"altrep_ufo_vectors_strsxp_bin",  (DL_FUNC) &altrep_ufo_vectors_strsxp_bin,  1},
     {"altrep_ufo_vectors_cplxsxp_bin", (DL_FUNC) &altrep_ufo_vectors_cplxsxp_bin, 1},
     {"altrep_ufo_vectors_lglsxp_bin",  (DL_FUNC) &altrep_ufo_vectors_lglsxp_bin,  1},
     {"altrep_ufo_vectors_rawsxp_bin",  (DL_FUNC) &altrep_ufo_vectors_rawsxp_bin,  1},
+
+    {"altrep_ufo_matrix_intsxp_bin",  (DL_FUNC) &altrep_ufo_matrix_intsxp_bin,  3},
+    {"altrep_ufo_matrix_realsxp_bin", (DL_FUNC) &altrep_ufo_matrix_realsxp_bin, 3},
+    {"altrep_ufo_matrix_cplxsxp_bin", (DL_FUNC) &altrep_ufo_matrix_cplxsxp_bin, 3},
+    {"altrep_ufo_matrix_lglsxp_bin",  (DL_FUNC) &altrep_ufo_matrix_lglsxp_bin,  3},
+    {"altrep_ufo_matrix_rawsxp_bin",  (DL_FUNC) &altrep_ufo_matrix_rawsxp_bin,  3},
 
     // Turn on debug mode.
     {"altrep_ufo_vectors_set_debug_mode",  (DL_FUNC) &altrep_ufo_vectors_set_debug_mode,  1},
