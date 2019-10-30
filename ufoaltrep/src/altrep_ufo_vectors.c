@@ -124,70 +124,69 @@ R_allocator_t* __altrep_ufo_new_allocator(char const *path) {
     return allocator;
 }
 
-SEXP altrep_ufo_matrix_new_altrep(SEXPTYPE type,  char const *path, int rows, int cols) {
-    // Check type.
-    if (type < 0) {
-        Rf_error("No available vector constructor for this type.");
-    }
-
-    printf("\n^.^ %d :: %d\n", rows, cols);
-
-    // Initialize an allocator.
-    R_allocator_t* allocator = __altrep_ufo_new_allocator(path);
-
-    altrep_ufo_source_t* data = (altrep_ufo_source_t *) allocator->data;
-    //data->size = __get_vector_length_from_file_or_die(path);
-    data->type = type;
-    data->path = path;
-
-    // Create a new matrix of the appropriate type using the allocator.
-    return allocMatrix3(type, rows, cols, allocator);
+SEXP ufo_vector_new_altrep_wrapper(SEXPTYPE mode, R_xlen_t n, void *data) {
+    return ufo_vector_new_altrep(mode, (const char *) data);
 }
+
+//SEXP altrep_ufo_matrix_new_altrep(SEXPTYPE type,  char const *path, int rows, int cols) {
+//    // Check type.
+//    if (type < 0) {
+//        Rf_error("No available vector constructor for this type.");
+//    }
+//
+//    // Create a new matrix of the appropriate type using the allocator.
+//    return allocMatrix3(type, rows, cols, &ufo_vector_new_altrep_wrapper, path);
+//}
 
 SEXP/*INTSXP*/ altrep_ufo_matrix_intsxp_bin(SEXP/*STRSXP*/ path,
                                             SEXP/*INTSXP*/ rows,
                                             SEXP/*INTSXP*/ cols) {
 
-    return altrep_ufo_matrix_new_altrep(INTSXP,
-                                        __extract_path_or_die(path),
-                                        __extract_int_or_die(rows),
-                                        __extract_int_or_die(cols));
+    const char *__path = __extract_path_or_die(path);
+    return allocMatrix3(INTSXP,
+                        __extract_int_or_die(rows),
+                        __extract_int_or_die(cols),
+                        &ufo_vector_new_altrep_wrapper, (void *) __path);
 }
 SEXP/*REALSXP*/ altrep_ufo_matrix_realsxp_bin(SEXP/*STRSXP*/ path,
                                               SEXP/*INTSXP*/ rows,
                                               SEXP/*INTSXP*/ cols) {
 
-    return altrep_ufo_matrix_new_altrep(REALSXP,
-                                        __extract_path_or_die(path),
-                                        __extract_int_or_die(rows),
-                                        __extract_int_or_die(cols));
+    const char *__path = __extract_path_or_die(path);
+    return allocMatrix3(REALSXP,
+                        __extract_int_or_die(rows),
+                        __extract_int_or_die(cols),
+                        &ufo_vector_new_altrep_wrapper, (void *) __path);
 }
 SEXP/*LGLSXP*/ altrep_ufo_matrix_lglsxp_bin(SEXP/*STRSXP*/ path,
                                             SEXP/*INTSXP*/ rows,
                                             SEXP/*INTSXP*/ cols) {
 
-    return altrep_ufo_matrix_new_altrep(LGLSXP,
-                                        __extract_path_or_die(path),
-                                        __extract_int_or_die(rows),
-                                        __extract_int_or_die(cols));
+    const char *__path = __extract_path_or_die(path);
+    return allocMatrix3(LGLSXP,
+                        __extract_int_or_die(rows),
+                        __extract_int_or_die(cols),
+                        &ufo_vector_new_altrep_wrapper, (void *) __path);
 }
 SEXP/*CPLXSXP*/ altrep_ufo_matrix_cplxsxp_bin(SEXP/*STRSXP*/ path,
                                               SEXP/*INTSXP*/ rows,
                                               SEXP/*INTSXP*/ cols) {
 
-    return altrep_ufo_matrix_new_altrep(CPLXSXP,
-                                        __extract_path_or_die(path),
-                                        __extract_int_or_die(rows),
-                                        __extract_int_or_die(cols));
+    const char *__path = __extract_path_or_die(path);
+    return allocMatrix3(CPLXSXP,
+                        __extract_int_or_die(rows),
+                        __extract_int_or_die(cols),
+                        &ufo_vector_new_altrep_wrapper, (void *) __path);
 }
 SEXP/*RAWSXP*/ altrep_ufo_matrix_rawsxp_bin(SEXP/*STRSXP*/ path,
                                             SEXP/*INTSXP*/ rows,
                                             SEXP/*INTSXP*/ cols) {
 
-    return altrep_ufo_matrix_new_altrep(RAWSXP,
-                                        __extract_path_or_die(path),
-                                        __extract_int_or_die(rows),
-                                        __extract_int_or_die(cols));
+    const char *__path = __extract_path_or_die(path);
+    return allocMatrix3(RAWSXP,
+                        __extract_int_or_die(rows),
+                        __extract_int_or_die(cols),
+                        &ufo_vector_new_altrep_wrapper, (void *) __path);
 }
 
 static SEXP ufo_vector_duplicate(SEXP x, Rboolean deep) {
