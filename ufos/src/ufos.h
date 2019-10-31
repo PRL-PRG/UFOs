@@ -5,7 +5,7 @@
 #include <R.h>
 #include <Rinternals.h>
 
-typedef enum {tion
+typedef enum {
     UFO_CHAR = CHARSXP,
     UFO_LGL  = LGLSXP,
     UFO_INT  = INTSXP,
@@ -39,7 +39,6 @@ SEXP ufo_new_multidim(ufo_source_t* source);
 
 // Auxiliary functions.
 SEXPTYPE ufo_type_to_vector_type (ufo_vector_type_t);
-
 
 // Function types for R dynloader.
 typedef void (*ufo_initialize_t)(void);
