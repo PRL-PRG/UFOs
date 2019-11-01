@@ -92,11 +92,6 @@ typedef struct {
     //size_t               *dimensions;
 } altrep_ufo_source_t;
 
-//void* __ufo_altrep_alloc(R_allocator_t *allocator, size_t size) {
-//    altrep_ufo_source_t *data = (altrep_ufo_source_t*) allocator->data;
-//    return ufo_vector_new_altrep(data->type, data->path);
-//}
-
 SEXP ufo_vector_new_altrep_wrapper(SEXPTYPE mode, R_xlen_t n, void *data) {
     return ufo_vector_new_altrep(mode, (const char *) data);
 }
