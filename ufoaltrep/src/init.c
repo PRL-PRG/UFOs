@@ -20,7 +20,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"altrep_ufo_matrix_rawsxp_bin",  (DL_FUNC) &altrep_ufo_matrix_rawsxp_bin,  3},
 
     // Turn on debug mode.
-    {"altrep_ufo_vectors_set_debug_mode",  (DL_FUNC) &altrep_ufo_vectors_set_debug_mode,  1},
+    {"altrep_ufo_vectors_set_debug_mode",  (DL_FUNC) &ufo_vectors_set_debug_mode,  1},
 
     // Terminates the function list. Necessary.
     {NULL, NULL, 0} 
@@ -41,4 +41,3 @@ void attribute_visible R_init_ufoaltrep(DllInfo *dll) {
 void attribute_visible R_unload_ufoaltrep(DllInfo *dll) {
     printf("goodnight sweet prince\n");
 }
-

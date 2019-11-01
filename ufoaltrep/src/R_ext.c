@@ -1,6 +1,6 @@
 #include "R_ext.h"
 
-SEXP allocMatrix3(SEXPTYPE mode, int nrow, int ncol,
+SEXP allocMatrix4(SEXPTYPE mode, int nrow, int ncol,
                   altrep_constructor_t altrep_constructor,
                   void *altrep_constructor_data) {
     SEXP s, t;

@@ -49,8 +49,6 @@ SEXP ufo_vector_new_altrep(SEXPTYPE type, char const *path) {
     altrep_ufo_config_t *cfg =
             (altrep_ufo_config_t *) malloc(sizeof(altrep_ufo_config_t));
 
-    printf("\n*.* type=%d\n", type);
-
     cfg->type = type;
     cfg->path = path;
     cfg->element_size = __get_element_size(type);
@@ -99,11 +97,10 @@ typedef struct {
 
 void* __ufo_altrep_alloc(R_allocator_t *allocator, size_t size) {
     altrep_ufo_source_t *data = (altrep_ufo_source_t*) allocator->data;
-    printf("\n-_-\n");
     return ufo_vector_new_altrep(data->type, data->path);
 }
 
-void* __ufo_altrep_free(R_allocator_t *allocator, void* ptr) {
+void __ufo_altrep_free(R_allocator_t *allocator, void* ptr) {
     // FIXME free allocator
 }
 
@@ -135,7 +132,7 @@ SEXP ufo_vector_new_altrep_wrapper(SEXPTYPE mode, R_xlen_t n, void *data) {
 //    }
 //
 //    // Create a new matrix of the appropriate type using the allocator.
-//    return allocMatrix3(type, rows, cols, &ufo_vector_new_altrep_wrapper, path);
+//    return allocMatrix4(type, rows, cols, &ufo_vector_new_altrep_wrapper, path);
 //}
 
 SEXP/*INTSXP*/ altrep_ufo_matrix_intsxp_bin(SEXP/*STRSXP*/ path,
@@ -143,7 +140,7 @@ SEXP/*INTSXP*/ altrep_ufo_matrix_intsxp_bin(SEXP/*STRSXP*/ path,
                                             SEXP/*INTSXP*/ cols) {
 
     const char *__path = __extract_path_or_die(path);
-    return allocMatrix3(INTSXP,
+    return allocMatrix4(INTSXP,
                         __extract_int_or_die(rows),
                         __extract_int_or_die(cols),
                         &ufo_vector_new_altrep_wrapper, (void *) __path);
@@ -153,7 +150,7 @@ SEXP/*REALSXP*/ altrep_ufo_matrix_realsxp_bin(SEXP/*STRSXP*/ path,
                                               SEXP/*INTSXP*/ cols) {
 
     const char *__path = __extract_path_or_die(path);
-    return allocMatrix3(REALSXP,
+    return allocMatrix4(REALSXP,
                         __extract_int_or_die(rows),
                         __extract_int_or_die(cols),
                         &ufo_vector_new_altrep_wrapper, (void *) __path);
@@ -163,7 +160,7 @@ SEXP/*LGLSXP*/ altrep_ufo_matrix_lglsxp_bin(SEXP/*STRSXP*/ path,
                                             SEXP/*INTSXP*/ cols) {
 
     const char *__path = __extract_path_or_die(path);
-    return allocMatrix3(LGLSXP,
+    return allocMatrix4(LGLSXP,
                         __extract_int_or_die(rows),
                         __extract_int_or_die(cols),
                         &ufo_vector_new_altrep_wrapper, (void *) __path);
@@ -173,7 +170,7 @@ SEXP/*CPLXSXP*/ altrep_ufo_matrix_cplxsxp_bin(SEXP/*STRSXP*/ path,
                                               SEXP/*INTSXP*/ cols) {
 
     const char *__path = __extract_path_or_die(path);
-    return allocMatrix3(CPLXSXP,
+    return allocMatrix4(CPLXSXP,
                         __extract_int_or_die(rows),
                         __extract_int_or_die(cols),
                         &ufo_vector_new_altrep_wrapper, (void *) __path);
@@ -183,7 +180,7 @@ SEXP/*RAWSXP*/ altrep_ufo_matrix_rawsxp_bin(SEXP/*STRSXP*/ path,
                                             SEXP/*INTSXP*/ cols) {
 
     const char *__path = __extract_path_or_die(path);
-    return allocMatrix3(RAWSXP,
+    return allocMatrix4(RAWSXP,
                         __extract_int_or_die(rows),
                         __extract_int_or_die(cols),
                         &ufo_vector_new_altrep_wrapper, (void *) __path);
@@ -307,8 +304,6 @@ static void ufo_vector_element(SEXP x, R_xlen_t i, void *target) {
 }
 
 static int ufo_integer_element(SEXP x, R_xlen_t i) {
-    printf("\no_o i=%d\n", i);
-
     if (R_altrep_data2(x) != R_NilValue)
         return INTEGER_ELT(R_altrep_data2(x), i);
     int ans = 0x5c5c5c5c;
@@ -390,8 +385,6 @@ static R_xlen_t ufo_logical_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
         return LOGICAL_GET_REGION(R_altrep_data2(x), i, n, buf);
     return ufo_vector_get_region(x, i, n, buf);
 }
-
-
 
 // UFO Inits
 void init_ufo_integer_altrep_class(DllInfo * dll) {

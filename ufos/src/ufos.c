@@ -87,6 +87,10 @@ void __ufo_free(R_allocator_t *allocator, void* ptr) {
     ufo_source_t* source = (ufo_source_t*) allocator->data;
     source->destructor_function(source->data);
     ufDestroyObject(object);
+    if (source->dimensions != NULL) {
+        free(source->dimensions);
+    }
+    free(source);
 }
 
 SEXPTYPE ufo_type_to_vector_type (ufo_vector_type_t ufo_type) {

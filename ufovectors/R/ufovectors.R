@@ -1,3 +1,77 @@
+ufo_integer_bin <- function(path)
+  .Call("ufo_vectors_intsxp_bin",
+        path.expand(.check_path(path)))
+
+ufo_numeric_bin <- function(path)
+  .Call("ufo_vectors_realsxp_bin",
+        path.expand(.check_path(path)))
+
+ufo_complex_bin <- function(path)
+  .Call("ufo_vectors_cplxsxp_bin",
+        path.expand(.check_path(path)))
+
+ufo_logical_bin <- function(path)
+  .Call("ufo_vectors_lglsxp_bin",
+        path.expand(.check_path(path)))
+
+ufo_raw_bin <- function(path)
+  .Call("ufo_vectors_rawsxp_bin",
+        path.expand(.check_path(path)))
+
+ufo_matrix_integer_bin <- function(path, rows, cols)
+  .Call("ufo_matrix_intsxp_bin",
+        path.expand(.check_path(path)),
+        as.integer(rows),
+        as.integer(cols))
+
+ufo_matrix_numeric_bin <- function(path, rows, cols)
+  .Call("ufo_matrix_realsxp_bin",
+        path.expand(.check_path(path)),
+        as.integer(rows),
+        as.integer(cols))
+
+ufo_matrix_complex_bin <- function(path, rows, cols)
+  .Call("ufo_matrix_cplxsxp_bin",
+        path.expand(.check_path(path)),
+        as.integer(rows),
+        as.integer(cols))
+
+ufo_matrix_logical_bin <- function(path, rows, cols)
+  .Call("ufo_matrix_lglsxp_bin",
+        path.expand(.check_path(path)),
+        as.integer(rows),
+        as.integer(cols))
+
+ufo_matrix_raw_bin <- function(path, rows, cols)
+  .Call("ufo_matrix_rawsxp_bin",
+        path.expand(.check_path(path)),
+        as.integer(rows),
+        as.integer(cols))
+
+ufo_vector_bin <- function(type, path) {
+  if (missing(type)) stop("Missing vector type.")
+
+  if (type == "integer") return(ufo_integer_bin(path))
+  if (type == "numeric") return(ufo_numeric_bin(path))
+  if (type == "complex") return(ufo_complex_bin(path))
+  if (type == "logical") return(ufo_logical_bin(path))
+  if (type == "raw")     return(ufo_raw_bin(path))
+
+  stop(paste0("Unknown UFO vector type: ", type))
+}
+
+ufo_matrix_bin <- function(type, path, rows, cols) {
+  if (missing(type)) stop("Missing matrix type.")
+
+  if (type == "integer") return(ufo_matrix_integer_bin(path), rows, cols)
+  if (type == "numeric") return(ufo_matrix_numeric_bin(path), rows, cols)
+  if (type == "complex") return(ufo_matrix_complex_bin(path), rows, cols)
+  if (type == "logical") return(ufo_matrix_logical_bin(path), rows, cols)
+  if (type == "raw")     return(ufo_matrix_raw_bin(path), rows, cols)
+
+  stop(paste0("Unknown UFO matrix type: ", type))
+}
+
 ufo_set_debug_mode <- function(debug=TRUE) {
   if (typeof(debug) != "logical") {
     stop(paste0("Argument is of type", typeof(debug),
@@ -13,50 +87,24 @@ ufo_set_debug_mode <- function(debug=TRUE) {
   invisible(.Call("ufo_vectors_set_debug_mode", debug))
 }
 
-ufo_vector_bin <- function(type, path) {
-  if (missing(type)) stop("Missing vector type.")
-
-  if (type == "integer") return(ufo_integer_bin(path))
-  if (type == "numeric") return(ufo_numeric_bin(path))
-  if (type == "complex") return(ufo_complex_bin(path))
-  if (type == "logical") return(ufo_logical_bin(path))
-  if (type == "raw")     return(ufo_raw_bin(path))
-
-  stop(paste0("Unknown UFO vector type: ", type))
-}
-
-ufo_integer_bin <- function(path) {
-  .check_path(path)
-  .Call("ufo_vectors_intsxp_bin", path.expand(path))
-}
-
-ufo_numeric_bin <- function(path) {
-  .check_path(path)
-  .Call("ufo_vectors_realsxp_bin", path.expand(path))
-}
-
-# ufo_character_bin <- function(path) {
-#   .check_path(path)
-#   .Call("ufo_vectors_strsxp_bin", path)
-# }
-
-ufo_complex_bin <- function(path) {
-  .check_path(path)
-  .Call("ufo_vectors_cplxsxp_bin", path.expand(path))
-}
-
-ufo_logical_bin <- function(path) {
-  .check_path(path)
-  .Call("ufo_vectors_lglsxp_bin", path.expand(path))
-}
-
-ufo_raw_bin <- function(path) {
-  .check_path(path)
-  .Call("ufo_vectors_rawsxp_bin", path.expand(path))
-}
-
 ufo_shutdown <- function() {
   invisible(.Call("ufo_vectors_shutdown"))
+}
+
+ufo_store_bin <- function(path, vector) {
+  if (typeof(path) != "character") {
+    stop(paste0("Path is of type", typeof(path),
+    ", must be a character vector."))
+  }
+  if (length(path) == 0) {
+    stop("Path is a 0-length vector")
+  }
+  if (length(path) > 1) {
+    warning(paste0("Path is a vector containing multiple values, picking the",
+    "first one, ignoring the rest"))
+  }
+
+  invisible(.Call("ufo_store_bin", path, vector))
 }
 
 .check_path <- function(path) {
@@ -83,21 +131,5 @@ ufo_shutdown <- function() {
   if (0 != file.access(path, 2)) { # 0: existence, 1: execute, 2: write, 4: read
     warning(paste0("File '", path, "' exists but is not writeable."))
   }
+  path
 }
-
-ufo_store_bin <- function(path, vector) {
-  if (typeof(path) != "character") {
-    stop(paste0("Path is of type", typeof(path),
-    ", must be a character vector."))
-  }
-  if (length(path) == 0) {
-    stop("Path is a 0-length vector")
-  }
-  if (length(path) > 1) {
-    warning(paste0("Path is a vector containing multiple values, picking the",
-    "first one, ignoring the rest"))
-  }
-
-  invisible(.Call("ufo_store_bin", path, vector))
-}
-

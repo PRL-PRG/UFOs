@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Rinternals.h"
+#include "debug.h"
 
 void init_ufo_logical_altrep_class(DllInfo *dll);
 void init_ufo_integer_altrep_class(DllInfo *dll);
@@ -15,7 +16,7 @@ SEXP/*CPLXSXP*/ altrep_ufo_vectors_cplxsxp_bin(SEXP/*STRSXP*/ path);
 SEXP/*LGLSXP*/ altrep_ufo_vectors_lglsxp_bin(SEXP/*STRSXP*/ path);
 SEXP/*RAWSXP*/ altrep_ufo_vectors_rawsxp_bin(SEXP/*STRSXP*/ path);
 
-SEXP/*NILSXP*/ altrep_ufo_vectors_set_debug_mode(SEXP/*LGLSXP*/ debug);
+//SEXP/*NILSXP*/ ufo_vectors_set_debug_mode(SEXP/*LGLSXP*/ debug);
 
 SEXP/*INTSXP*/ altrep_ufo_matrix_intsxp_bin(SEXP/*STRSXP*/ path,
                                             SEXP/*INTSXP*/ rows,

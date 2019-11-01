@@ -10,7 +10,7 @@ altrep_ufo_set_debug_mode <- function(debug=TRUE) {
     warning(paste0("Argument is a vector containing multiple values, picking the",
                    "first one, ignoring the rest"))
   }
-  invisible(.Call("altrep_ufo_vectors_set_debug_mode", debug))
+  invisible(.Call("ufo_vectors_set_debug_mode", debug))
 }
 
 altrep_ufo_vector_bin <- function(type, path) {

@@ -53,9 +53,12 @@ void __destroy(ufUserData *user_data) {
         Rprintf("   element size: %li\n", data->element_size);
     }
     fclose(data->file_handle);
+
+    // FIXME free memory
+    free(data);
 }
 
-ufo_source_t* __make_source_or_die(ufo_vector_type_t type, const char* path) {
+ufo_source_t* __make_source_or_die(ufo_vector_type_t type, const char *path, int *dimensions) {
     __check_file_path_or_die(path);
 
     ufo_file_source_data_t *data = (ufo_file_source_data_t*) malloc(sizeof(ufo_file_source_data_t));
@@ -67,7 +70,7 @@ ufo_source_t* __make_source_or_die(ufo_vector_type_t type, const char* path) {
     source->vector_type = type;
     source->element_size = __get_ufo_element_size(type);
     source->vector_size = __get_vector_length_from_file_or_die(path, source->element_size);
-    source->dimensions = NULL;
+    source->dimensions = dimensions;
 
     data->path = path;
     data->vector_type = source->vector_type;
@@ -101,7 +104,7 @@ void ufo_vectors_initialize_if_necessary() {
 
 SEXP __make_vector(ufo_vector_type_t type, SEXP sexp) {
     const char *path = __extract_path_or_die(sexp);
-    ufo_source_t *source = __make_source_or_die(type, path);
+    ufo_source_t *source = __make_source_or_die(type, path, NULL);
     ufo_vectors_initialize_if_necessary();
     ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
     return ufo_new(source);
@@ -132,4 +135,36 @@ SEXP/*NILSXP*/ ufo_store_bin(SEXP/*STRSXP*/ _path, SEXP vector) {
                           Rf_length(vector) * __get_element_size(TYPEOF(vector)),
                           (const char *) DATAPTR_RO(vector));
     return R_NilValue;
+}
+
+SEXP __make_matrix(ufo_vector_type_t type, SEXP sexp, SEXP rows, SEXP cols) {
+    const char *path = __extract_path_or_die(sexp);
+    int *dimensions = (int *) malloc(sizeof(int) * 2);
+    dimensions[0] = __extract_int_or_die(rows);
+    dimensions[1] = __extract_int_or_die(cols);
+    ufo_source_t *source = __make_source_or_die(type, path, dimensions);
+    ufo_vectors_initialize_if_necessary();
+    ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new_multidim");
+
+    return ufo_new(source);
+}
+
+SEXP ufo_matrix_intsxp_bin(SEXP/*STRSXP*/ path, SEXP/*INTSXP*/ rows, SEXP/*INTSXP*/ cols) {
+    return __make_matrix(UFO_INT, path, rows, cols);
+}
+
+SEXP ufo_matrix_realsxp_bin(SEXP/*STRSXP*/ path, SEXP/*INTSXP*/ rows, SEXP/*INTSXP*/ cols) {
+    return __make_matrix(UFO_REAL, path, rows, cols);
+}
+
+SEXP ufo_matrix_cplxsxp_bin(SEXP/*STRSXP*/ path, SEXP/*INTSXP*/ rows, SEXP/*INTSXP*/ cols) {
+    return __make_matrix(UFO_CPLX, path, rows, cols);
+}
+
+SEXP ufo_matrix_lglsxp_bin(SEXP/*STRSXP*/ path, SEXP/*INTSXP*/ rows, SEXP/*INTSXP*/ cols) {
+    return __make_matrix(UFO_LGL, path, rows, cols);
+}
+
+SEXP ufo_matrix_rawsxp_bin(SEXP/*STRSXP*/ path, SEXP/*INTSXP*/ rows, SEXP/*INTSXP*/ cols) {
+    return __make_matrix(UFO_RAW, path, rows, cols);
 }

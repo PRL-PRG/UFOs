@@ -3,7 +3,7 @@
 
 int __debug_mode = 0;
 
-SEXP/*NILSXP*/ ufo_set_debug_mode(SEXP/*LGLSXP*/ debug) {
+SEXP/*NILSXP*/ ufo_vectors_set_debug_mode(SEXP/*LGLSXP*/ debug) {
     __debug_mode = __extract_boolean_or_die(debug);
     return R_NilValue;
 }
