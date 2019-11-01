@@ -64,10 +64,7 @@ SEXP ufo_vector_new_altrep(SEXPTYPE type, char const *path) {
     SEXP ans = R_new_altrep(__get_class_from_type(type), wrapper, R_NilValue);
     EXTPTR_PROT(wrapper) = ans;
 
-    // FIXME finalizer
-
     /* Finalizer */
-    //SEXP extptr = PROTECT(R_MakeExternalPtr(NULL, R_NilValue, ans));
     R_MakeWeakRefC(wrapper, R_NilValue, ufo_vector_finalize_altrep, TRUE);
 
     return ans;
@@ -95,45 +92,14 @@ typedef struct {
     //size_t               *dimensions;
 } altrep_ufo_source_t;
 
-void* __ufo_altrep_alloc(R_allocator_t *allocator, size_t size) {
-    altrep_ufo_source_t *data = (altrep_ufo_source_t*) allocator->data;
-    return ufo_vector_new_altrep(data->type, data->path);
-}
-
-void __ufo_altrep_free(R_allocator_t *allocator, void* ptr) {
-    // FIXME free allocator
-}
-
-R_allocator_t* __altrep_ufo_new_allocator(char const *path) {
-    // Initialize an allocator.
-    R_allocator_t* allocator = (R_allocator_t *) malloc(sizeof(R_allocator_t));
-
-    // Initialize an allocator data struct.
-    altrep_ufo_source_t* data = (altrep_ufo_source_t *) malloc(sizeof(altrep_ufo_source_t));
-
-    // Configure the allocator: provide function to allocate and free memory,
-    // as well as a structure to keep the allocator's data.
-    allocator->mem_alloc = &__ufo_altrep_alloc;
-    allocator->mem_free = &__ufo_altrep_free;
-    allocator->res; /* reserved, must be NULL */
-    allocator->data = data; /* custom data: used for source */
-
-    return allocator;
-}
+//void* __ufo_altrep_alloc(R_allocator_t *allocator, size_t size) {
+//    altrep_ufo_source_t *data = (altrep_ufo_source_t*) allocator->data;
+//    return ufo_vector_new_altrep(data->type, data->path);
+//}
 
 SEXP ufo_vector_new_altrep_wrapper(SEXPTYPE mode, R_xlen_t n, void *data) {
     return ufo_vector_new_altrep(mode, (const char *) data);
 }
-
-//SEXP altrep_ufo_matrix_new_altrep(SEXPTYPE type,  char const *path, int rows, int cols) {
-//    // Check type.
-//    if (type < 0) {
-//        Rf_error("No available vector constructor for this type.");
-//    }
-//
-//    // Create a new matrix of the appropriate type using the allocator.
-//    return allocMatrix4(type, rows, cols, &ufo_vector_new_altrep_wrapper, path);
-//}
 
 SEXP/*INTSXP*/ altrep_ufo_matrix_intsxp_bin(SEXP/*STRSXP*/ path,
                                             SEXP/*INTSXP*/ rows,
@@ -145,6 +111,7 @@ SEXP/*INTSXP*/ altrep_ufo_matrix_intsxp_bin(SEXP/*STRSXP*/ path,
                         __extract_int_or_die(cols),
                         &ufo_vector_new_altrep_wrapper, (void *) __path);
 }
+
 SEXP/*REALSXP*/ altrep_ufo_matrix_realsxp_bin(SEXP/*STRSXP*/ path,
                                               SEXP/*INTSXP*/ rows,
                                               SEXP/*INTSXP*/ cols) {
@@ -155,6 +122,7 @@ SEXP/*REALSXP*/ altrep_ufo_matrix_realsxp_bin(SEXP/*STRSXP*/ path,
                         __extract_int_or_die(cols),
                         &ufo_vector_new_altrep_wrapper, (void *) __path);
 }
+
 SEXP/*LGLSXP*/ altrep_ufo_matrix_lglsxp_bin(SEXP/*STRSXP*/ path,
                                             SEXP/*INTSXP*/ rows,
                                             SEXP/*INTSXP*/ cols) {
@@ -165,6 +133,7 @@ SEXP/*LGLSXP*/ altrep_ufo_matrix_lglsxp_bin(SEXP/*STRSXP*/ path,
                         __extract_int_or_die(cols),
                         &ufo_vector_new_altrep_wrapper, (void *) __path);
 }
+
 SEXP/*CPLXSXP*/ altrep_ufo_matrix_cplxsxp_bin(SEXP/*STRSXP*/ path,
                                               SEXP/*INTSXP*/ rows,
                                               SEXP/*INTSXP*/ cols) {
@@ -175,6 +144,7 @@ SEXP/*CPLXSXP*/ altrep_ufo_matrix_cplxsxp_bin(SEXP/*STRSXP*/ path,
                         __extract_int_or_die(cols),
                         &ufo_vector_new_altrep_wrapper, (void *) __path);
 }
+
 SEXP/*RAWSXP*/ altrep_ufo_matrix_rawsxp_bin(SEXP/*STRSXP*/ path,
                                             SEXP/*INTSXP*/ rows,
                                             SEXP/*INTSXP*/ cols) {
