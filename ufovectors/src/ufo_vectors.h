@@ -17,6 +17,6 @@ SEXP/*RAWSXP*/ ufo_matrix_rawsxp_bin(SEXP/*STRSXP*/ path, SEXP/*INTSXP*/ rows, S
 SEXP/*NILSXP*/ ufo_store_bin(SEXP/*STRSXP*/ path, SEXP vector);
 
 //SEXP/*NILSXP*/ ufo_vectors_initialize();
-SEXP/*NILSXP*/ ufo_vectors_shutdown();
+SEXP/*NILSXP*/ ufo_vectors_shutdown(); // TODO pin to a weakref to automatically destroy
 
 SEXP/*NILSXP*/ ufo_vectors_set_debug_mode(SEXP/*LGLSXP*/ debug);
