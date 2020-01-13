@@ -39,8 +39,8 @@ Each of these functions requires a path to a binary file. Our example binary fil
 04 00 00 00  05 00 00 00  06 00 00 00  07 00 00 00  
 08 00 00 00  09 00 00 00  0A 00 00 00  0B 00 00 00  
 0C 00 00 00  0D 00 00 00  0E 00 00 00  0F 00 00 00  
-10 00 00 00  11 00 00 00  12 00 00 00  13 00 00 00  
-...
+...          ...          ...          ...
+FC FF 00 00  FD FF 00 00  FE FF 00 00  FF FF 00 00
 ```
 
 We can use this file as a source for an integer vector containing the values `0:65535`:
@@ -59,7 +59,7 @@ ufo_set_debug_mode(T)
 
 Now, let's try accessing an element of the vector.
 
-```{r ufovectos-poke-int-vector}
+```{r ufovectors-poke-int-vector}
 iv[4]
 ```
 
@@ -67,14 +67,14 @@ Once we access an element, the UF engine prepares a region of actual memory and 
 
 If we access some more elements again, this data is actually in memory and no more loading takes place.
 
-```{r ufovectos-poke-int-vector-again}
+```{r ufovectors-poke-int-vector-again}
 iv[4]
 iv[5]
 ```
 
 If we access elements outside of the loaded chunk, the source will be asked to provide another chunk.
 
-```{r ufovectos-poke-int-vector-load-another-chunk}`
+```{r ufovectors-poke-int-vector-load-another-chunk}
 iv[10000]
 ```
 
