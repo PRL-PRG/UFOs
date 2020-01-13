@@ -24,6 +24,8 @@ library(ufovectors)
 
 Note, that the package loads *ufos* as a dependency.
 
+# UFO matrices
+
 The *ufomatrices* package provides constructors for various types of matrices:
 
 * `ufo_matrix_integer_bin (path, rows, cols)`
@@ -125,4 +127,23 @@ m1[256,256]
 
 We see again through the debug message that another chunk was loaded into memory.
 
+# Manually constructing UFO matrices from UFO vectors
+
+R matrices are just R vectors with additional arguments. UFO matrices therefore are just UFO vectors with additional arguments. While the `ufovectors` package provides constructors to construct these matrices, you can just add the necessary attributes to an existing UFO vector.
+
+Specifically, an R matrix is a vector with the following attributes:
+- a `class` attribute saying it's a `matrix`,
+- a `dim` attribute specifying the dimensions of the matrix.
+
+In addition, when setting a `dim` attribute on a vector, a `class` attribute is
+automatically added. Hence, the simplest way of creating a UFO array is to
+assign these manually:
+
+``` {r manual-matrix}
+vec <- ufo_integer_bin("example_int.bin")
+dim(vec) <- list(length(vec)/2, 2)
+class(vec)
+```
+
+We have created a `matrix`!
 
