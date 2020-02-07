@@ -1,73 +1,83 @@
-ufo_integer_bin <- function(path)
+ufo_integer_bin <- function(path, min_load_count = 0)
   .Call("ufo_vectors_intsxp_bin",
-        path.expand(.check_path(path)))
+        path.expand(.check_path(path)),
+        as.integer(min_load_count))
 
-ufo_numeric_bin <- function(path)
+ufo_numeric_bin <- function(path, min_load_count = 0)
   .Call("ufo_vectors_realsxp_bin",
-        path.expand(.check_path(path)))
+        path.expand(.check_path(path)),
+        as.integer(min_load_count))
 
-ufo_complex_bin <- function(path)
+ufo_complex_bin <- function(path, min_load_count = 0)
   .Call("ufo_vectors_cplxsxp_bin",
-        path.expand(.check_path(path)))
+        path.expand(.check_path(path)),
+        as.integer(min_load_count))
 
-ufo_logical_bin <- function(path)
+ufo_logical_bin <- function(path, min_load_count = 0)
   .Call("ufo_vectors_lglsxp_bin",
-        path.expand(.check_path(path)))
+        path.expand(.check_path(path)),
+        as.integer(min_load_count))
 
-ufo_raw_bin <- function(path)
+ufo_raw_bin <- function(path, min_load_count = 0)
   .Call("ufo_vectors_rawsxp_bin",
-        path.expand(.check_path(path)))
+        path.expand(.check_path(path)),
+        as.integer(min_load_count))
 
-ufo_matrix_integer_bin <- function(path, rows, cols)
+ufo_matrix_integer_bin <- function(path, rows, cols, min_load_count = 0)
   .Call("ufo_matrix_intsxp_bin",
         path.expand(.check_path(path)),
         as.integer(rows),
-        as.integer(cols))
+        as.integer(cols),
+        as.integer(min_load_count))
 
-ufo_matrix_numeric_bin <- function(path, rows, cols)
+ufo_matrix_numeric_bin <- function(path, rows, cols, min_load_count = 0)
   .Call("ufo_matrix_realsxp_bin",
         path.expand(.check_path(path)),
         as.integer(rows),
-        as.integer(cols))
+        as.integer(cols),
+        as.integer(min_load_count))
 
-ufo_matrix_complex_bin <- function(path, rows, cols)
+ufo_matrix_complex_bin <- function(path, rows, cols, min_load_count = 0)
   .Call("ufo_matrix_cplxsxp_bin",
         path.expand(.check_path(path)),
         as.integer(rows),
-        as.integer(cols))
+        as.integer(cols),
+        as.integer(min_load_count))
 
-ufo_matrix_logical_bin <- function(path, rows, cols)
+ufo_matrix_logical_bin <- function(path, rows, cols, min_load_count = 0)
   .Call("ufo_matrix_lglsxp_bin",
         path.expand(.check_path(path)),
         as.integer(rows),
-        as.integer(cols))
+        as.integer(cols),
+        as.integer(min_load_count))
 
-ufo_matrix_raw_bin <- function(path, rows, cols)
+ufo_matrix_raw_bin <- function(path, rows, cols, min_load_count = 0)
   .Call("ufo_matrix_rawsxp_bin",
         path.expand(.check_path(path)),
         as.integer(rows),
-        as.integer(cols))
+        as.integer(cols),
+        as.integer(min_load_count))
 
-ufo_vector_bin <- function(type, path) {
+ufo_vector_bin <- function(type, path, min_load_count = 0) {
   if (missing(type)) stop("Missing vector type.")
 
-  if (type == "integer") return(ufo_integer_bin(path))
-  if (type == "numeric") return(ufo_numeric_bin(path))
-  if (type == "complex") return(ufo_complex_bin(path))
-  if (type == "logical") return(ufo_logical_bin(path))
+  if (type == "integer") return(ufo_integer_bin(path, min_load_count))
+  if (type == "numeric") return(ufo_numeric_bin(path, min_load_count))
+  if (type == "complex") return(ufo_complex_bin(path, min_load_count))
+  if (type == "logical") return(ufo_logical_bin(path, min_load_count))
   if (type == "raw")     return(ufo_raw_bin(path))
 
   stop(paste0("Unknown UFO vector type: ", type))
 }
 
-ufo_matrix_bin <- function(type, path, rows, cols) {
+ufo_matrix_bin <- function(type, path, rows, cols, min_load_count = 0) {
   if (missing(type)) stop("Missing matrix type.")
 
-  if (type == "integer") return(ufo_matrix_integer_bin(path), rows, cols)
-  if (type == "numeric") return(ufo_matrix_numeric_bin(path), rows, cols)
-  if (type == "complex") return(ufo_matrix_complex_bin(path), rows, cols)
-  if (type == "logical") return(ufo_matrix_logical_bin(path), rows, cols)
-  if (type == "raw")     return(ufo_matrix_raw_bin(path), rows, cols)
+  if (type == "integer") return(ufo_matrix_integer_bin(path), rows, cols, min_load_count)
+  if (type == "numeric") return(ufo_matrix_numeric_bin(path), rows, cols, min_load_count)
+  if (type == "complex") return(ufo_matrix_complex_bin(path), rows, cols, min_load_count)
+  if (type == "logical") return(ufo_matrix_logical_bin(path), rows, cols, min_load_count)
+  if (type == "raw")     return(ufo_matrix_raw_bin(path), rows, cols, min_load_count)
 
   stop(paste0("Unknown UFO matrix type: ", type))
 }

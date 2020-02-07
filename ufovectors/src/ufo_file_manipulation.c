@@ -14,14 +14,14 @@ int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
     //size_t size_of_memory_fragment = end - start + 1;
 
     if (__get_debug_mode()) {
-        Rprintf("__load_from_file\n");
-        Rprintf("    start index: %li\n", start);
-        Rprintf("      end index: %li\n", end);
-        Rprintf("  target memory: %p\n", (void *) target);
-        Rprintf("    source file: %s\n", data->path);
-        Rprintf("    vector type: %d\n", data->vector_type);
-        Rprintf("    vector size: %li\n", data->vector_size);
-        Rprintf("   element size: %li\n", data->element_size);
+        REprintf("__load_from_file\n");
+        REprintf("    start index: %li\n", start);
+        REprintf("      end index: %li\n", end);
+        REprintf("  target memory: %p\n", (void *) target);
+        REprintf("    source file: %s\n", data->path);
+        REprintf("    vector type: %d\n", data->vector_type);
+        REprintf("    vector size: %li\n", data->vector_size);
+        REprintf("   element size: %li\n", data->element_size);
     }
 
     int initial_seek_status = fseek(data->file_handle, 0L, SEEK_END);

@@ -26,7 +26,9 @@ typedef struct {
     //ufUpdateRange     update_function;
     /*R_len_t*/size_t   vector_size;
     size_t              element_size;
-    int                 *dimensions;
+    int                 *dimensions;        // because they are `ints` are in R
+    size_t              dimensions_length;
+    int32_t             min_load_count;
 } ufo_source_t;
 
 // Initialization and shutdown

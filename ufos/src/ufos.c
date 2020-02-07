@@ -63,7 +63,7 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
     ufObjectConfig_t cfg = makeObjectConfig0(sexp_header_size + sexp_metadata_size,
                                              source->vector_size,
                                              __get_stride_from_type_or_die(source->vector_type),
-                                             16);
+                                             source->min_load_count);
 
     ufSetPopulateFunction(cfg, source->population_function);
     ufSetUserConfig(cfg, source->data);
@@ -117,7 +117,7 @@ R_allocator_t* __ufo_new_allocator(ufo_source_t* source) {
     R_allocator_t* allocator = (R_allocator_t*) malloc(sizeof(R_allocator_t));
 
     // Initialize an allocator data struct.
-    ufo_source_t* data = (ufo_source_t*) malloc(sizeof(ufo_source_t));
+    //ufo_source_t* data = (ufo_source_t*) malloc(sizeof(ufo_source_t));
 
     // Configure the allocator: provide function to allocate and free memory,
     // as well as a structure to keep the allocator's data.
