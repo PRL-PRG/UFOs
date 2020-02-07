@@ -68,7 +68,11 @@ const char* __extract_path_or_die(SEXP/*STRSXP*/ path) {
                            "using the first one only\n");
     }
 
-    return CHAR(STRING_ELT(path, 0));
+    // Copy string and return the copy.
+    const char *tmp = CHAR(STRING_ELT(path, 0));
+    char *ret = (char *) malloc(sizeof(char) * strlen(tmp));  // FIXME reclaim
+    strcpy(ret, tmp);
+    return ret;
 }
 
 /**

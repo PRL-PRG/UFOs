@@ -53,8 +53,7 @@ void __destroy(ufUserData *user_data) {
         REprintf("   element size: %li\n", data->element_size);
     }
     fclose(data->file_handle);
-
-    // FIXME free memory
+    free(data->path);
     free(data);
 }
 
