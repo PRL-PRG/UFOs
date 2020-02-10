@@ -1,16 +1,20 @@
-# UFOs
+# UFOs: larger-than-memory vectors for R
 
 User Fault Objects (UFOs) is a framework for implementing custom larger-than-memory objects using a feature of the Linux kernel called `userfaultfd`. 
 
+**Warning:** UFOs are under active development. Some bugs are to be expected, and some features are not yet fully implemented. 
+
+## Modus operandi
+
 The UFO framework makes possible the creation of special **UFO vectors**. These vectors are indistinguishable from plain old R vectors: they are also contiguous areas of memory, and they also consist of an ordinary R vector header, length information, and a an array of elements. The difference is that they reside in virtual memory. When an element in the vector is accessed, an area of this virtual memory is accessed. This causes the operating system to discovers a **fault** and to inform the UFO framework about where the fault occured. The framework then allocates a **chunk**, a relatively small block, of actual memory and populates it using a programmer-defined **population function**. This creates the element of the vector that is being accessed, as well as a prudent amount of elements ahead of this one. From now on, this block of memory and these elements can be accessed as an ordinary R vector. When more faults occur, more chunks are brought in. When the memory taken up by the materialized chunks starts to become too big, the UFO framework will start **reclaiming** them, preventing the R session from running out of memory.
+
+## Repository map
 
 This repository contains three R packages:
 
 - `ufos` - the basic framework for implementing larger-than-memory R objects
 - `ufovectors` - an implementation of file-backed vectors (and matrices) using `ufos` (depends on the first package)
 - `ufoaltrep` - an analogous implementation of file-backed vector to `ufovectors` using ALTREP
-
-**Warning:** UFOs are under active development. Some bugs are to be expected, and some features are not yet fully implemented. 
 
 ## Installation
 
