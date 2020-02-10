@@ -13,3 +13,4 @@
 !Makefile
 !Makevars
 !*/cmake/FindR.cmake
+.Rproj.user

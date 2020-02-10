@@ -1,10 +1,13 @@
-project(ufovectors)
-cmake_minimum_required(VERSION 2.8.7)
+cmake_minimum_required(VERSION 3.7)
+project(ufoaltrep)
 
 SET(EX_PLATFORM 64)
 SET(EX_PLATFORM_NAME "x64")
 
 add_definitions(-Wall -O2)
+                #-Wall -g
+
+set(CMAKE_CXX_STANDARD 11)
 
 file(GLOB_RECURSE SRC "src/*.c" "src/*.h")
 
@@ -14,6 +17,6 @@ find_package(R REQUIRED)
 message("R libraries: ${R_LIBRARIES}")
 message("R include dirs: ${R_INCLUDE_DIR}")
 
-add_library(ufovectors SHARED ${SRC})
+add_library(ufoaltrep SHARED ${SRC})
 include_directories(ufovectors ${R_INCLUDE_DIR})
-target_link_libraries(ufovectors ${R_LIBRARIES})
+target_link_libraries(ufoaltrep ${R_LIBRARIES})

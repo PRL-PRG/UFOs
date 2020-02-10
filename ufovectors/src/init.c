@@ -10,13 +10,20 @@ static const R_CallMethodDef CallEntries[] = {
     // Initialize the system.
     //{"ufo_vectors_initialize",  (DL_FUNC) &ufo_vectors_initialize,  0},
 
-    // Vectors that parially materialize on-demand from binary files.
-    {"ufo_vectors_intsxp_bin",  (DL_FUNC) &ufo_vectors_intsxp_bin,  1},
-    {"ufo_vectors_realsxp_bin", (DL_FUNC) &ufo_vectors_realsxp_bin, 1},
-//    {"ufo_vectors_strsxp_bin",  (DL_FUNC) &ufo_vectors_strsxp_bin,  1},
-    {"ufo_vectors_cplxsxp_bin", (DL_FUNC) &ufo_vectors_cplxsxp_bin, 1},
-    {"ufo_vectors_lglsxp_bin",  (DL_FUNC) &ufo_vectors_lglsxp_bin,  1},
-    {"ufo_vectors_rawsxp_bin",  (DL_FUNC) &ufo_vectors_rawsxp_bin,  1},
+    // Constructors for vectors that partially materialize on-demand from
+    // binary files.
+    {"ufo_vectors_intsxp_bin",  (DL_FUNC) &ufo_vectors_intsxp_bin,  2},
+    {"ufo_vectors_realsxp_bin", (DL_FUNC) &ufo_vectors_realsxp_bin, 2},
+    {"ufo_vectors_cplxsxp_bin", (DL_FUNC) &ufo_vectors_cplxsxp_bin, 2},
+    {"ufo_vectors_lglsxp_bin",  (DL_FUNC) &ufo_vectors_lglsxp_bin,  2},
+    {"ufo_vectors_rawsxp_bin",  (DL_FUNC) &ufo_vectors_rawsxp_bin,  2},
+
+    // Constructors for matrices composed of the above-mentioned vectors.
+    {"ufo_matrix_intsxp_bin",  (DL_FUNC) &ufo_matrix_intsxp_bin,  4},
+    {"ufo_matrix_realsxp_bin", (DL_FUNC) &ufo_matrix_realsxp_bin, 4},
+    {"ufo_matrix_cplxsxp_bin", (DL_FUNC) &ufo_matrix_cplxsxp_bin, 4},
+    {"ufo_matrix_lglsxp_bin",  (DL_FUNC) &ufo_matrix_lglsxp_bin,  4},
+    {"ufo_matrix_rawsxp_bin",  (DL_FUNC) &ufo_matrix_rawsxp_bin,  4},
 
     // Storage.
     {"ufo_store_bin", (DL_FUNC) &ufo_store_bin, 2},
@@ -31,11 +38,7 @@ static const R_CallMethodDef CallEntries[] = {
     {NULL, NULL, 0} 
 };
 
-//ufo_initialize_t ufo_initialize;
-//ufo_new_t ufo_new;
-//ufo_shutdown_t ufo_shutdown;
-
-// Initializes the package and registers the routines with the Rdynload 
+// Initializes the package and registers the routines with the Rdynload
 // library. Name follows the pattern: R_init_<package_name> 
 void attribute_visible R_init_ufovectors(DllInfo *dll) {
 //    ufo_new = R_GetCCallable("ufos", "ufo_new");

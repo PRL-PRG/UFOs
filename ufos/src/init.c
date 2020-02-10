@@ -19,6 +19,7 @@ void attribute_visible R_init_ufos(DllInfo *dll) {
 
     R_RegisterCCallable("ufos", "ufo_initialize", (DL_FUNC) &ufo_initialize);
     R_RegisterCCallable("ufos", "ufo_new", (DL_FUNC) &ufo_new);
+    R_RegisterCCallable("ufos", "ufo_new_multidim", (DL_FUNC) &ufo_new_multidim);
     R_RegisterCCallable("ufos", "ufo_shutdown", (DL_FUNC) &ufo_shutdown);
 }
 

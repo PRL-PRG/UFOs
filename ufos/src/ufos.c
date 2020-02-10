@@ -6,6 +6,7 @@
 #include <R_ext/Rallocators.h>
 
 #include "ufos.h"
+#include "R_ext.h"
 #include "mappedMemory/userfaultCore.h"
 
 #include <assert.h>
@@ -62,7 +63,7 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
     ufObjectConfig_t cfg = makeObjectConfig0(sexp_header_size + sexp_metadata_size,
                                              source->vector_size,
                                              __get_stride_from_type_or_die(source->vector_type),
-                                             16);
+                                             source->min_load_count);
 
     ufSetPopulateFunction(cfg, source->population_function);
     ufSetUserConfig(cfg, source->data);
@@ -77,27 +78,19 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
     return ufGetHeaderPointer(object); // FIXME
 }
 
-void __ufo_free(R_allocator_t *allocator, void * ptr) {
-    // FIXME translate from ptr to object
-
-}
-
-SEXP __ufo_new_anysxp(SEXPTYPE type, ufo_source_t* source) {
-    // Initialize an allocator.
-    R_allocator_t* allocator = (R_allocator_t*) malloc(sizeof(R_allocator_t));
-
-    // Initialize an allocator data struct.
-    ufo_source_t* data = (ufo_source_t*) malloc(sizeof(ufo_source_t));
-
-    // Configure the allocator: provide function to allocate and free memory,
-    // as well as a structure to keep the allocator's data.
-    allocator->mem_alloc = &__ufo_alloc;
-    allocator->mem_free = &__ufo_free;
-    allocator->res; /* reserved, must be NULL */
-    allocator->data = source; /* custom data: used for source */
-
-    // Create a new vector of the appropriate type using the allocator.
-    return allocVector3(type, source->vector_size, allocator);
+void __ufo_free(R_allocator_t *allocator, void* ptr) {
+    ufObject_t* object = ufLookupObjectByMemberAddress(ufo_system, ptr);
+    if (object == NULL) {
+        Rf_error("Tried freeing a UFO, "
+                 "but the provided address is not a UFO header address.");
+    }
+    ufo_source_t* source = (ufo_source_t*) allocator->data;
+    source->destructor_function(source->data);
+    ufDestroyObject(object);
+    if (source->dimensions != NULL) {
+        free(source->dimensions);
+    }
+    free(source);
 }
 
 SEXPTYPE ufo_type_to_vector_type (ufo_vector_type_t ufo_type) {
@@ -119,12 +112,48 @@ SEXPTYPE ufo_type_to_vector_type (ufo_vector_type_t ufo_type) {
     }
 }
 
-SEXP ufo_new(ufo_source_t* source) {
+R_allocator_t* __ufo_new_allocator(ufo_source_t* source) {
+    // Initialize an allocator.
+    R_allocator_t* allocator = (R_allocator_t*) malloc(sizeof(R_allocator_t));
 
+    // Initialize an allocator data struct.
+    //ufo_source_t* data = (ufo_source_t*) malloc(sizeof(ufo_source_t));
+
+    // Configure the allocator: provide function to allocate and free memory,
+    // as well as a structure to keep the allocator's data.
+    allocator->mem_alloc = &__ufo_alloc;
+    allocator->mem_free = &__ufo_free;
+    allocator->res; /* reserved, must be NULL */
+    allocator->data = source; /* custom data: used for source */
+
+    return allocator;
+}
+
+SEXP ufo_new(ufo_source_t* source) {
+    // Check type.
     SEXPTYPE type = ufo_type_to_vector_type(source->vector_type);
     if (type < 0) {
         Rf_error("No available vector constructor for this type.");
     }
-    return __ufo_new_anysxp(type, source);
+
+    // Initialize an allocator.
+    R_allocator_t* allocator = __ufo_new_allocator(source);
+
+    // Create a new vector of the appropriate type using the allocator.
+    return allocVector3(type, source->vector_size, allocator);
 }
 
+SEXP ufo_new_multidim(ufo_source_t* source) {
+    // Check type.
+    SEXPTYPE type = ufo_type_to_vector_type(source->vector_type);
+    if (type < 0) {
+        Rf_error("No available vector constructor for this type.");
+    }
+
+    // Initialize an allocator.
+    R_allocator_t* allocator = __ufo_new_allocator(source);
+
+    // Create a new matrix of the appropriate type using the allocator.
+    return allocMatrix3(type, source->dimensions[0],
+                              source->dimensions[1], allocator);
+}

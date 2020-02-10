@@ -1,0 +1,87 @@
+---
+title: "UFO vectors as a backend to DelayedArray"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{UFO vectors as a backend to DelayedArray}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+UFOs can be used in conjunction with DelayedArray. We go through the construction a straightforward Seed object using a UFO vector that can be plugged into DelayedArray. To start, we need both the `DelayedArray` package as well as `ufovectors`.
+
+``` {r setup}
+library(ufovectors)
+library(DelayedArray)
+```
+
+# Seed Implementation
+
+We then need to create an S4 class that inherits from (aka `contains`) DelayedArray's `Array` that we can use to wrap our UFO object in.
+
+``` {r s4class}
+setClass("UFOBinSeed", contains="Array", slots=c(ufo="array"))
+```
+
+The class is called `UFOBinSeed` and it contains just one field (aka `slot`). The field is called `ufo` and its type is `array`. This field will contain our UFO vector. We will specify dimensions for the UFO vector using and set its type to `array` because that way it will fit DelayedArray's better than letting it be an ordinary vector. We can do this, since the internal structure of an `array` and a vector are the same, differing only in that an `array` defines its own dimensions and class.
+
+Next, we proceed to implement a constructor for our object.
+
+``` {r constructor}
+UFOBinSeed <- function(type, path, dimensions) {
+  ufo <- ufovectors::ufo_vector_bin(type, path)
+  if (missing(dimensions)) {
+    dim(ufo) = length(ufo) 
+  } else {
+    dim(ufo) = dimensions
+  }
+  new("UFOBinSeed", ufo=ufo)
+}
+```
+
+The constructor takes a `type` definition of the UFO vector, a path to the source of datat for the UFO vector, and, optionally, a set of dimensions.
+
+The first thing the constructor does is to initialize a UFO vector. We do this by calling the generic `ufo_vector_bin` function which will return either an integer, numeric, logical, complex, or raw vector that will lazily load data from the binary path specified by `path`.
+
+The next thing the constructor does is to figure out the dimensions of the vector. If no dimensions are provided, it uses the length of the vector as a dimension. The programmer can override this by passing a custom `dimension` vector to the constructor. Whichever dimensions we end up with are saved to `dim(x)` of the vector, thus setting the `dim` attribute of the vector appropriately. This also causes the vector to assume the class of a possibly-multidimensional `array`.
+
+Finally, the S4 object is created and the `ufo` vector is passed to it.
+
+What is left is to define the methods required by the DelayedAssign Seed contract: `dim`, `dimnames`, and `extract_array`.
+
+``` {r dim}
+setMethod("dim", "UFOBinSeed", function(x) dim(x@ufo))
+setMethod("dimnames", "UFOBinSeed", function(x) dimnames(x@ufo))
+```
+
+Returning the dimensionns is really simple, all we need to do, is ask the vector about it's dimensions. If asked about the names, we also pass the question along to the vector itself, which will return `NULL`, unless the programmer manually overrides `obj`.
+
+
+``` {r extract_array}
+setMethod("extract_array", "UFOBinSeed", function(x, index) {DelayedArray:::subset_by_Nindex(x@ufo, index)})
+```
+
+Finally, `the extract_array` method. Here we need to extract a subset of our UFO object according to the `Nindex` specified. Luckily, there is already a function in `DelayedArray` that will do this for us.
+
+# Seed testing
+
+Now that we have defined the seed, we can instantiate a DelayedArray with it and see if it works.
+
+First let's turn on debug mode in UFO to make sure we see what's going on under the hood.
+
+``` {r debug}
+#ufovectors::ufo_set_debug_mode(T)
+```
+
+Now let's execute some operations on the DelayedArray object.
+
+``` {r test}
+da <- DelayedArray(seed=UFOBinSeed("integer", "/home/kondziu/Workspace/ufo_workspace/UFOs/ufovectors/vignettes/example_int.bin"))
+sum(da + 1)
+```

@@ -1,0 +1,15 @@
+useDynLib(ufomatrices, .registration = TRUE, .fixes = "")
+
+export(ufo_matrix_integer_bin)
+export(ufo_matrix_numeric_bin)
+export(ufo_matrix_complex_bin)
+export(ufo_matrix_logical_bin)
+export(ufo_matrix_raw_bin)
+export(ufo_matrix_bin)
+
+#export(ufo_matrix_character_bin)
+
+export(ufo_matrix_store_bin)
+
+export(ufo_matrix_set_debug_mode)
+export(ufo_matrix_shutdown)

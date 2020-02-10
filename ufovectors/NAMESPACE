@@ -5,8 +5,14 @@ export(ufo_numeric_bin)
 export(ufo_complex_bin)
 export(ufo_logical_bin)
 export(ufo_raw_bin)
+export(ufo_vector_bin)
 
-#export(ufo_character_bin)
+export(ufo_matrix_integer_bin)
+export(ufo_matrix_numeric_bin)
+export(ufo_matrix_complex_bin)
+export(ufo_matrix_logical_bin)
+export(ufo_matrix_raw_bin)
+export(ufo_matrix_bin)
 
 export(ufo_store_bin)
 

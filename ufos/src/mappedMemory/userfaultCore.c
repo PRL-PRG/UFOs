@@ -303,7 +303,7 @@ static int readHandleMsg(ufInstance* i){
   tryPerrNegOne(res, readMsg(i->msgPipe[0], sizeof(ufAsyncMsg), (char*)&msg), "error reading from pipe", error);
   switch(res){
     case 1:
-      // Huh… read nothing? Not really an error, though we should only get here when threre is something to read
+      // Huh… read nothing? Not really an error, though we should only get here when there is something to read
       perror("nothing to read");
       return 0;
     case 2:

@@ -1,0 +1,149 @@
+---
+title: "Using UFO Matrices"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using UFO Matrices}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+Package *ufomatrices* is an example implementation of R matrices using User Fault Objects (UFOs) from the *ufos* package. UFOs spoof vectors by constructing SEXP structures that look exactly like ordinary R vectors to the R interpreter, but trigger the UFO framework when their memory is accessed. The framework then loads appropriate data from an arbitrary *source* (eg. a binary file on a harddrive) into memory and gives access to it to the R interpreter. The data will also be "forgotten" and the memory freed if a vector threatens to overrun memory.
+
+Let's examine a short example to see all this in action. First, let's load the package.
+
+```{r setup}
+library(ufovectors)
+```
+
+Note, that the package loads *ufos* as a dependency.
+
+# UFO matrices
+
+The *ufomatrices* package provides constructors for various types of matrices:
+
+* `ufo_matrix_integer_bin (path, rows, cols)`
+* `ufo_matrix_numeric_bin (path, rows, cols)`
+* `ufo_matrix_logical_bin (path, rows, cols)`
+* `ufo_matrix_complex_bin (path, rows, cols)`
+* `ufo_matrix_raw_bin (path, rows, cols)`
+
+Each of these functions requires a path to a binary file that will provide the data that populates the matrix. Internally, an R matrix is really just an R vector with the additional `dims` attribute specifying the dimensions of the matrix, and a `class` attribute of `"matrix"`. The data of the matrix will be provided through a binary file. This file just contains one-dimensional data, so we need to add dimensions to it, which we do via the `cols` and `rows` arguments.
+
+Our example binary file at path `example_int.bin` 2^16 32-bit consecutive little-endian-encoded values.
+
+```
+00 00 00 00  01 00 00 00  02 00 00 00  03 00 00 00  
+04 00 00 00  05 00 00 00  06 00 00 00  07 00 00 00  
+08 00 00 00  09 00 00 00  0A 00 00 00  0B 00 00 00  
+0C 00 00 00  0D 00 00 00  0E 00 00 00  0F 00 00 00  
+...          ...          ...          ...
+FC FF 00 00  FD FF 00 00  FE FF 00 00  FF FF 00 00
+```
+
+This represents the values:
+
+```
+    0     1     2     3  
+    4     5     6     7 
+    8     9    10    11 
+   12    13    14    15
+   16    17    18    19
+  ...   ...   ...   ...
+65532 65533 65534 65535
+```
+
+We can use this file to represent a number of matrices.
+We can represent a matrix with 256 columns and 256 rows or a matrix representing the following matrix:
+
+```
+             col [,1]  col [,2]   ...   col [,256]
+row [1,]     0         256        ...   65280
+row [2,]     1         257        ...   65281
+...          ...       ...        ...   ...
+row [256,]   255       511        ...   65535
+```
+
+We can also represent a matrix with 16 columns and 4096 rows:
+
+```
+             col [,1]  col [,2]   ...   col [,16]
+row [1,]     0         4096       ...   61440
+row [2,]     1         4097       ...   61441
+...          ...       ...        ...   ...
+row [4096,]  4095      8191       ...   65535
+```
+These both use all the elemnts in the file. We can also create a matrix that only uses a prefix of the file, for instamce 16 columns and 256 rows:
+
+```
+             col [,1]  col [,2]  ...   col [,16]
+row [1,]     0         256       ...   3840
+row [2,]     1         257       ...   3841
+...          ...       ...       ...   ...
+row [256,]   255       511       ...   4095
+```
+
+Let's actually create these matrices.
+
+```{r ufovectors-create-int-matrix}
+m1 <- ufo_matrix_integer_bin("example_int.bin", 256, 256)
+m2 <- ufo_matrix_integer_bin("example_int.bin", 4096, 16)
+m3 <- ufo_matrix_integer_bin("example_int.bin", 256, 16)
+```
+
+Sine in R matrices are implemented as vectors, when we execute these functions the R interpreter asks the UF engine to allocate some memory using a custom allocator that will be used to store a vector. Subsequently, dimension information is attached to the vector via attributes.
+
+Before we do anything, let's turn on debug mode to see what happens under the hood.
+
+```{r ufovectors-turn-on-debug}
+ufo_set_debug_mode(T)
+```
+
+Now, let's try accessing some elements of an array.
+
+```{r ufovectors-poke-int-matrix}
+m1[1,1]
+```
+
+Once we access an element, the UF engine prepares a region of actual memory and asks its source to populate it. Since the source is a binary file, a chunk of the file is read into memory. We see exactly which chunk of the file is loaded into memory in the debug message. The size of the chunk depends on the configuration of the UF engine, but it's at least a page fo memory.
+
+If we access some more elements again, this data is actually in memory and no more loading takes place.
+
+```{r ufovectors-poke-int-matrix-again}
+m1[2,16]
+```
+
+If we access elements outside of the loaded chunk, the source will be asked to provide another chunk.
+
+```{r ufovectors-poke-int-matrix-load-another-chunk}
+m1[256,256]
+```
+
+We see again through the debug message that another chunk was loaded into memory.
+
+# Manually constructing UFO matrices from UFO vectors
+
+R matrices are just R vectors with additional arguments. UFO matrices therefore are just UFO vectors with additional arguments. While the `ufovectors` package provides constructors to construct these matrices, you can just add the necessary attributes to an existing UFO vector.
+
+Specifically, an R matrix is a vector with the following attributes:
+- a `class` attribute saying it's a `matrix`,
+- a `dim` attribute specifying the dimensions of the matrix.
+
+In addition, when setting a `dim` attribute on a vector, a `class` attribute is
+automatically added. Hence, the simplest way of creating a UFO array is to
+assign these manually:
+
+``` {r manual-matrix}
+vec <- ufo_integer_bin("example_int.bin")
+dim(vec) <- list(length(vec)/2, 2)
+class(vec)
+```
+
+We have created a `matrix`!
+
