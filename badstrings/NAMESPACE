@@ -1,0 +1,3 @@
+useDynLib(badstrings, .registration = TRUE, .fixes = "")
+
+export(bad_character)

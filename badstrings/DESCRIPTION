@@ -1,0 +1,15 @@
+Package: badstrings
+Type: Package
+Title:       Character vectors without interning. What could possibly go wrong?
+Description: Experiments with string vectors, where character vectors are not interned.
+Version: 0.1.0
+Authors@R: c(person(given = "Konrad",  family = "Siek", role = c("aut", "cre"),
+                    email = "siekkonr@fit.cvut.cz"))
+Maintainer: Konrad Siek <siekkonr@fit.cvut.cz>
+License: GPL-2 | GPL-3
+Encoding: UTF-8
+NeedsCompilation: yes
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
