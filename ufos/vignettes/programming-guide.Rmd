@@ -1,0 +1,503 @@
+---
+title: "UFO Programming Guide"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using UFO Matrices}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+UFOs are primarily a library that aides you in the creation of custom R vector
+backend. In this vignette we will show you how to implement a simple
+larger-than-memory vector package by example. We will explain both how to write
+the package from scratch and how to make UFO work.
+
+Implementing a custom UFO vector requires you to write five pieces of code in R
+and C:
+
+- [R] constructors for your vectors
+- [C] a population function
+- [C] a destructor function
+- [C] a structure that configures the population function
+- [C] glue that feeds the previous two things to the UFO framework
+
+# Example: UFO sequences
+
+As an example, we will use an implementation of sequences. Our sequence will be
+an integer vector that has a beginning, a step, and an end. Any given element
+of the vector is equal to the previous element plus the step. You probably
+already know them from R:
+
+``` {r}
+seq(from = 1, to = 10, by = 2)
+```
+
+Our sequences will be created by the following function:
+
+```R
+ufo_seq(from = 1, to = 10, by = 2)
+```
+
+And we're going to create a package around it called `ufoseq`.
+
+## Creating a package
+
+To create a rudimentary R package we create a directory called `ufoseq`
+and inside this directory we create two subdirectories: `R` and `src`.
+
+Then, we add a `DESCRIPTION` file to the `ufoseq` directory and fill it after
+the following fashion:
+
+```
+Package: ufoseq
+Type: Package
+Title: Implementation of sequences using UFOs.
+Description: Example implementation of UFO vectors that provides larger-than-memory sequence vectors.
+Version: 1.0
+Authors@R: c(person(given = "Konrad",  family = "Siek", role = c("aut", "cre"),
+                    email = "siekkonr@fit.cvut.cz"))
+Maintainer: Konrad Siek <siekkonr@fit.cvut.cz>
+License: GPL-2 | GPL-3
+Encoding: UTF-8
+LazyData: true
+Depends: ufos
+LinkingTo: ufos
+NeedsCompilation: yes
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
+```
+
+Note that we are adding the `ufos` package as both a dependency and a linking
+requirement. We are doing this, because we will later on import some C
+functions from `ufos`.
+
+## R constructors
+
+First, we create an R constructor for our vectors. Create an R script at
+`ufoseq/R/ufoseq.R`. Here we essentially write a simple R function that just
+calls a C function we will write later.
+
+``` R
+ufo_seq <- function(from, to, by = 1) {
+  # Call the C function that actually creates the vector
+  .Call("ufo_seq", from, to, by)
+}
+```
+
+That's simple enough, but function should check whether the arguments it
+receives are what they are expected to be. Thus, we need to add some simple
+checks.
+
+``` R
+ufo_seq <- function(from, to, by = 1) {
+  # check if any of the arguments were missing
+  if (missing(from)) stop ("'from' is a required argument")
+  if (missing(to)) stop ("'to' is a required argument")
+      
+  # check whether the arguments are non-zero length
+  if (length(from) == 0) stop("'from' cannot be zero length)
+  if (length(to) == 0) stop("'to' cannot be zero length)
+  if (length(by) == 0) stop("'by' cannot be zero length)
+  
+  # check whether the arguments are of scalars
+  if (length(from) > 1) 
+    warn("'from' has multiple values, only the first value will be used)
+  if (length(to) > 1) 
+    warn("'to' has multiple values, only the first value will be used)
+  if (length(by) > 1)
+    warn("'by' has multiple values, only the first value will be used)
+    
+  # Convert inputs to integers and call the C function that actually creates
+  # the vector
+  .Call("ufo_seq", as.integer(from), as.integer(to), as.integer(by))
+}
+```
+
+Now the function looks like it means business! ;) We then need to export this
+function to the package namespace. Create a file `ufoseq/NAMESPACE` and fill it
+out as follows:
+
+```R
+useDynLib(ufoseq, .registration = TRUE, .fixes = "")
+export(ufo_seq)
+```
+
+## The C function that creates a vector, part 1
+
+Now onto the C function. We create a header file: `ufoseq/src/ufoseq.h` and
+declare a the `ufo_seq` C function:
+
+```C
+#pragma once
+#include "Rinternals.h"
+
+SEXP ufo_seq(SEXP from, SEXP to, SEXP by);
+```
+
+This function takes three arguments of type SEXP and returns a SEXP. SEXPs are
+a supertype of all R objects. They are declared in `Rinternals.h`, which is why
+we must include it. In our case, to, from, and by are going to be integers or
+doubles, and we will return a vector that is also an integer vector or a
+double. It sometimes saves confusion to mark that in the function signatures
+with comments:
+
+```C
+#pragma once
+#include "Rinternals.h"
+
+SEXP/*INTXP*/ ufo_seq(SEXP/*INTXP*/ from, 
+                      SEXP/*INTXP*/ to, 
+                      SEXP/*INTXP*/ by);
+```
+
+Then, let us register the function with the R interpreter. We create a C file
+`ufoseq/src/init.c`:
+
+```C
+#include "ufo_seq.h"
+
+#include <R_ext/Rdynload.h>
+#include <R_ext/Visibility.h>
+
+// List of functions provided by the package.
+static const R_CallMethodDef CallEntries[] = {
+    // Constructors
+    {"ufo_seq",  (DL_FUNC) &ufo_seq,  3},
+
+    // Terminates the function list. Necessary, do not remove.
+    {NULL, NULL, 0}
+};
+```
+
+Here we start by including the header file we previously created, so that we
+can refer to our `ufo_seq` function. We also have some helpful R includes. More
+important, below, we construct a struct that serves as the registry of C
+functions that can be called from R. The function description consists of three
+fields: a name, a pointer to a C function, and the number of arguments. In our
+case the name is `ufo_seq`, we get the pointer from the reference to the
+`ufo_seq` function defined in `ufoseq.h`, and the number of arguments is 3.
+
+If we had more functions we would add them to this list. It's important to
+terminate the list with a `{NULL, NULL, 0}` entry. Otherwise terrible things
+happen.
+
+Now we can start working on the C function that creates our UFO vectors. We add
+a file `ufoseq/src/ufoseq.c` and start implementing our `ufoseq` function:
+
+```C
+#include `ufoseq.h` 
+
+SEXP/*INTXP*/ ufo_seq(SEXP/*INTXP*/ from, 
+                      SEXP/*INTXP*/ to, 
+                      SEXP/*INTXP*/ by) {
+
+    return R_NilValue;
+}
+```
+
+We include the header where our function is declared. We then define the
+function. For now it's empty and it returns R's `NULL` object. Before we start
+filling it out we need to do some more things though. 
+
+## UFO includes
+
+First, we need to import some UFO definitions:
+
+We need to create a directory `ufoseq/include`. We  need to copy the `ufos.h`
+header file from the `ufos` package there. Then we need to create another
+directory: `../include/mappedMemory/` and copy another header file,
+`userfaultCore.h` there. These two files contain definitions of all the things
+you need to work with UFOs:
+
+  - `ufo_vector_type_t` - UFO vector type definitions, which are analogous to R vector types, and `ufo_type_to_vector_type`, a function to convert from one to the other,
+  - `ufo_source_t` - a structure that passes the necessary configuration data to the UFO framework,
+  - `ufo_initialize` and `ufo_shutdown` - functions for starting and shutting down the UFO framework,
+  - `ufo_new` a generic constructor for UFO vectors.
+
+## Creating a UFO
+
+In order to create a UFO we use `ufo_new`, which is defined like this: 
+
+```C
+SEXP ufo_new(ufo_source_t*);
+```
+
+But we can't just use it, since it's defined in the `ufos` package. Instead, we
+need to import it from the package. We do it like this:
+
+```C
+ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
+```
+
+Now we need to construct a structure of type `ufo_source_t` to pass as an
+argument.
+
+This structure is defined as follows:
+
+```C
+typedef struct {
+    ufUserData*         data;
+    ufPopulateRange     population_function;
+    ufo_destructor_t    destructor_function;
+    ufo_vector_type_t   vector_type;
+    size_t              vector_size;
+    size_t              element_size;
+    int                 *dimensions;
+    size_t              dimensions_length;
+    int32_t             min_load_count;
+} ufo_source_t;
+```
+
+Most of these are straightforward. `vector_type` is one of the following vector
+types:
+
+```C
+typedef enum {
+    UFO_CHAR = CHARSXP,
+    UFO_LGL  = LGLSXP,
+    UFO_INT  = INTSXP,
+    UFO_REAL = REALSXP,
+    UFO_CPLX = CPLXSXP,
+    UFO_RAW  = RAWSXP
+} ufo_vector_type_t;
+```
+
+Let us leave `data`, `population_function` and `destructor_function` for later. 
+
+`vector_size` is the number of elements in the vector and `element_size` is the
+size of each element in bytes. 
+
+`dimensions` and `dimensions_length` are used to provide extra data for
+matrices. If you are not writing a matrix, set `dimensions` to `NULL`.  If you
+are writing a matrix, `dimensions_length` is the number of dimensions, and
+`dimensions` will represent the sizes of each dimension.
+
+Next, `min_load_count` reperesents the minimum number of elements to populate
+when the vector is accessed. We will explain the details later, when writing
+the population function. A good typical number is 1 megabyte's worth of
+elements.
+
+How do we fill these values? Most of them are simple, so can thus create a
+`source` like this:
+
+```C
+SEXP/*INTXP*/ ufo_seq(SEXP/*INTXP*/ from, 
+                      SEXP/*INTXP*/ to, 
+                      SEXP/*INTXP*/ by) {
+
+    ufo_source_t* source = (ufo_source_t*) malloc(sizeof(ufo_source_t));
+
+    source->vector_type = UFO_INT; 
+    source->element_size = sizeof(int);
+
+    int from_value = INTEGER_ELT(from, 0);
+    int to_value = INTEGER_ELT(to, 0);
+    int by_value = INTEGER_ELT(by, 0);
+    source->vector_size = (to_value - from_value) / by_value
+                        + ((to_value - from_value) % by_value > 0)
+
+    source->dimensions = NULL;
+    source->dimensions_length = 0;
+
+    source->min_load_count = 1000000 / sizeof(int);
+
+    ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
+    return ufo_new(source);
+}
+```
+
+We calculate the size by first calculating the division of the difference
+between `to_value` and `from_value` and, then dividing the result by
+`by_value`, and finally we take the ceiling of the division. Except we do it
+more C-like.
+
+## Creating a configuration structure.
+
+The data in `source` are for the UFO framework. But we will also need some data
+for our population function. That data goes into the `data` field. The UFO
+framework does not care what you put there, this is only for you. That is why
+the type of `data` is actually `void *`. You need to define what data you are
+going to need yourself. So let us define the following structure in `ufoseq.h`
+
+```C
+    typedef struct {
+        int from;
+        int to;
+        int by; 
+    } ufo_seq_data_t;
+```
+
+We then initialize this structure and include it in `source`:
+
+```C
+SEXP/*INTXP*/ ufo_seq(SEXP/*INTXP*/ from, 
+                      SEXP/*INTXP*/ to, 
+                      SEXP/*INTXP*/ by) {
+
+    ufo_source_t* source = (ufo_source_t*) malloc(sizeof(ufo_source_t));
+
+    source->vector_type = UFO_INT; 
+    source->element_size = sizeof(int);
+
+    int from_value = INTEGER_ELT(from, 0);
+    int to_value = INTEGER_ELT(to, 0);
+    int by_value = INTEGER_ELT(by, 0);
+    source->vector_size = (to_value - from_value) / by_value
+                        + ((to_value - from_value) % by_value > 0)
+
+    source->dimensions = NULL;
+    source->dimensions_length = 0;
+
+    source->min_load_count = 1000000 / sizeof(int);
+
+    ufo_seq_data_t *data = (ufo_seq_data_t*) malloc(sizeof(ufo_seq_data_t));
+    data->from = from_value;
+    data->to = to_value;
+    data->by = by_value;
+    source->data = data;
+
+    ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
+    return ufo_new(source);
+}
+```
+
+## Destructor function
+
+We allocate some memory, we should clean up after ourselves. Generally
+speaking, R has a garbage collector which will figure out when our vector stops
+being in use. When this happens, the framework will try to clean up the various
+objects it allocated. One of the first steps of that process is to call the
+destructor function defined in the `source` struct. Inside this function it is
+the programmer's job, ie. your job, to clean up your `data`.
+
+This function has to have the following type:
+
+```C
+typedef void (*ufo_destructor_t)(ufUserData*)
+```
+
+This defines a function with one argument of type `ufUserData *`. This argument
+is actually the structure we specified in `source->data` above. This means we
+can just cast it to `ufo_seq_data_t*`, In our case this structure is
+straightforward, s we can just deallocate it using `free`. So our destructor
+looks like this:
+
+```C
+void destroy_data(ufUserData *data) {
+    ufo_seq_data_t *ufo_seq_data = (ufo_seq_data_t*) data;
+    free(ufo_seq_data);
+}
+```
+
+We then attach this function to the `source` structure like so:
+
+```C
+SEXP/*INTXP*/ ufo_seq(SEXP/*INTXP*/ from, 
+                      SEXP/*INTXP*/ to, 
+                      SEXP/*INTXP*/ by) {
+
+    ufo_source_t* source = (ufo_source_t*) malloc(sizeof(ufo_source_t));
+
+    source->vector_ty pe = UFO_INT; 
+    source->element_size = sizeof(int);
+
+    int from_value = INTEGER_ELT(from, 0);
+    int to_value = INTEGER_ELT(to, 0);
+    int by_value = INTEGER_ELT(by, 0);
+    source->vector_size = (to_value - from_value) / by_value
+                        + ((to_value - from_value) % by_value > 0)
+
+    source->dimensions = NULL;
+    source->dimensions_length = 0;
+
+    source->min_load_count = 1000000 / sizeof(int);
+
+    ufo_seq_data_t *data = (ufo_seq_data_t*) malloc(sizeof(ufo_seq_data_t));
+    data->from = from_value;
+    data->to = to_value;
+    data->by = by_value;
+    source->data = data;
+
+    source->destructor_function = &destroy_data;
+
+    ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
+    return ufo_new(source);
+}
+```
+
+## Population function
+
+The UFO framework will call your population function whenever a new chunk of
+memory in a vector is accessed. Therefore it is going to be the main thing that
+defines what your custom vector does.  The type of this function is defined in
+`userfaultCore.h`:
+
+```C
+typedef int (*ufPopulateRange)(uint64_t startValueIdx, uint64_t endValueIdx, ufPopulateCallout callout, ufUserData src, char* target);
+```
+
+So it's a function that takes a lot of arguments and returns an integer value.
+The return value is supposed to be 0 if the function completes succesfully, and
+any other value in case of an error. Let's take a look at the arguments.
+
+First `target` is a pointer to an area of memory which you must fill with data.
+This is where we will be writing our sequence.
+
+Arguments `startValueIdx` and `endValueIdx` tell you which values you need to
+generate during this access. `startValueIdx` is the first value and
+`endValueIdx` is the exclusive limit. For instance, if somebody accesses your
+vector in R as `v[1:100]` then `startValueIdx` will be 0 and `endValueIdx` will
+be 100. This means you are supposed to fill in `((int *) target)[0]` all the
+way through to `((int *) target)[99]`, but **not** `((int *) target)[100]`.
+
+Note that C is 0-indexed and R is 1-indexed.
+
+The area of memory pointed to by `target` is already appropriately offset. This
+means that if somebody accesses your vector in R as `v[101:200]`, then
+`startValueIdx` will be 100 and  `endValueIdx` will be 200, but you are
+supposed to fill in `((int *) target)[0]` all the way through to `((int *)
+target)[99]`. And the value you write to `((int *) target)[0]` should be the
+value you would expect to see at `v[101]` in R.
+
+It is also important to point out, that for the sake of efficiency, the UFO
+framework will actually round up the amount elements that need to be generated
+to the nearest memory page larger than the memory required to allocate
+`source->min_load_count` elements.
+
+Another important argument is `userData`. This is going to be the structure of
+type `ufo_source_t` that you passed in to `ufo_new`. This means it contains all
+the necessary data for your vector to generate data, including the data you
+passed as `source->data`.
+
+The function `callout` is advanced functionality that lets you inform the UFO
+framework that you would like to load more data at once, but we will not
+explore this functionality here.
+
+Let us instead write out population function for sequences.
+
+```C
+int populate(uint64_t startValueIdx, uint64_t endValueIdx,
+             ufPopulateCallout callout, 
+             ufUserData src, char* target) {
+
+    ufo_source_t* source = (ufo_source_t*) source;
+    ufo_seq_data_t* data = (ufo_seq_data_t*) source->data;
+
+    for (size_t i = 0; i < endValueIdx - startValueIdx; i++) {
+        target[i] = data->from + (data->by - 1) * (i + startValueIdx);
+    }
+
+    return 0;
+}
+```
+
+**TODO init/shutdown**
