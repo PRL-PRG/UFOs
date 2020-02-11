@@ -67,15 +67,15 @@ void freeList(sparseList_t list){
   free(l);
 }
 
-static inline int eCompare(uint64_t i, entryI* e){
+static inline int eCompare(bool overlapEq, uint64_t i, entryI* e){
   const bool ltP = i < e->ptrI;
-  const bool gtE = i >= (e->ptrI + e->length);
+  const bool gt  = overlapEq ? i >= (e->ptrI + e->length) : i > e->ptrI;
 
    if(ltP) // less than the pointer
      return -1;
-   if(gtE) // greater than or equal to the end
+   if(gt) // greater than either the pointer or the end
      return 1;
-   return 0; // between ptr and the end
+   return 0; // between ptr and the end or exactly eqal to ptr
 }
 
 static searchResult binarySearch(sparseList* list, uint64_t i){
@@ -95,7 +95,7 @@ static searchResult binarySearch(sparseList* list, uint64_t i){
     assert(m <= h);
 
     e = list->list+m;
-    switch(cmp = eCompare(i, e)){
+    switch(cmp = eCompare(e->occupied, i, e)){
       case -1:
         h = m - 1;
         break;
@@ -270,10 +270,10 @@ static void assertListInvariants(sparseList* l){
 
     // Make sure that the element below i is smaller
     if(i != 0)
-      assert(-1 == eCompare(l->list[i-1].ptrI, e));
+      assert(-1 == eCompare(true, l->list[i-1].ptrI, e));
     // and the element above is higher
     if(i+1 < u)
-      assert(+1 == eCompare(l->list[i+1].ptrI, e));
+      assert(+1 == eCompare(l->list[i+1].occupied, l->list[i+1].ptrI, e));
   }
 
   // We saw the correct number of elements, right?
@@ -340,8 +340,10 @@ int listAdd(sparseList_t list_t, void* ptr, uint64_t length, dataPtr value){
   // Ensure the element just added is greater than its predecessor and less than its sucessor
   // This holds true even if those slots are no longer "occupied"
   assert(actualIdx < l->usedSlots);
-  assert(actualIdx == 0 || -1 == eCompare(l->list[actualIdx-1].ptrI, e));
-  assert(actualIdx+1 == l->usedSlots || 1 == eCompare(l->list[actualIdx+1].ptrI, e));
+  assert(actualIdx == 0 || -1 == eCompare(true, l->list[actualIdx-1].ptrI, e));
+  // Check if the next slot it strictly larger than us. If it is occupied check for overlap too
+  if(actualIdx+1 < l->usedSlots)
+    assert(1 ==  eCompare(l->list[actualIdx+1].occupied, l->list[actualIdx+1].ptrI, e));
 
   // Expensive assertion of all list invariants that we can think of
   // Will be a nop if turned off
@@ -366,6 +368,7 @@ int listRemove(sparseList_t list, void* ptr){
     return NotRemoved;
 
   l->list[r.idx].occupied = false;
+  l->list[r.idx].length   = 0;
   l->list[r.idx].valuePtr = NULL; // bonus safety
   l->size--;
 
