@@ -1,0 +1,15 @@
+Package: matrixbench
+Type: Package
+Title: A matrix-based benchmark for custom vector implementations.
+Description: A benchmark for ALTREP and UFO vectors that uses matrices and matrix operations to measure performance.
+Version: 0.1.0
+Authors@R: c(person(given = "Colette", family = "Kerr", role = c("aut"),
+                    email = "colette.m.y.kerr@gmail.com"),
+             person(given = "Konrad",  family = "Siek", role = c("aut", "cre"),
+                    email = "siekkonr@fit.cvut.cz"))
+Maintainer: Konrad Siek <siekkonr@fit.cvut.cz>
+License: GPL-2 | GPL-3
+Encoding: UTF-8
+LazyData: true
+NeedsCompilation: yes
+
