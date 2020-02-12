@@ -104,17 +104,17 @@ ufo_seq <- function(from, to, by = 1) {
   if (missing(to)) stop ("'to' is a required argument")
       
   # check whether the arguments are non-zero length
-  if (length(from) == 0) stop("'from' cannot be zero length)
-  if (length(to) == 0) stop("'to' cannot be zero length)
-  if (length(by) == 0) stop("'by' cannot be zero length)
+  if (length(from) == 0) stop("'from' cannot be zero length")
+  if (length(to) == 0) stop("'to' cannot be zero length")
+  if (length(by) == 0) stop("'by' cannot be zero length")
   
   # check whether the arguments are of scalars
   if (length(from) > 1) 
-    warn("'from' has multiple values, only the first value will be used)
+    warn("'from' has multiple values, only the first value will be used")
   if (length(to) > 1) 
-    warn("'to' has multiple values, only the first value will be used)
+    warn("'to' has multiple values, only the first value will be used")
   if (length(by) > 1)
-    warn("'by' has multiple values, only the first value will be used)
+    warn("'by' has multiple values, only the first value will be used")
     
   # Convert inputs to integers and call the C function that actually creates
   # the vector
@@ -131,7 +131,7 @@ useDynLib(ufoseq, .registration = TRUE, .fixes = "")
 export(ufo_seq)
 ```
 
-## The C function that creates a vector, part 1
+## Some glue
 
 Now onto the C function. We create a header file: `ufoseq/src/ufoseq.h` and
 declare a the `ufo_seq` C function:
@@ -154,16 +154,14 @@ with comments:
 #pragma once
 #include "Rinternals.h"
 
-SEXP/*INTXP*/ ufo_seq(SEXP/*INTXP*/ from, 
-                      SEXP/*INTXP*/ to, 
-                      SEXP/*INTXP*/ by);
+SEXP/*INTXP*/ ufo_seq(SEXP/*INTXP*/ from, SEXP/*INTXP*/ to, SEXP/*INTXP*/ by);
 ```
 
 Then, let us register the function with the R interpreter. We create a C file
 `ufoseq/src/init.c`:
 
 ```C
-#include "ufo_seq.h"
+#include "ufoseq.h"
 
 #include <R_ext/Rdynload.h>
 #include <R_ext/Visibility.h>
@@ -194,11 +192,9 @@ Now we can start working on the C function that creates our UFO vectors. We add
 a file `ufoseq/src/ufoseq.c` and start implementing our `ufoseq` function:
 
 ```C
-#include `ufoseq.h` 
+#include "ufoseq.h"
 
-SEXP/*INTXP*/ ufo_seq(SEXP/*INTXP*/ from, 
-                      SEXP/*INTXP*/ to, 
-                      SEXP/*INTXP*/ by) {
+SEXP/*INTXP*/ ufo_seq(SEXP/*INTXP*/ from, SEXP/*INTXP*/ to, SEXP/*INTXP*/ by) {
 
     return R_NilValue;
 }
@@ -218,9 +214,13 @@ directory: `../include/mappedMemory/` and copy another header file,
 `userfaultCore.h` there. These two files contain definitions of all the things
 you need to work with UFOs:
 
-  - `ufo_vector_type_t` - UFO vector type definitions, which are analogous to R vector types, and `ufo_type_to_vector_type`, a function to convert from one to the other,
-  - `ufo_source_t` - a structure that passes the necessary configuration data to the UFO framework,
-  - `ufo_initialize` and `ufo_shutdown` - functions for starting and shutting down the UFO framework,
+  - `ufo_vector_type_t` - UFO vector type definitions, which are analogous to R
+    vector types, and `ufo_type_to_vector_type`, a function to convert from one
+    to the other,
+  - `ufo_source_t` - a structure that passes the necessary configuration data
+    to the UFO framework,
+  - `ufo_initialize` and `ufo_shutdown` - functions for starting and shutting
+    down the UFO framework,
   - `ufo_new` a generic constructor for UFO vectors.
 
 ## Creating a UFO
@@ -290,9 +290,7 @@ How do we fill these values? Most of them are simple, so can thus create a
 `source` like this:
 
 ```C
-SEXP/*INTXP*/ ufo_seq(SEXP/*INTXP*/ from, 
-                      SEXP/*INTXP*/ to, 
-                      SEXP/*INTXP*/ by) {
+SEXP/*INTXP*/ ufo_seq(SEXP/*INTXP*/ from, SEXP/*INTXP*/ to, SEXP/*INTXP*/ by) {
 
     ufo_source_t* source = (ufo_source_t*) malloc(sizeof(ufo_source_t));
 
@@ -320,7 +318,7 @@ between `to_value` and `from_value` and, then dividing the result by
 `by_value`, and finally we take the ceiling of the division. Except we do it
 more C-like.
 
-## Creating a configuration structure.
+## Application-specific data
 
 The data in `source` are for the UFO framework. But we will also need some data
 for our population function. That data goes into the `data` field. The UFO
@@ -339,9 +337,7 @@ going to need yourself. So let us define the following structure in `ufoseq.h`
 We then initialize this structure and include it in `source`:
 
 ```C
-SEXP/*INTXP*/ ufo_seq(SEXP/*INTXP*/ from, 
-                      SEXP/*INTXP*/ to, 
-                      SEXP/*INTXP*/ by) {
+SEXP/*INTXP*/ ufo_seq(SEXP/*INTXP*/ from, SEXP/*INTXP*/ to, SEXP/*INTXP*/ by) {
 
     ufo_source_t* source = (ufo_source_t*) malloc(sizeof(ufo_source_t));
 
@@ -363,7 +359,7 @@ SEXP/*INTXP*/ ufo_seq(SEXP/*INTXP*/ from,
     data->from = from_value;
     data->to = to_value;
     data->by = by_value;
-    source->data = data;
+    source->data = (ufUserData) data;
 
     ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
     return ufo_new(source);
@@ -401,20 +397,18 @@ void destroy_data(ufUserData *data) {
 We then attach this function to the `source` structure like so:
 
 ```C
-SEXP/*INTXP*/ ufo_seq(SEXP/*INTXP*/ from, 
-                      SEXP/*INTXP*/ to, 
-                      SEXP/*INTXP*/ by) {
+SEXP/*INTXP*/ ufo_seq(SEXP/*INTXP*/ from, SEXP/*INTXP*/ to, SEXP/*INTXP*/ by) {
 
     ufo_source_t* source = (ufo_source_t*) malloc(sizeof(ufo_source_t));
 
-    source->vector_ty pe = UFO_INT; 
+    source->vector_type = UFO_INT; 
     source->element_size = sizeof(int);
 
     int from_value = INTEGER_ELT(from, 0);
     int to_value = INTEGER_ELT(to, 0);
     int by_value = INTEGER_ELT(by, 0);
     source->vector_size = (to_value - from_value) / by_value
-                        + ((to_value - from_value) % by_value > 0)
+                        + ((to_value - from_value) % by_value > 0);
 
     source->dimensions = NULL;
     source->dimensions_length = 0;
@@ -425,7 +419,7 @@ SEXP/*INTXP*/ ufo_seq(SEXP/*INTXP*/ from,
     data->from = from_value;
     data->to = to_value;
     data->by = by_value;
-    source->data = data;
+    source->data = (ufUserData) data;
 
     source->destructor_function = &destroy_data;
 
@@ -474,9 +468,8 @@ to the nearest memory page larger than the memory required to allocate
 `source->min_load_count` elements.
 
 Another important argument is `userData`. This is going to be the structure of
-type `ufo_source_t` that you passed in to `ufo_new`. This means it contains all
-the necessary data for your vector to generate data, including the data you
-passed as `source->data`.
+type `ufo_seq_data_t` that you passed in to `ufo_new` via `source`. This means it contains all
+the necessary data for your vector to generate data.
 
 The function `callout` is advanced functionality that lets you inform the UFO
 framework that you would like to load more data at once, but we will not
@@ -486,18 +479,60 @@ Let us instead write out population function for sequences.
 
 ```C
 int populate(uint64_t startValueIdx, uint64_t endValueIdx,
-             ufPopulateCallout callout, 
-             ufUserData src, char* target) {
+             ufPopulateCallout callout, ufUserData userData, char* target) {
 
-    ufo_source_t* source = (ufo_source_t*) source;
-    ufo_seq_data_t* data = (ufo_seq_data_t*) source->data;
-
+    ufo_seq_data_t* data = (ufo_seq_data_t*) userData;
+    
     for (size_t i = 0; i < endValueIdx - startValueIdx; i++) {
-        target[i] = data->from + (data->by - 1) * (i + startValueIdx);
+        ((int *) target[i]) = data->from + (data->by - 1) * (i + startValueIdx);
     }
 
     return 0;
 }
 ```
 
-**TODO init/shutdown**
+After we have written the function, all that is left is to plug it into our
+`source` structure:
+
+```C
+SEXP/*INTXP*/ ufo_seq(SEXP/*INTXP*/ from, SEXP/*INTXP*/ to, SEXP/*INTXP*/ by) {
+
+    ufo_source_t* source = (ufo_source_t*) malloc(sizeof(ufo_source_t));
+
+    source->vector_type = UFO_INT; 
+    source->element_size = sizeof(int);
+
+    int from_value = INTEGER_ELT(from, 0);
+    int to_value = INTEGER_ELT(to, 0);
+    int by_value = INTEGER_ELT(by, 0);
+    source->vector_size = (to_value - from_value) / by_value
+                        + ((to_value - from_value) % by_value > 0);
+
+    source->dimensions = NULL;
+    source->dimensions_length = 0;
+
+    source->min_load_count = 1000000 / sizeof(int);
+
+    ufo_seq_data_t *data = (ufo_seq_data_t*) malloc(sizeof(ufo_seq_data_t));
+    data->from = from_value;
+    data->to = to_value;
+    data->by = by_value;
+    source->data = (ufUserData) data;
+
+    source->destructor_function = &destroy_data;
+    source->population_function = &populate;    
+
+    ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
+    return ufo_new(source);
+}
+```
+
+## Et voilà
+
+Now all the elements are in place. We can test our new vectors in R:
+
+```R
+library(ufoseq)
+v <- ufo_seq(1, 100, 3)
+v[1]
+```
