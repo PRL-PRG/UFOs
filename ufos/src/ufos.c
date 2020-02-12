@@ -15,12 +15,15 @@ int __framework_initialized = 0;
 
 typedef SEXP (*__ufo_specific_vector_constructor)(ufo_source_t*);
 
-SEXP ufo_shutdown () {
+SEXP ufo_shutdown() {
     if (__framework_initialized) {
         __framework_initialized = 0;
 
         // Actual shutdown
-        ufShutdown(__ufo_system, 1 /*free=true*/);
+        int result = ufShutdown(__ufo_system, 1 /*free=true*/);
+        if (result != 0) {
+            Rf_error("Error shutting down the UFO framework (%i)", result);
+        }
     }
     return R_NilValue;
 }
@@ -31,7 +34,10 @@ void __initialize_if_necessary() {
 
         // Actual initialization
         __ufo_system = ufMakeInstance();
-        ufInit(__ufo_system);
+        int result = ufInit(__ufo_system);
+        if (result != 0) {
+            Rf_error("Error initializing the UFO framework (%i)", result);
+        }
     }
 }
 
@@ -39,7 +45,7 @@ void __validate_status_or_die (int status) {
     switch(status) {
         case 0: return;
         default:
-            Rf_error("Could not create UFO.");
+            Rf_error("Could not create UFO (%i)", status);
     }
 }
 
