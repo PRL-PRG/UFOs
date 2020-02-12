@@ -1,2 +1,3 @@
 useDynLib(ufos, .registration = TRUE, .fixes = "")
-exportPattern("^[[:alpha:]]+")
+#exportPattern("^[[:alpha:]]+")
+#export(ufo_shutdown)

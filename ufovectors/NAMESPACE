@@ -17,4 +17,3 @@ export(ufo_matrix_bin)
 export(ufo_store_bin)
 
 export(ufo_set_debug_mode)
-export(ufo_shutdown)

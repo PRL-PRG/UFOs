@@ -5,6 +5,9 @@
 
 // List of functions provided by the package.
 static const R_CallMethodDef CallEntries[] = {
+    // Shutdown the system.
+    {"ufo_shutdown", (DL_FUNC) &ufo_shutdown, 0},
+
     // Terminates the function list. Necessary.
     {NULL, NULL, 0} 
 };
@@ -17,10 +20,10 @@ void attribute_visible R_init_ufos(DllInfo *dll) {
     //R_useDynamicSymbols(dll, FALSE);
     //R_forceSymbols(dll, TRUE);
 
-    R_RegisterCCallable("ufos", "ufo_initialize", (DL_FUNC) &ufo_initialize);
+    //R_RegisterCCallable("ufos", "ufo_initialize", (DL_FUNC) &ufo_initialize);
     R_RegisterCCallable("ufos", "ufo_new", (DL_FUNC) &ufo_new);
     R_RegisterCCallable("ufos", "ufo_new_multidim", (DL_FUNC) &ufo_new_multidim);
-    R_RegisterCCallable("ufos", "ufo_shutdown", (DL_FUNC) &ufo_shutdown);
+    //R_RegisterCCallable("ufos", "ufo_shutdown", (DL_FUNC) &ufo_shutdown);
 }
 
 

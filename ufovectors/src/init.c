@@ -7,9 +7,6 @@
 // List of functions provided by the package.
 static const R_CallMethodDef CallEntries[] = {
 
-    // Initialize the system.
-    //{"ufo_vectors_initialize",  (DL_FUNC) &ufo_vectors_initialize,  0},
-
     // Constructors for vectors that partially materialize on-demand from
     // binary files.
     {"ufo_vectors_intsxp_bin",  (DL_FUNC) &ufo_vectors_intsxp_bin,  2},
@@ -27,9 +24,6 @@ static const R_CallMethodDef CallEntries[] = {
 
     // Storage.
     {"ufo_store_bin", (DL_FUNC) &ufo_store_bin, 2},
-
-    // Shutdown the system.
-    {"ufo_vectors_shutdown",    (DL_FUNC) &ufo_vectors_shutdown,    0},
 
     // Turn on debug mode.
     {"ufo_vectors_set_debug_mode",  (DL_FUNC) &ufo_vectors_set_debug_mode,  1},

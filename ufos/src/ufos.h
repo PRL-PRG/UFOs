@@ -32,8 +32,7 @@ typedef struct {
 } ufo_source_t;
 
 // Initialization and shutdown
-void ufo_initialize();
-void ufo_shutdown();
+SEXP ufo_shutdown();
 
 // Constructor
 SEXP ufo_new(ufo_source_t*);
@@ -43,7 +42,5 @@ SEXP ufo_new_multidim(ufo_source_t* source);
 SEXPTYPE ufo_type_to_vector_type (ufo_vector_type_t);
 
 // Function types for R dynloader.
-typedef void (*ufo_initialize_t)(void);
-typedef void (*ufo_shutdown_t)(void);
 typedef SEXP (*ufo_new_t)(ufo_source_t*);
 typedef SEXPTYPE (*ufo_type_to_vector_type_t)(ufo_vector_type_t);

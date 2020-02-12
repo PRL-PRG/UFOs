@@ -1,5 +1,4 @@
 #define USE_RINTERNALS
-#define UFOS_DEBUG
 
 #include <R.h>
 #include <Rinternals.h>
@@ -11,17 +10,29 @@
 
 #include <assert.h>
 
-ufInstance_t ufo_system;
+ufInstance_t __ufo_system;
+int __framework_initialized = 0;
 
 typedef SEXP (*__ufo_specific_vector_constructor)(ufo_source_t*);
 
-void ufo_initialize () {
-    ufo_system = ufMakeInstance();
-    ufInit(ufo_system);
+SEXP ufo_shutdown () {
+    if (__framework_initialized) {
+        __framework_initialized = 0;
+
+        // Actual shutdown
+        ufShutdown(__ufo_system, 1 /*free=true*/);
+    }
+    return R_NilValue;
 }
 
-void ufo_shutdown () {
-    ufShutdown(ufo_system, 1 /*free=true*/);
+void __initialize_if_necessary() {
+    if (!__framework_initialized) {
+        __framework_initialized = 1;
+
+        // Actual initialization
+        __ufo_system = ufMakeInstance();
+        ufInit(__ufo_system);
+    }
 }
 
 void __validate_status_or_die (int status) {
@@ -69,7 +80,7 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
     ufSetUserConfig(cfg, source->data);
 
     ufObject_t object;
-    int status = ufCreateObject(ufo_system, cfg, &object);
+    int status = ufCreateObject(__ufo_system, cfg, &object);
     __validate_status_or_die(status);
 
     //fprintf(stderr, "header ptr %p\n", ufGetHeaderPointer(object));
@@ -79,7 +90,7 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
 }
 
 void __ufo_free(R_allocator_t *allocator, void* ptr) {
-    ufObject_t* object = ufLookupObjectByMemberAddress(ufo_system, ptr);
+    ufObject_t* object = ufLookupObjectByMemberAddress(__ufo_system, ptr);
     if (object == NULL) {
         Rf_error("Tried freeing a UFO, "
                  "but the provided address is not a UFO header address.");
@@ -137,6 +148,7 @@ SEXP ufo_new(ufo_source_t* source) {
     }
 
     // Initialize an allocator.
+    __initialize_if_necessary();
     R_allocator_t* allocator = __ufo_new_allocator(source);
 
     // Create a new vector of the appropriate type using the allocator.
@@ -151,6 +163,7 @@ SEXP ufo_new_multidim(ufo_source_t* source) {
     }
 
     // Initialize an allocator.
+    __initialize_if_necessary();
     R_allocator_t* allocator = __ufo_new_allocator(source);
 
     // Create a new matrix of the appropriate type using the allocator.

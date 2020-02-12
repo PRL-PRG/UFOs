@@ -9,13 +9,13 @@ library(ufoaltrep)
 
 setwd("~/Workspace/ufo_workspace/UFOs/ufovectors/benchmark")
 
-result1 <- microbenchmark(
+result <- microbenchmark(
   "UFO" = {
     sum(ufo_integer_bin("32Mints.bin"))
   },
-  #"ALTREP" = {
-  #  sum(altrep_ufo_integer_bin("32Mints.bin"))
-  #},
+  "ALTREP" = {
+    sum(altrep_ufo_integer_bin("32Mints.bin"))
+  },
   times = 10L
 )
 #ufo_shutdown()

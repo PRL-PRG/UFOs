@@ -97,10 +97,6 @@ ufo_set_debug_mode <- function(debug=TRUE) {
   invisible(.Call("ufo_vectors_set_debug_mode", debug))
 }
 
-ufo_shutdown <- function() {
-  invisible(.Call("ufo_vectors_shutdown"))
-}
-
 ufo_store_bin <- function(path, vector) {
   if (typeof(path) != "character") {
     stop(paste0("Path is of type", typeof(path),
