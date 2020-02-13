@@ -1,0 +1,18 @@
+Package: ufoseq
+Type: Package
+Title: Implementation of sequences using UFOs.
+Description: Example implementation of UFO vectors that provides larger-than-memory sequence vectors.
+Version: 1.0
+Authors@R: c(person(given = "Konrad",  family = "Siek", role = c("aut", "cre"),
+                    email = "siekkonr@fit.cvut.cz"))
+Maintainer: Konrad Siek <siekkonr@fit.cvut.cz>
+License: GPL-2 | GPL-3
+Encoding: UTF-8
+LazyData: true
+Depends: ufos
+LinkingTo: ufos
+NeedsCompilation: yes
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
