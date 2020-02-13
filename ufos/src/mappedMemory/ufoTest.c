@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
   tryPerrInt(res, ufInit(ufI), "Err Init", error);
 
 //  uint64_t* bitmap = calloc(1024*1024*1024, 8);
-  do{
+  while(n < 0 || i < n) {
     uint64_t ct = 1024ull*1024*((rand() & 0xffull) + 1), sz = ct*8 ;
 
     ufObjectConfig_t config = makeObjectConfig(uint64_t, 64, ct, (rand() & 0xffff) + 1);
@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
     tryPerrInt(res, ufDestroyObject(o), "Err destroying obj", error1);
 
     i++;
-  }while(n < 0 || i < n);
+  };
 
   error1:
   tryPerrInt(res, ufShutdown(ufI, false), "Err Shutdown", error);
