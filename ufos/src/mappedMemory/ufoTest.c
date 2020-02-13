@@ -32,6 +32,8 @@ int testpopulate(uint64_t startValueIdx, uint64_t endValueIdx, ufPopulateCallout
 
 int main(int argc, char **argv) {
   int res;
+  int i = 0;
+  int n = (argc > 1) ? atoi(argv[1]) : 0;
 
   srand(13);
 
@@ -70,7 +72,8 @@ int main(int argc, char **argv) {
 
     tryPerrInt(res, ufDestroyObject(o), "Err destroying obj", error1);
 
-  }while(1);
+    i++;
+  }while(n == 0 || i < n);
 
   error1:
   tryPerrInt(res, ufShutdown(ufI, false), "Err Shutdown", error);
