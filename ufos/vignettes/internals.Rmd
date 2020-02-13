@@ -1,0 +1,57 @@
+---
+title: "UFO Framework Internals"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using UFO Matrices}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+This document explains the concepts and internal architecture of UFOs.
+
+The UFO package consists of two layers: 
+  - the R UFO API
+  - the core framework
+
+# R UFO API
+
+The R UFO API is there to facilitate the use of the UFO framework for R programmers.
+
+## New UFOs
+
+Currently the R UFO API is predominantly focused on usage by R package developers working on C or C++ who wish to add custom vectors to their packages. UFOs have two functions with which new vectors can be created: 
+
+```C
+SEXP ufo_new(ufo_source_t*);
+SEXP ufo_new_multidim(ufo_source_t* source);
+```
+
+The `ufo_new` function prepares a custom R allocator (`R_allocator_t`) based on
+the information provided from the source structure (see below) and allocates an
+R vector using that allocator. The function will also start up the UFO core
+framework on first use.
+
+The R interpreter allows vectors to be allocated using custom allocators in
+place of `malloc`. A custom allocator defines an allocator function analog and
+a free function analog that R will use to create and destroy the vector. The
+allocator is supposed to prepare a contiguous area of memory that the R
+interpreter can use. Specifically, during creation, the R interpreter will
+write a header to the beginning of the memory and then use the rest to store
+elements of the vector later on.
+
+## Source structure
+
+## Populate function
+
+## Destructor function
+
+## Setup and teardown
+
+# Core framework
