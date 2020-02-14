@@ -491,6 +491,10 @@ ufObjectConfig_t makeObjectConfig0(uint32_t headerSize, uint64_t ct, uint32_t st
   conf->stride = stride;
   conf->elementCt = ct;
   conf->headerSize = headerSize;
+
+  // If pageSize is zero, perhaps the framework was never initialized?
+  assert(pageSize > 0);
+
   // the header starts at offset headerSzWithPadding - headerSize, the body at offset headerSzWithPadding
   conf->headerSzWithPadding = ceilDiv(headerSize, pageSize) * pageSize;
 

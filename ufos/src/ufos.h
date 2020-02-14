@@ -33,6 +33,7 @@ typedef struct {
 
 // Initialization and shutdown
 SEXP ufo_shutdown();
+SEXP ufo_initialize();
 
 // Constructor
 SEXP ufo_new(ufo_source_t*);

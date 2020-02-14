@@ -28,17 +28,21 @@ SEXP ufo_shutdown() {
     return R_NilValue;
 }
 
-void __initialize_if_necessary() {
+SEXP ufo_initialize() {
     if (!__framework_initialized) {
         __framework_initialized = 1;
 
         // Actual initialization
         __ufo_system = ufMakeInstance();
+        if (__ufo_system == NULL) {
+            Rf_error("Error initializing the UFO framework (null instance)");
+        }
         int result = ufInit(__ufo_system);
         if (result != 0) {
             Rf_error("Error initializing the UFO framework (%i)", result);
         }
     }
+    return R_NilValue;
 }
 
 void __validate_status_or_die (int status) {
@@ -140,7 +144,7 @@ R_allocator_t* __ufo_new_allocator(ufo_source_t* source) {
     // as well as a structure to keep the allocator's data.
     allocator->mem_alloc = &__ufo_alloc;
     allocator->mem_free = &__ufo_free;
-    allocator->res; /* reserved, must be NULL */
+    allocator->res = NULL; /* reserved, must be NULL */
     allocator->data = source; /* custom data: used for source */
 
     return allocator;
@@ -154,7 +158,6 @@ SEXP ufo_new(ufo_source_t* source) {
     }
 
     // Initialize an allocator.
-    __initialize_if_necessary();
     R_allocator_t* allocator = __ufo_new_allocator(source);
 
     // Create a new vector of the appropriate type using the allocator.
@@ -169,7 +172,6 @@ SEXP ufo_new_multidim(ufo_source_t* source) {
     }
 
     // Initialize an allocator.
-    __initialize_if_necessary();
     R_allocator_t* allocator = __ufo_new_allocator(source);
 
     // Create a new matrix of the appropriate type using the allocator.
