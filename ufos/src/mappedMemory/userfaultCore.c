@@ -297,7 +297,7 @@ static int freeUfo(ufInstance* i, ufAsyncMsg* msg){
   return -1;
 }
 
-static int readHandleMsg(ufInstance* i){
+static int readHandleMsg(ufInstance* i, bool* selfFreeP){
   ufAsyncMsg msg;
   int res;
   tryPerrNegOne(res, readMsg(i->msgPipe[0], sizeof(ufAsyncMsg), (char*)&msg), "error reading from pipe", error);
@@ -322,6 +322,7 @@ static int readHandleMsg(ufInstance* i){
       break;
 
     case ufShutdownMsg:
+      *selfFreeP = msg.selfFree;
       shutdown:
       return 1;
   }
@@ -368,7 +369,7 @@ static void* handler(void* arg){
         tryPerrInt(res, readHandleUfEvent(i), "error handling an event, shutting down", error);
       }else{
         assert(events[x].data.fd == i->msgPipe[0]);
-        tryPerr(res, res < 0, readHandleMsg(i), "error handling an event, shutting down", error);
+        tryPerr(res, res < 0, readHandleMsg(i, &selfFree), "error handling an event, shutting down", error);
         switch(res){
           case 0:  continue; // No worries
           case 1:  goto shutdown; // got the shutdown signal
@@ -382,7 +383,7 @@ static void* handler(void* arg){
   return NULL;
 
   error:
-  handlerShutdown(i, selfFree);
+  handlerShutdown(i, true); // On an error always self-free
   return NULL;
 }
 
@@ -524,6 +525,7 @@ int ufAwaitShutdown(ufInstance_t instance){
   int res;
   tryPerrInt(res, pthread_join(i->userfaultThread, NULL), "error joining thread", joinErr);
 
+  // once we join the thread we can finally free the instance
   free(i);
   return 0;
 
