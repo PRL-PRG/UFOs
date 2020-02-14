@@ -79,7 +79,7 @@ static inline int eCompare(bool overlapEq, uint64_t i, entryI* e){
 }
 
 static searchResult binarySearch(sparseList* list, uint64_t i){
-  if(0 == list->size)
+  if(0 == list->usedSlots)
     return (searchResult){0, 0};
   entryI* e;
   // (M)edian, (L)ow, (H)igh
