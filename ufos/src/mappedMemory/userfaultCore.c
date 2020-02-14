@@ -472,6 +472,10 @@ int ufInit(ufInstance_t instance){
 
 ufInstance_t ufMakeInstance(){
   ufInstance* i = calloc(1, sizeof(ufInstance));
+  if (i == NULL) {
+      perror("Instance creation");
+      return NULL;
+  }
   i->objects = newList();
   return i;
 }
