@@ -42,9 +42,9 @@ For usage information, the reader is referred to specific package vignettes:
 
     :mag_right: UFO programming guide (`ufos/vignettes/programming-guide.Rmd`)
 
-- For the particularly inquisitive, `ufos` contains a vignette explaining our underlaying framework
+<!-- For the particularly inquisitive, `ufos` contains a vignette explaining our underlaying framework
 
-    :mag_right: UFO internals (`ufos/vignettes/internals.Rmd`)
+    :mag_right: UFO internals (`ufos/vignettes/internals.Rmd`)-->
 
 ## System requirements
 
