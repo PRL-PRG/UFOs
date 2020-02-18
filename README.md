@@ -10,19 +10,21 @@ The UFO framework makes possible the creation of special **UFO vectors**. These 
 
 ## Repository map
 
-This repository contains three R packages:
+This repository contains four R packages:
 
 - `ufos` - the basic framework for implementing larger-than-memory R objects
-- `ufovectors` - an implementation of file-backed vectors (and matrices) using `ufos` (depends on the first package)
+- `ufoseq` - an example/tutorial imeplementation of integer sequences using `ufos` (depends on the first package)
+- `ufovectors` - an example implementation of file-backed vectors (and matrices) using `ufos` (depends on the first package)
 - `ufoaltrep` - an analogous implementation of file-backed vector to `ufovectors` using ALTREP
 
 ## Installation
 
 ```bash
 git clone https://github.com/PRL-PRG/UFOs.git
-R CMD INSTALL UFOs/ufos
-R CMD INSTALL UFOs/ufovectors
-R CMD INSTALL UFOs/ufoaltrep
+R CMD INSTALL UFOs/ufos                       ## UFO framework
+R CMD INSTALL UFOs/ufoseq                     ## example/tutorial implementation: sequences
+R CMD INSTALL UFOs/ufovectors                 ## example implementation: file-backed vectors and matrices
+R CMD INSTALL UFOs/ufoaltrep                  ## ALTREP implementation of file-backed vectors and matrices
 ```
 
 ## Usage
@@ -38,7 +40,7 @@ For usage information, the reader is referred to specific package vignettes:
     
     :mag_right: UFO Vectors as a backend to DelayedArray (`ufovectors/vignettes/delayedArray.Rmd`)
 
-- For those interested in implementing their own custom larger-than memory vectors, `ufos` contains a vignette explaining how to do it
+- For those interested in implementing their own custom larger-than memory vectors, `ufos` contains a vignette explaining how to do it, going through the implementation of the `ufoseq` step-by-step
 
     :mag_right: UFO programming guide (`ufos/vignettes/programming-guide.Rmd`)
 
