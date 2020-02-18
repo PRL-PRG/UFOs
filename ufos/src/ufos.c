@@ -150,6 +150,31 @@ R_allocator_t* __ufo_new_allocator(ufo_source_t* source) {
     return allocator;
 }
 
+int __vector_will_be_scalarized(SEXPTYPE type, size_t length) {
+    return length == 1 && (type == REALSXP || type == INTSXP || type == LGLSXP);
+}
+
+// FIXME This is copied from userfaultCore. Maybe userfault can expose some sort
+// of callout stub function for me?
+int __callout_stub(ufPopulateCalloutMsg* msg){
+    switch(msg->cmd){
+        case ufResolveRangeCmd:
+            return 0; // Not yet implemented, but this is advisory only so no
+                      // error
+        case ufExpandRange:
+            return ufWarnNoChange; // Not yet implemented, but callers have to
+                                   // deal with this anyway, even spuriously
+        default:
+            return ufBadArgs;
+    }
+    __builtin_unreachable();
+}
+
+void __prepopulate_scala(SEXP scalar, ufo_source_t* source) {
+    source->population_function(0, source->vector_size, __callout_stub,
+                                source->data, DATAPTR(scalar));
+}
+
 SEXP ufo_new(ufo_source_t* source) {
     // Check type.
     SEXPTYPE type = ufo_type_to_vector_type(source->vector_type);
@@ -161,7 +186,16 @@ SEXP ufo_new(ufo_source_t* source) {
     R_allocator_t* allocator = __ufo_new_allocator(source);
 
     // Create a new vector of the appropriate type using the allocator.
-    return allocVector3(type, source->vector_size, allocator);
+    SEXP ufo = PROTECT(allocVector3(type, source->vector_size, allocator));
+
+    // Workaround for scalar vectors ignoring custom allocator:
+    // Pre-load the data in, at least it'll work as read-only.
+    if (__vector_will_be_scalarized(type, source->vector_size)) {
+        __prepopulate_scala(ufo, source);
+    }
+
+    UNPROTECT(1);
+    return ufo;
 }
 
 SEXP ufo_new_multidim(ufo_source_t* source) {
