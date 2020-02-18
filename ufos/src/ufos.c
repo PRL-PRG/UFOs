@@ -209,6 +209,15 @@ SEXP ufo_new_multidim(ufo_source_t* source) {
     R_allocator_t* allocator = __ufo_new_allocator(source);
 
     // Create a new matrix of the appropriate type using the allocator.
-    return allocMatrix3(type, source->dimensions[0],
-                              source->dimensions[1], allocator);
+    SEXP ufo = PROTECT(allocMatrix3(type, source->dimensions[0],
+                                    source->dimensions[1], allocator));
+
+    // Workaround for scalar vectors ignoring custom allocator:
+    // Pre-load the data in, at least it'll work as read-only.
+    if (__vector_will_be_scalarized(type, source->vector_size)) {
+        __prepopulate_scala(ufo, source);
+    }
+
+    UNPROTECT(1);
+    return ufo;
 }
