@@ -8,6 +8,10 @@ ufo_seq <- function(from, to, by = 1) {
   if (length(to) == 0) stop("'to' cannot be zero length")
   if (length(by) == 0) stop("'by' cannot be zero length")
 
+  # check whether this sequence makes sense.
+  if (from >= to) stop("'from' must not be less than 'to'")
+  if (by <= 0) stop("'by' must be larger than zero")
+
   # check whether the arguments are of scalars
   if (length(from) > 1)
     warn("'from' has multiple values, only the first value will be used")
