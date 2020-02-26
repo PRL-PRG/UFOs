@@ -1,2 +1,3 @@
-PKG_CPPFLAGS = -pthread
-PKG_LIBS = -pthread
+#PKG_CPPFLAGS = -pthread
+#PKG_LIBS = -pthread
+CFLAGS = -fpic -g -O2 -Wall -Werror
