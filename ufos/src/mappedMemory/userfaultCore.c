@@ -156,7 +156,7 @@ static int readHandleUfEvent(ufInstance* i){
   tryPerrNegOne(res, readMsg(i->ufFd, sizeof(msg), (char*)&msg), "error reading from userfault", error);
   switch(res){
     case 1:
-      // Huh… read nothing? Not really an error, though we should only get here when threre is something to read
+      // Huh… read nothing? Not really an error, though we should only get here when there is something to read
       perror("nothing to read");
       return 0;
     case 2:
