@@ -16,7 +16,9 @@ set(CORE_SRC    src/mappedMemory/userfaultCore.h
                 src/mappedMemory/sparseList.c
                 src/mappedMemory/userfaultCore.c
                 src/mappedMemory/userFaultCoreInternal.h
-                src/mappedMemory/userfaultGettersSetters.c)
+                src/mappedMemory/userfaultGettersSetters.c
+                src/mappedMemory/oroboros.h
+                src/mappedMemory/oroboros.c)
 
 set(UNSTDLIB_SRC
                 src/unstdLib/errors.h
