@@ -252,7 +252,7 @@ static const void *ufo_vector_dataptr_or_null(SEXP x) {
     }
     if (R_altrep_data2(x) == R_NilValue)
         __materialize_data(x);
-    return DATAPTR_OR_NULL(R_altrep_data1(x));
+    return DATAPTR_OR_NULL(R_altrep_data2(x));
 }
 
 static void ufo_vector_element(SEXP x, R_xlen_t i, void *target) {
