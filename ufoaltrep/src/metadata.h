@@ -11,4 +11,6 @@ typedef struct {
     SEXPTYPE            type;
     FILE*               file_handle;
     size_t              file_cursor;
+    R_xlen_t            cache_buffer_size;
+    R_xlen_t            cache_chunk_size;
 } altrep_ufo_config_t;

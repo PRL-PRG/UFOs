@@ -172,10 +172,34 @@ static SEXP ufo_vector_duplicate(SEXP x, Rboolean deep) {
         return R_new_altrep(__get_class_from_type(new_cfg->type), wrapper, R_NilValue);
 
     } else {
+
+        SEXP contents = R_altrep_data2(x);
+        R_xlen_t length = XLENGTH(contents);
         SEXP payload = PROTECT(allocVector(INTSXP, XLENGTH(R_altrep_data2(x))));
 
-        for (int i = 0; i < XLENGTH(R_altrep_data2(x)); i++) {
-            INTEGER(payload)[i] = INTEGER(R_altrep_data2(x))[i];
+        switch (TYPEOF(x)) {
+            case INTSXP:
+                for (R_xlen_t i = 0; i < length; i++)
+                    INTEGER(payload)[i] = INTEGER(contents)[i];
+                break;
+            case REALSXP:
+                for (R_xlen_t i = 0; i < length; i++)
+                    REAL(payload)[i] = REAL(contents)[i];
+                break;
+            case RAWSXP:
+                for (R_xlen_t i = 0; i < length; i++)
+                    RAW(payload)[i] = RAW(contents)[i];
+                break;
+            case CPLXSXP:
+                for (R_xlen_t i = 0; i < length; i++)
+                    COMPLEX(payload)[i] = COMPLEX(contents)[i];
+                break;
+            case LGLSXP:
+                for (R_xlen_t i = 0; i < length; i++)
+                    LOGICAL(payload)[i] = LOGICAL(contents)[i];
+                break;
+            default :
+                Rf_error("Cannot duplicate vector: unknown vector type");
         }
 
         SEXP ans = R_new_altrep(__get_class_from_type(new_cfg->type), wrapper, payload);
@@ -217,6 +241,20 @@ static R_xlen_t ufo_vector_length(SEXP x) {
     }
 }
 
+static R_xlen_t ufo_cached_vector_length(SEXP x) {
+    if (__get_debug_mode()) {
+        Rprintf("ufo_cached_vector_Length\n");
+        Rprintf("           SEXP: %p\n", x);
+    }
+    if (R_altrep_data2(x) == R_NilValue) {
+        altrep_ufo_config_t *cfg =
+                (altrep_ufo_config_t *) EXTPTR_PTR(R_altrep_data1(x));
+        return cfg->vector_size;
+    } else {
+        return XLENGTH(R_altrep_data2(x));
+    }
+}
+
 static void __materialize_data(SEXP x) {
     altrep_ufo_config_t *cfg =
             (altrep_ufo_config_t *) EXTPTR_PTR(R_altrep_data1(x));
@@ -234,14 +272,13 @@ static void *ufo_vector_dataptr(SEXP x, Rboolean writeable) {
         Rprintf("           SEXP: %p\n", x);
         Rprintf("      writeable: %i\n", writeable);
     }
+    if (R_altrep_data2(x) == R_NilValue)
+            __materialize_data(x);
+
     if (writeable) {
-        if (R_altrep_data2(x) == R_NilValue)
-            __materialize_data(x);
-        return DATAPTR(R_altrep_data1(x));
+        return DATAPTR(R_altrep_data2(x));
     } else {
-        if (R_altrep_data2(x) == R_NilValue)
-            __materialize_data(x);
-        return DATAPTR(R_altrep_data1(x));
+        return DATAPTR_RO(R_altrep_data2(x));
     }
 }
 
