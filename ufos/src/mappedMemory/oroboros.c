@@ -28,7 +28,7 @@ oroboros_t oroboros_init(size_t initial_size) {                                 
   return (oroboros_t) oroboros;                                                 // oroboros hungers
 }
 
-
+// CMYK 05.03.2020 TODO: Should we also have a variant that resizes if needed?
 int oroboros_push(oroboros_t an_oroboros, oroboros_item_t item) {               // oroboros moves its head to consume an item
 
   oroboros_internal_t *oroboros = (oroboros_internal_t *) an_oroboros;          // oroboros reveals its true form
@@ -46,7 +46,7 @@ int oroboros_push(oroboros_t an_oroboros, oroboros_item_t item) {               
   return 0;                                                                     // oroboros is happy
 }
 
-
+// CMYK 05.03.2020 TODO: This should return the element pop'd
 int oroboros_pop(oroboros_t an_oroboros) {                                      // oroboros moves its tail to discard an item
 
   oroboros_internal_t *oroboros = (oroboros_internal_t *) an_oroboros;          // oroboros reveals its true form
@@ -68,7 +68,7 @@ oroboros_t oroboros_resize(oroboros_t an_oroboros, size_t size) {               
 
   oroboros_internal_t *oroboros = (oroboros_internal_t *) an_oroboros;          // oroboros reveals its true shape
                                                                                 // oroboros is secretly a struct pointer
-
+// CMYK 05.03.2020 TODO: this should realloc the internal buffer instead, and not return a new snekfriemb
   oroboros_internal_t *new_oroboros =                                           // oroboros friend is born
           (oroboros_internal_t *) oroboros_init(size);
 
@@ -102,6 +102,7 @@ void oroboros_free(oroboros_t an_oroboros) {                                    
   free(oroboros);                                                               // oroboros expires
 }
 
+// CMYK 05.03.2020 TODO: This would normally be called peek, and it should peek at the tail
 const oroboros_item_t *oroboros_get(oroboros_t an_oroboros) {                   // oroboros illuminates its deep inner life
 
   oroboros_internal_t *oroboros = (oroboros_internal_t *) an_oroboros;          // oroboros reveals its true shape
@@ -110,3 +111,7 @@ const oroboros_item_t *oroboros_get(oroboros_t an_oroboros) {                   
   return &(oroboros->buffer[oroboros->head]);                                   // oroboros shows the contents of its head
                                                                                 // ::hiss::
 }
+
+
+// CMYK 05.03.2020 TODO: Note on resizing https://github.com/unofficial-openjdk/openjdk/blob/jdk8u/jdk8u/jdk/src/share/classes/java/util/ArrayList.java
+// Grow by 50% of the current size (s + (s >> 1)) for a nice amortization on the cost of growing with fairly well bounded waste
