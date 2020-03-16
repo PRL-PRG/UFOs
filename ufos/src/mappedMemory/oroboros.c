@@ -7,6 +7,7 @@ typedef struct {                                                                
 
   size_t head;                                                                  // oroboros has a head
   size_t tail;                                                                  // oroboros has a tail
+  size_t elements;                                                              // oroboros knows its length
   size_t size;                                                                  // oroboros follows a path of a specific circumference
 
   oroboros_item_t *buffer;                                                      // oroboros swallows items along the path
@@ -23,40 +24,49 @@ oroboros_t oroboros_init(size_t initial_size) {                                 
 
   oroboros->head = 0;                                                           // oroboros starts at the beginning of the path
   oroboros->tail = 0;                                                           // oroboros is initially small
+  oroboros->elements = 0;                                                       // oroboros know that it is small
   oroboros->size = initial_size;                                                // oroboros travels a path of arbitrary length
+
+  oroboros->buffer =                                                            // oroboros becomes a chasm waiting to be filled
+          (oroboros_item_t *) malloc(sizeof(oroboros_item_t) * oroboros->size);
 
   return (oroboros_t) oroboros;                                                 // oroboros hungers
 }
 
 // CMYK 05.03.2020 TODO: Should we also have a variant that resizes if needed?
 int oroboros_push(oroboros_t an_oroboros, oroboros_item_t item) {               // oroboros moves its head to consume an item
+                                                                                // but oroboros does not trust
+                                                                                // item is provided but it is not what oroboros consumes
+                                                                                // oroboros makes appear another a simulacrum of item
 
   oroboros_internal_t *oroboros = (oroboros_internal_t *) an_oroboros;          // oroboros reveals its true form
                                                                                 // oroboros is secretly a struct pointer
 
-  size_t head_after_push = (oroboros->head + 1) % oroboros->size;               // oroboros will move its head in a circular path
-
-  if (head_after_push == oroboros->tail) return -1;                             // oroboros has caught up with its tail
-                                                                                // oroboros is full
+  if ((oroboros->elements != 0) && (oroboros->head == oroboros->tail))          // oroboros has caught up with its tail
+      return -1;                                                                // oroboros is full
                                                                                 // perhaps it is time to make oroboros bigger
+
+  size_t head_after_push = (oroboros->head + 1) % oroboros->size;               // oroboros will move its head in a circular path
 
   oroboros->buffer[oroboros->head] = item;                                      // oroboros fills its head with ideas about item
   oroboros->head = head_after_push;                                             // oroboros moves its head to consume the item
+  oroboros->elements++;                                                         // oroboros grows
 
   return 0;                                                                     // oroboros is happy
 }
 
-// CMYK 05.03.2020 TODO: This should return the element pop'd
-int oroboros_pop(oroboros_t an_oroboros) {                                      // oroboros moves its tail to discard an item
+int oroboros_pop(oroboros_t an_oroboros, oroboros_item_t *item) {               // oroboros moves its tail to discard an item
 
   oroboros_internal_t *oroboros = (oroboros_internal_t *) an_oroboros;          // oroboros reveals its true form
                                                                                 // oroboros is secretly a struct pointer
 
-  if (oroboros->head == oroboros->tail) return -1;                              // oroboros is too small
+  if (oroboros->elements == 0) return -1;                                       // oroboros is too small
                                                                                 // oroboros has nothing left to give
                                                                                 // do not ask more of oroboros
 
+  *item = oroboros->buffer[oroboros->tail];                                     // oroboros makes apparent the content of its bowels
   oroboros->tail = oroboros->tail + 1 % oroboros->size;                         // oroboros moves its tail in a circular path
+  oroboros->elements--;                                                         // oroboros diminishes
 
   return 0;                                                                     // oroboros is content
 }
@@ -102,14 +112,17 @@ void oroboros_free(oroboros_t an_oroboros) {                                    
   free(oroboros);                                                               // oroboros expires
 }
 
-// CMYK 05.03.2020 TODO: This would normally be called peek, and it should peek at the tail
-const oroboros_item_t *oroboros_get(oroboros_t an_oroboros) {                   // oroboros illuminates its deep inner life
+int oroboros_peek(oroboros_t an_oroboros, oroboros_item_t *item) {              // oroboros illuminates its deep inner life
 
   oroboros_internal_t *oroboros = (oroboros_internal_t *) an_oroboros;          // oroboros reveals its true shape
                                                                                 // oroboros is secretly a struct pointer
 
-  return &(oroboros->buffer[oroboros->head]);                                   // oroboros shows the contents of its head
-                                                                                // ::hiss::
+  if (oroboros->elements == 0) return -1;                                       // oroboros is empty
+                                                                                // oroboros has nothing to reveal
+                                                                                // oroboros cries
+
+  *item = oroboros->buffer[oroboros->tail];                                     // oroboros reveals its oldest item
+  return 0;                                                                     // this gives oroboros satisfaction
 }
 
 
