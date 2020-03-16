@@ -51,6 +51,7 @@ void test_oroboros_push_peek_pop(int n) {
         printf("\t...ok\n");
     }
 
+    oroboros_free(oroboros);
 }
 
 int main(int argc, char **argv) {

@@ -109,6 +109,7 @@ void oroboros_free(oroboros_t an_oroboros) {                                    
   oroboros_internal_t *oroboros = (oroboros_internal_t *) an_oroboros;          // oroboros reveals its true shape
                                                                                 // oroboros is secretly a struct pointer
 
+  free(oroboros->buffer);                                                       // oroboros discorporates its contents
   free(oroboros);                                                               // oroboros expires
 }
 
