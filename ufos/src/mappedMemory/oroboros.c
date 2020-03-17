@@ -1,6 +1,7 @@
 // Circular buffer implementation. It holds pointers.
 
 #include <malloc.h>
+#include <string.h>
 #include "oroboros.h"
 
 typedef struct {                                                                // oroboros is a struct
@@ -72,35 +73,52 @@ int oroboros_pop(oroboros_t an_oroboros, oroboros_item_t *item) {               
 }
 
 
-oroboros_t oroboros_resize(oroboros_t an_oroboros, size_t size) {               // oroboros adapts to follow a new path
+int oroboros_resize(oroboros_t an_oroboros, size_t size) {                      // oroboros adapts to follow a new path
                                                                                 // the path will be bigger or smaller
                                                                                 // oroboros can now grow to be bigger or not as big
 
-  oroboros_internal_t *oroboros = (oroboros_internal_t *) an_oroboros;          // oroboros reveals its true shape
+  oroboros_internal_t *oroboros = (oroboros_internal_t *) an_oroboros;          // oroboros reveals itself
                                                                                 // oroboros is secretly a struct pointer
-// CMYK 05.03.2020 TODO: this should realloc the internal buffer instead, and not return a new snekfriemb
-  oroboros_internal_t *new_oroboros =                                           // oroboros friend is born
-          (oroboros_internal_t *) oroboros_init(size);
 
-  if (new_oroboros == NULL) return NULL;                                        // oroboros cannot change size without a friend
-                                                                                // why is there no room in the world for oroboros friend?
+  if (oroboros->size > size) return -1;                                         // oroboros refuses to limit its ambition
+  if (oroboros->size == size) return 0;                                         // oroboros changes naught
 
-  new_oroboros->tail = oroboros->tail - oroboros->head;                         // oroboros friend kept its head is at the beginning of the path
-                                                                                // but oroboros friend moved its tail
-                                                                                // oroboros and oroboros friend are not equal length
+  oroboros->buffer =                                                            // oroboros sees the path stretching before it
+          (oroboros_item_t *) realloc(oroboros->buffer,                         // oroboros will follow the new path
+                                      size * sizeof(oroboros_item_t));          // a grander journey will begin
 
-  for (size_t i = 0; i < oroboros->size; ++i) {                                 // oroboros looks at each item in its path carefully
-                                                                                // be it within or without oroboros
+  if (oroboros->buffer == NULL) return -2;                                      // oroboros is set in its ways
+                                                                                // and the world has no new paths for it
 
-    size_t j = i + oroboros->head % oroboros->size;                             // oroboros thinks where each item should be on the path
-                                                                                // oroboros wants oroboros friend to have the same items within
-                                                                                // and the same items without as oroboros
+  if (oroboros->elements == 0 || oroboros->tail < oroboros->head) {             // oroboros already has its head on the new path
+    oroboros->size = size;                                                      // oroboros counts the steps
+    return 0;                                                                   // oroboros sets out on a new journey
+  }
 
-    new_oroboros->buffer[i] = oroboros->buffer[j];                              // oroboros puts an element on the path of oroboros friend
-  }                                                                             // oroboros friend is the same as oroboros
+  oroboros_item_t *added_region = oroboros->buffer + oroboros->size;
+  size_t size_of_added_region = size - oroboros->size;
 
-  oroboros_free(oroboros);                                                      // oroboros retires
-  return (oroboros_t) new_oroboros;                                             // oroboros friend becomes oroboros
+  memcpy(added_region, oroboros->buffer, oroboros->size);
+
+  if (oroboros->head > size_of_added_region) {
+    oroboros_item_t *overflow_region = oroboros->buffer + size_of_added_region;
+    size_t size_of_overflow_region = size_of_added_region - oroboros->head;
+    memcpy(oroboros->buffer, overflow_region, size_of_overflow_region);
+  }
+
+  size_t head_after_resize = (oroboros->head + 1) % oroboros->size;             // oroboros will move its head to follow the new path
+  oroboros->head = head_after_resize;                                           // oroboros adjusts its head
+  oroboros->size = size;                                                        // oroboros counts the steps
+
+  return 0;
+}
+
+size_t oroboros_size(oroboros_t an_oroboros) {                                  // oroboros reveals the size of its path
+
+  oroboros_internal_t *oroboros = (oroboros_internal_t *) an_oroboros;          // oroboros reveals itself
+                                                                                // oroboros is secretly a struct pointer
+
+  return oroboros->size;                                                        // oroboros counts the steps
 }
 
 
