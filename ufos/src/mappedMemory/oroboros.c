@@ -17,7 +17,6 @@ typedef struct {                                                                
 
 } oroboros_internal_t;                                                          // this is the true form of oroboros
 
-
 oroboros_t oroboros_init(size_t initial_size) {                                 // oroboros is born
 
   oroboros_internal_t *oroboros =                                               // oroboros comes into existence without form
@@ -34,8 +33,7 @@ oroboros_t oroboros_init(size_t initial_size) {                                 
   return (oroboros_t) oroboros;                                                 // oroboros hungers
 }
 
-// CMYK 05.03.2020 TODO: Should we also have a variant that resizes if needed?
-int oroboros_push(oroboros_t an_oroboros, oroboros_item_t item) {               // oroboros moves its head to consume an item
+int oroboros_push(oroboros_t an_oroboros, oroboros_item_t item, int resize) {   // oroboros moves its head to consume an item
                                                                                 // but oroboros does not trust
                                                                                 // item is provided but it is not what oroboros consumes
                                                                                 // oroboros makes appear another a simulacrum of item
@@ -43,9 +41,14 @@ int oroboros_push(oroboros_t an_oroboros, oroboros_item_t item) {               
   oroboros_internal_t *oroboros = (oroboros_internal_t *) an_oroboros;          // oroboros reveals its true form
                                                                                 // oroboros is secretly a struct pointer
 
-  if ((oroboros->elements != 0) && (oroboros->head == oroboros->tail))          // oroboros has caught up with its tail
-      return -1;                                                                // oroboros is full
-                                                                                // perhaps it is time to make oroboros bigger
+  if ((oroboros->elements != 0) && (oroboros->head == oroboros->tail)) {        // oroboros has caught up with its tail
+    if (!resize) {                                                              // sometimes it is not time to make oroboros bigger
+      return -1;                                                                // but oroboros is full
+    } else {                                                                    // perhaps it is time to make oroboros bigger
+      return oroboros_resize(an_oroboros,                                       // oroboros will try to grow
+                             oroboros->size + (oroboros->size >> 1));
+    }
+  }
 
   size_t head_after_push = (oroboros->head + 1) % oroboros->size;               // oroboros will move its head in a circular path
 
@@ -72,7 +75,6 @@ int oroboros_pop(oroboros_t an_oroboros, oroboros_item_t *item) {               
   return 0;                                                                     // oroboros is content
 }
 
-
 int oroboros_resize(oroboros_t an_oroboros, size_t size) {                      // oroboros adapts to follow a new path
                                                                                 // the path will be bigger or smaller
                                                                                 // oroboros can now grow to be bigger or not as big
@@ -98,17 +100,18 @@ int oroboros_resize(oroboros_t an_oroboros, size_t size) {                      
   oroboros_item_t *added_region = oroboros->buffer + oroboros->size;
   size_t size_of_added_region = size - oroboros->size;
 
-  memcpy(added_region, oroboros->buffer, oroboros->size);
+  memcpy(added_region, oroboros->buffer, sizeof(oroboros_item_t) * size_of_added_region);
 
   if (oroboros->head > size_of_added_region) {
     oroboros_item_t *overflow_region = oroboros->buffer + size_of_added_region;
-    size_t size_of_overflow_region = size_of_added_region - oroboros->head;
-    memcpy(oroboros->buffer, overflow_region, size_of_overflow_region);
+    size_t size_of_overflow_region = oroboros->head - size_of_added_region;
+    memcpy(oroboros->buffer, overflow_region, sizeof(oroboros_item_t) * size_of_overflow_region);
   }
 
-  size_t head_after_resize = (oroboros->head + 1) % oroboros->size;             // oroboros will move its head to follow the new path
-  oroboros->head = head_after_resize;                                           // oroboros adjusts its head
   oroboros->size = size;                                                        // oroboros counts the steps
+  size_t head_after_resize =                                                    // oroboros will move its head to follow the new path
+          (oroboros->head + oroboros->elements)  % oroboros->size;
+  oroboros->head = head_after_resize;                                           // oroboros adjusts its head
 
   return 0;
 }
@@ -120,7 +123,6 @@ size_t oroboros_size(oroboros_t an_oroboros) {                                  
 
   return oroboros->size;                                                        // oroboros counts the steps
 }
-
 
 void oroboros_free(oroboros_t an_oroboros) {                                    // oroboros relinquishes its life
 
@@ -144,6 +146,11 @@ int oroboros_peek(oroboros_t an_oroboros, oroboros_item_t *item) {              
   return 0;                                                                     // this gives oroboros satisfaction
 }
 
+void oroboros_for_each (oroboros_t an_oroboros, oroboros_fun_t f, void *data) {
+  oroboros_internal_t *oroboros = (oroboros_internal_t *) an_oroboros;          // oroboros reveals its true shape
 
-// CMYK 05.03.2020 TODO: Note on resizing https://github.com/unofficial-openjdk/openjdk/blob/jdk8u/jdk8u/jdk/src/share/classes/java/util/ArrayList.java
-// Grow by 50% of the current size (s + (s >> 1)) for a nice amortization on the cost of growing with fairly well bounded waste
+  for (size_t i = 0; i < oroboros->elements; i++) {
+    size_t index = (i + oroboros->tail) % oroboros->size;
+    f(i, oroboros->buffer[index], data);
+  }
+}
