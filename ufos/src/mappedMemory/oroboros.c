@@ -151,6 +151,6 @@ void oroboros_for_each (oroboros_t an_oroboros, oroboros_fun_t f, void *data) {
 
   for (size_t i = 0; i < oroboros->elements; i++) {
     size_t index = (i + oroboros->tail) % oroboros->size;
-    f(i, oroboros->buffer[index], data);
+    f(i, &oroboros->buffer[index], data);
   }
 }

@@ -3,14 +3,14 @@
 #include <stdio.h>
 #include <printf.h>
 
-void print_item_and_check(size_t index, oroboros_item_t item, void *data) {
+void print_item_and_check(size_t index, oroboros_item_t *item, void *data) {
     int *expected_values = (int *) data;
-    printf("item\t%li -> %i == %i\n", index, item.stuff, expected_values[index]);
-    assert(item.stuff == expected_values[index]);
+    printf("item\t%li -> %li == %i\n", index, item->owner_id, expected_values[index]);
+    assert(item->owner_id == expected_values[index]);
 }
 
-void print_item(size_t index, oroboros_item_t item, void *data) {
-    printf("item\t%li -> %i\n", index, item.stuff);
+void print_item(size_t index, oroboros_item_t *item, void *data) {
+    printf("item\t%li -> %li\n", index, item->owner_id);
 }
 
 void test_oroboros_push_peek_pop(int n) {
@@ -20,7 +20,7 @@ void test_oroboros_push_peek_pop(int n) {
 
     for (int i = 0; i < n + 5; i++) {
         oroboros_item_t item;
-        item.stuff = i;
+        item.owner_id = i;
 
         int result = oroboros_push(oroboros, item, 0);
         printf("push\ti=%i\tresult=%i\t", i, result);
@@ -39,29 +39,29 @@ void test_oroboros_push_peek_pop(int n) {
         oroboros_item_t item;
         int result;
 
-        item.stuff = 666;
+        item.owner_id = 666;
         result = oroboros_peek(oroboros, &item);
         if (i < n) {
-            printf("peek\ti=%i\tresult=%i\titem=%i", i, result, item.stuff);
+            printf("peek\ti=%i\tresult=%i\titem=%li", i, result, item.owner_id);
             assert(result == 0);
-            assert(item.stuff==i);
+            assert(item.owner_id==i);
         } else {
             printf("peek\ti=%i\tresult=%i\titem=?", i, result);
             assert(result != 0);
-            assert(item.stuff==666);
+            assert(item.owner_id==666);
         }
         printf("\t...ok\n");
 
-        item.stuff = 666;
+        item.owner_id = 666;
         result = oroboros_pop(oroboros, &item);
         if (i < n) {
-            printf("pop\ti=%i\tresult=%i\titem=%i", i, result, item.stuff);
+            printf("pop\ti=%i\tresult=%i\titem=%li", i, result, item.owner_id);
             assert(result == 0);
-            assert(item.stuff==i);
+            assert(item.owner_id==i);
         } else {
             printf("pop\ti=%i\tresult=%i\titem=?", i, result);
             assert(result != 0);
-            assert(item.stuff==666);
+            assert(item.owner_id==666);
         }
         printf("\t...ok\n");
     }
@@ -79,7 +79,7 @@ void test_oroboros_simple_resize(int n) {
 
     for (int i = 0; i < n; i++) {
         oroboros_item_t item;
-        item.stuff = i;
+        item.owner_id = i;
 
         int result = oroboros_push(oroboros, item, 0);
         printf("push\tinto=%p\ti=%i\tresult=%i\t", oroboros, i, result);
@@ -103,7 +103,7 @@ void test_oroboros_simple_resize(int n) {
 
     for (int i = n; i < n + 10; i++) {
         oroboros_item_t item;
-        item.stuff = i;
+        item.owner_id = i;
 
         int result = oroboros_push(oroboros, item, 0);
         printf("push\tinto=%p\ti=%i\tresult=%i\t", oroboros, i, result);
@@ -135,7 +135,7 @@ void test_oroboros_resize_with_overflow(int n) {
 
     for (int i = 0; i < n; i++) {
         oroboros_item_t item;
-        item.stuff = i;
+        item.owner_id = i;
 
         int result = oroboros_push(oroboros, item, 0);
         printf("push\tinto=%p\ti=%i\tresult=%i\t", oroboros, i, result);
@@ -159,7 +159,7 @@ void test_oroboros_resize_with_overflow(int n) {
 
     for (int i = n; i < n + 10; i++) {
         oroboros_item_t item;
-        item.stuff = i;
+        item.owner_id = i;
 
         int result = oroboros_push(oroboros, item, 0);
         printf("push\tinto=%p\ti=%i\tresult=%i\t", oroboros, i, result);
@@ -188,7 +188,7 @@ void test_oroboros_resize_with_complex_overflow(int n) {
 
     for (int i = 0; i < n; i++) {
         oroboros_item_t item;
-        item.stuff = i;
+        item.owner_id = i;
 
         int result = oroboros_push(oroboros, item, 0);
         printf("push\tinto=%p\ti=%i\tresult=%i\t", oroboros, i, result);
@@ -207,11 +207,11 @@ void test_oroboros_resize_with_complex_overflow(int n) {
 
     for (int i = 0; i < 8; i++) {
         oroboros_item_t item;
-        item.stuff = 666;
+        item.owner_id = 666;
         int result = oroboros_pop(oroboros, &item);
-        printf("pop\tinto=%p\ti=%i\tresult=%i\titem=%i", oroboros, i, result, item.stuff);
+        printf("pop\tinto=%p\ti=%i\tresult=%i\titem=%li", oroboros, i, result, item.owner_id);
         assert(result == 0);
-        assert(item.stuff==i);
+        assert(item.owner_id==i);
         printf("\t...ok\n");
     }
 
@@ -222,7 +222,7 @@ void test_oroboros_resize_with_complex_overflow(int n) {
 
     for (int i = n; i < n + 8; i++) {
         oroboros_item_t item;
-        item.stuff = i;
+        item.owner_id = i;
         int result = oroboros_push(oroboros, item, 0);
         printf("push\tinto=%p\ti=%i\tresult=%i\t", oroboros, i, result);
         assert(result == 0);
@@ -245,7 +245,7 @@ void test_oroboros_resize_with_complex_overflow(int n) {
 
     for (int i = n + 8; i < n + 8 + 5; i++) {
         oroboros_item_t item;
-        item.stuff = i;
+        item.owner_id = i;
         int result = oroboros_push(oroboros, item, 0);
         printf("push\tinto=%p\ti=%i\tresult=%i\t", oroboros, i, result);
         fflush(stdout);
