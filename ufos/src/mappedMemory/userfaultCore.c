@@ -164,88 +164,89 @@ static int readHandleUfEvent(ufInstance* i){
       return 0; // File handle closed? We shouldn't see this
   }
 
-  if(msg.event & UFFD_EVENT_PAGEFAULT){
-    const uint64_t faultAtAddr = msg.arg.pagefault.address;
-    assert(0 == (faultAtAddr % pageSize));
-
-    entry e;
-    tryPerrInt(res, listFind(i->objects, &e, (void*)faultAtAddr), "no known object for fault", error);
-    ufObject* ufo = asUfo(e.valuePtr);
-
-    const uint64_t bodyStart = (uint64_t) ufo->start + ufo->config.headerSzWithPadding;
-    const uint64_t faultRelBody = faultAtAddr - bodyStart; // Translate the fault address to an address relative to the body of the object
-    const uint64_t bytesAtOnce = ufo->config.objectsAtOnce * ufo->config.stride;
-
-    const uint64_t faultAtLoadBoundaryRelBody  = (faultRelBody / bytesAtOnce) * bytesAtOnce; // Round down to the next loading boundary
-    assert(0 == faultAtLoadBoundaryRelBody % bytesAtOnce);
-    assert(0 == faultAtLoadBoundaryRelBody % ufo->config.stride);
-    const uint64_t faultAtLoadBoundaryAbsolute = faultAtLoadBoundaryRelBody + bodyStart;
-
-    const uint64_t idx = faultAtLoadBoundaryRelBody / ufo->config.stride;
-
-    uint64_t actualFillCt = ufo->config.objectsAtOnce;
-    if(idx + actualFillCt > ufo->config.elementCt)
-      actualFillCt = ufo->config.elementCt - idx;
-
-    const uint64_t fillSizeBytes = ceilDiv(actualFillCt * ufo->config.stride, pageSize) * pageSize;
-    if (fillSizeBytes > i->highWaterMarkBytes) {
-      perror("Cannot load a chunk whose size is greater than the total number of memory dedicated "
-             "to storing chunk data (high water mark).");
-      goto error;
-    }
-
-    if(__builtin_expect(i->bufferSize < fillSizeBytes, 0)){
-      tryPerrNull(i->buffer, realloc(i->buffer, fillSizeBytes), "cannot realloc buffer", error);
-      i->bufferSize = fillSizeBytes;
-    }
-
-    if (i->usedMemory + fillSizeBytes > i->highWaterMarkBytes) {
-      while (i->usedMemory + fillSizeBytes > i->lowWaterMarkBytes) {
-        int popResult;
-        oroboros_item_t chunkMetadata;
-        tryPerrInt(popResult, oroboros_pop(i->chunkRecord, &chunkMetadata),
-                   "Reclaiming all the elements from ring buffer did not free enough memory "
-                   "to allocate incoming chunk without breaking the high water mark memory usage threshold", error);
-        if (!chunkMetadata.garbage_collected) {
-          i->usedMemory -= chunkMetadata.size;
-          madvise(chunkMetadata.address, chunkMetadata.size, MADV_DONTNEED); // also possible: MADV_FREE
-        }
-        // TODO when writing is a thing, make sure to guard against stray writes here
-      }
-    }
-
-    int callout(ufPopulateCalloutMsg* msg){
-      switch(msg->cmd){
-        case ufResolveRangeCmd:
-          return 0; // Not yet implemented, but this is advisory only so no error
-        case ufExpandRange:
-          return ufWarnNoChange; // Not yet implemented, but callers have to deal with this anyway, even spuriously
-        default:
-          return ufBadArgs;
-      }
-      __builtin_unreachable();
-    }
-    //uint64_t startValueIdx, uint64_t endValueIdx, ufPopulateCallout callout, ufUserData userData, char* target
-    tryPerrInt(res,
-        ufo->config.populateFunction(idx, idx + actualFillCt, callout, ufo->config.userConfig, i->buffer),
-        "populate error", error);
-
-    struct uffdio_copy copy = (struct uffdio_copy){.src = (uint64_t) i->buffer, .dst = faultAtLoadBoundaryAbsolute, .len = fillSizeBytes, .mode = 0};
-    tryPerrNegOne(res, ufCopy(i, &copy), "error copying", error);
-
-    oroboros_item_t chunkMetadata = {
-            .size = fillSizeBytes,
-            .address = (void *) faultAtLoadBoundaryAbsolute,
-            .owner_id = ufo->id,
-            .garbage_collected = false,
-    };
-    i->usedMemory += chunkMetadata.size;
-    tryPerrInt(res, oroboros_push(i->chunkRecord, chunkMetadata, true),
-               "Could not push metadata onto the ring buffer. The ring buffer cannot resize.", error);  // FIXME consider adding an upper limit to size
-  }else{
+  if(!(msg.event & UFFD_EVENT_PAGEFAULT)) {
     perror("Unknown userfault event");
     assert(false);
+    goto error;
   }
+
+  const uint64_t faultAtAddr = msg.arg.pagefault.address;
+  assert(0 == (faultAtAddr % pageSize));
+
+  entry e;
+  tryPerrInt(res, listFind(i->objects, &e, (void*)faultAtAddr), "no known object for fault", error);
+  ufObject* ufo = asUfo(e.valuePtr);
+
+  const uint64_t bodyStart = (uint64_t) ufo->start + ufo->config.headerSzWithPadding;
+  const uint64_t faultRelBody = faultAtAddr - bodyStart; // Translate the fault address to an address relative to the body of the object
+  const uint64_t bytesAtOnce = ufo->config.objectsAtOnce * ufo->config.stride;
+
+  const uint64_t faultAtLoadBoundaryRelBody  = (faultRelBody / bytesAtOnce) * bytesAtOnce; // Round down to the next loading boundary
+  assert(0 == faultAtLoadBoundaryRelBody % bytesAtOnce);
+  assert(0 == faultAtLoadBoundaryRelBody % ufo->config.stride);
+  const uint64_t faultAtLoadBoundaryAbsolute = faultAtLoadBoundaryRelBody + bodyStart;
+
+  const uint64_t idx = faultAtLoadBoundaryRelBody / ufo->config.stride;
+
+  uint64_t actualFillCt = ufo->config.objectsAtOnce;
+  if(idx + actualFillCt > ufo->config.elementCt)
+    actualFillCt = ufo->config.elementCt - idx;
+
+  const uint64_t fillSizeBytes = ceilDiv(actualFillCt * ufo->config.stride, pageSize) * pageSize;
+  if (fillSizeBytes > i->highWaterMarkBytes) {
+    perror("Cannot load a chunk whose size is greater than the total number of memory dedicated "
+           "to storing chunk data (high water mark).");
+    goto error;
+  }
+
+  if(__builtin_expect(i->bufferSize < fillSizeBytes, 0)){
+    tryPerrNull(i->buffer, realloc(i->buffer, fillSizeBytes), "cannot realloc buffer", error);
+    i->bufferSize = fillSizeBytes;
+  }
+
+  if (i->usedMemory + fillSizeBytes > i->highWaterMarkBytes) {
+    while (i->usedMemory + fillSizeBytes > i->lowWaterMarkBytes) {
+      int popResult;
+      oroboros_item_t chunkMetadata;
+      tryPerrInt(popResult, oroboros_pop(i->chunkRecord, &chunkMetadata),
+                 "Reclaiming all the elements from ring buffer did not free enough memory "
+                 "to allocate incoming chunk without breaking the high water mark memory usage threshold", error);
+      if (!chunkMetadata.garbage_collected) {
+        i->usedMemory -= chunkMetadata.size;
+        madvise(chunkMetadata.address, chunkMetadata.size, MADV_DONTNEED); // also possible: MADV_FREE
+      }
+      // TODO when writing is a thing, make sure to guard against stray writes here
+    }
+  }
+
+  int callout(ufPopulateCalloutMsg* msg){
+    switch(msg->cmd){
+      case ufResolveRangeCmd:
+        return 0; // Not yet implemented, but this is advisory only so no error
+      case ufExpandRange:
+        return ufWarnNoChange; // Not yet implemented, but callers have to deal with this anyway, even spuriously
+      default:
+        return ufBadArgs;
+    }
+    __builtin_unreachable();
+  }
+  //uint64_t startValueIdx, uint64_t endValueIdx, ufPopulateCallout callout, ufUserData userData, char* target
+  tryPerrInt(res,
+      ufo->config.populateFunction(idx, idx + actualFillCt, callout, ufo->config.userConfig, i->buffer),
+      "populate error", error);
+
+  struct uffdio_copy copy = (struct uffdio_copy){.src = (uint64_t) i->buffer, .dst = faultAtLoadBoundaryAbsolute, .len = fillSizeBytes, .mode = 0};
+  tryPerrNegOne(res, ufCopy(i, &copy), "error copying", error);
+
+  oroboros_item_t chunkMetadata = {
+          .size = fillSizeBytes,
+          .address = (void *) faultAtLoadBoundaryAbsolute,
+          .owner_id = ufo->id,
+          .garbage_collected = false,
+  };
+  i->usedMemory += chunkMetadata.size;
+  tryPerrInt(res, oroboros_push(i->chunkRecord, chunkMetadata, true),
+             "Could not push metadata onto the ring buffer. The ring buffer cannot resize.", error);  // FIXME consider adding an upper limit to size
 
   return 0;
 
