@@ -69,7 +69,7 @@ int oroboros_pop(oroboros_t an_oroboros, oroboros_item_t *item) {               
                                                                                 // do not ask more of oroboros
 
   *item = oroboros->buffer[oroboros->tail];                                     // oroboros makes apparent the content of its bowels
-  oroboros->tail = oroboros->tail + 1 % oroboros->size;                       // oroboros moves its tail in a circular path
+  oroboros->tail = (oroboros->tail + 1) % oroboros->size;                       // oroboros moves its tail in a circular path
   oroboros->elements--;                                                         // oroboros diminishes
 
   return 0;                                                                     // oroboros is content
