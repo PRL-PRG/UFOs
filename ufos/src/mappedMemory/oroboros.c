@@ -69,7 +69,7 @@ int oroboros_pop(oroboros_t an_oroboros, oroboros_item_t *item) {               
                                                                                 // do not ask more of oroboros
 
   *item = oroboros->buffer[oroboros->tail];                                     // oroboros makes apparent the content of its bowels
-  oroboros->tail = oroboros->tail + 1 % oroboros->size;                         // oroboros moves its tail in a circular path
+  oroboros->tail = oroboros->tail + 1 % oroboros->size;                       // oroboros moves its tail in a circular path
   oroboros->elements--;                                                         // oroboros diminishes
 
   return 0;                                                                     // oroboros is content
@@ -110,7 +110,7 @@ int oroboros_resize(oroboros_t an_oroboros, size_t size) {                      
 
   oroboros->size = size;                                                        // oroboros counts the steps
   size_t head_after_resize =                                                    // oroboros will move its head to follow the new path
-          (oroboros->head + oroboros->elements)  % oroboros->size;
+          (oroboros->head + oroboros->elements) % oroboros->size;
   oroboros->head = head_after_resize;                                           // oroboros adjusts its head
 
   return 0;

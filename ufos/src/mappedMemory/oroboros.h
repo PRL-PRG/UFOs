@@ -10,7 +10,7 @@ typedef struct {
   uint64_t owner_id;              // the id of the UFO to which this item belongs
   void*    address;
   size_t   size;                  // in bytes
-  bool     garbage_collected;     // true or false
+  //bool     garbage_collected;     // true or false
 } oroboros_item_t;
 
 typedef void(*oroboros_fun_t)(size_t /*index*/, oroboros_item_t* /*element*/, void* user_data);

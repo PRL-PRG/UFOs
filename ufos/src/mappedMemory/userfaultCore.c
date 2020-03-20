@@ -41,6 +41,13 @@ static size_t get_page_size(){
   return ret;
 }
 
+int check_totals (ufInstance* i) {
+  uint64_t total = 0;
+  void sum(size_t i, oroboros_item_t *item, void* user_data) { total += item->size; }
+  oroboros_for_each(i->chunkRecord, sum, NULL);
+  return i->usedMemory == total;
+}
+
 static int readMsgSlowPath(const int fd, const int sz, char* m, int readBytes){
   assert(readBytes != sz);
   int toRead = sz;
@@ -208,11 +215,22 @@ static int readHandleUfEvent(ufInstance* i){
     while (i->usedMemory + fillSizeBytes > i->lowWaterMarkBytes) {
       int popResult;
       oroboros_item_t chunkMetadata;
-      tryPerrInt(popResult, oroboros_pop(i->chunkRecord, &chunkMetadata),
-                 "Reclaiming all the elements from ring buffer did not free enough memory "
-                 "to allocate incoming chunk without breaking the high water mark memory usage threshold", error);
-      if (!chunkMetadata.garbage_collected) {
+
+      //tryPerrInt(popResult, oroboros_pop(i->chunkRecord, &chunkMetadata),
+      //           "Reclaiming all the elements from ring buffer did not free enough memory "
+      //           "to allocate incoming chunk without breaking the high water mark memory usage threshold", error);
+
+      popResult = oroboros_pop(i->chunkRecord, &chunkMetadata);
+      if(popResult!=0) {
+        printf("eeeee\n");
+        perror("Reclaiming all the elements from ring buffer did not free enough memory "
+               "to allocate incoming chunk without breaking the high water mark memory usage threshold");
+        goto error;
+      }
+
+      if (chunkMetadata.size > 0) {
         i->usedMemory -= chunkMetadata.size;
+        assert(check_totals(i));
         madvise(chunkMetadata.address, chunkMetadata.size, MADV_DONTNEED); // also possible: MADV_FREE
       }
       // TODO when writing is a thing, make sure to guard against stray writes here
@@ -242,11 +260,13 @@ static int readHandleUfEvent(ufInstance* i){
           .size = fillSizeBytes,
           .address = (void *) faultAtLoadBoundaryAbsolute,
           .owner_id = ufo->id,
-          .garbage_collected = false,
   };
   i->usedMemory += chunkMetadata.size;
+
   tryPerrInt(res, oroboros_push(i->chunkRecord, chunkMetadata, true),
              "Could not push metadata onto the ring buffer. The ring buffer cannot resize.", error);  // FIXME consider adding an upper limit to size
+
+  assert(check_totals(i));
 
   return 0;
 
@@ -327,8 +347,11 @@ static int freeUfo(ufInstance* i, ufAsyncMsg* msg){
 
   void mark (size_t index, oroboros_item_t *item, void *data) {
     if (item->owner_id == ufo->id) {
-      item->garbage_collected = true;
+      //item->garbage_collected = true;
+      item->size = 0;
       i->usedMemory -= item->size;
+
+      assert(check_totals(i));
       // We don't actually reclaim here, because it's done for the whole object.
     }
   }
