@@ -208,8 +208,8 @@ static int readHandleUfEvent(ufInstance* i){
                    "to allocate incoming chunk without breaking the high water mark memory usage threshold", error);
         if (!chunkMetadata.garbage_collected) {
           i->usedMemory -= chunkMetadata.size;
+          madvise(chunkMetadata.address, chunkMetadata.size, MADV_DONTNEED); // also possible: MADV_FREE
         }
-        madvise(chunkMetadata.address, chunkMetadata.size, MADV_DONTNEED); // also possible: MADV_FREE
         // TODO when writing is a thing, make sure to guard against stray writes here
       }
     }
