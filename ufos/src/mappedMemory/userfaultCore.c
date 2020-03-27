@@ -348,8 +348,9 @@ static int freeUfo(ufInstance* i, ufAsyncMsg* msg){
   void mark (size_t index, oroboros_item_t *item, void *data) {
     if (item->owner_id == ufo->id) {
       //item->garbage_collected = true;
-      item->size = 0;
+
       i->usedMemory -= item->size;
+      item->size = 0;
 
       assert(check_totals(i));
       // We don't actually reclaim here, because it's done for the whole object.
