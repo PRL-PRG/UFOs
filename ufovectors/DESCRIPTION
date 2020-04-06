@@ -4,6 +4,7 @@ Title: Implementation of R vectors using UserFault Objects
 Description: Example implementation of R vectors using UserFault Objects to
              materialize data on demand from file sources.
 Version: 0.1.0
+Author:      Konrad Siek <siekkonr@fit.cvut.cz> 
 Authors@R: c(person(given = "Colette", family = "Kerr", role = c("aut"),
                     email = "colette.m.y.kerr@gmail.com"),
              person(given = "Konrad",  family = "Siek", role = c("aut", "cre"),
@@ -17,5 +18,6 @@ LinkingTo: ufos
 NeedsCompilation: yes
 Suggests: 
     knitr,
-    rmarkdown
+    rmarkdown,
+    testthat
 VignetteBuilder: knitr
