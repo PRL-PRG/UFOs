@@ -127,6 +127,7 @@ tokenizer_result_t next (tokenizer_t *tokenizer, tokenizer_state_t *state, token
             case TOKENIZER_FIELD: {
 
                 char c = next_character(state);
+                printf("FIELD %c\n", c);
 
                 if (c == EOF) {
                     state->state = TOKENIZER_FINAL;
@@ -153,7 +154,7 @@ tokenizer_result_t next (tokenizer_t *tokenizer, tokenizer_state_t *state, token
                 }
 
                 if (c == tokenizer->quote) {
-                    state->state = TOKENIZER_UNQUOTED_FIELD;
+                    state->state = TOKENIZER_QUOTED_FIELD;
                     state->current_offset++;
                     continue;
                 }
@@ -176,6 +177,7 @@ tokenizer_result_t next (tokenizer_t *tokenizer, tokenizer_state_t *state, token
             case TOKENIZER_UNQUOTED_FIELD: {
 
                 char c = next_character(state);
+                printf("UNQUOTED FIELD %c\n", c);
 
                 if (c == EOF) {
                     state->state = TOKENIZER_FINAL;
@@ -210,12 +212,135 @@ tokenizer_result_t next (tokenizer_t *tokenizer, tokenizer_state_t *state, token
 
             }
 
+            case TOKENIZER_QUOTED_FIELD: {
+
+                char c = next_character(state);
+                printf("QUOTED FIELD %c\n", c);
+
+                if (c == tokenizer->quote) {
+                    state->state = TOKENIZER_QUOTE;
+                    state->current_offset++;
+                    continue;
+                }
+
+                if (c == EOF) {
+                    state->state = TOKENIZER_FINAL;
+
+                    state->current_offset++;
+                    pop_token(state, token);
+                    *end_row = true;
+                    return TOKENIZER_PARSE_ERROR;
+                }
+
+                /* c is any other character */ {
+                    // state->state = TOKENIZER_QUOTED_FIELD;
+
+                    int result = tokenizer_token_buffer_append(state->token_buffer, c);
+                    if (result != 0) {
+                        perror("Error: Could not append character to token buffer.");
+                        return TOKENIZER_ERROR;
+                    }
+
+                    state->current_offset++;
+                    continue;
+                }
+            }
+
+            case TOKENIZER_QUOTE: {
+
+                char c = next_character(state);
+                printf("QUOTE %c\n", c);
+
+                if (c == tokenizer->quote) {
+                    state->state = TOKENIZER_QUOTED_FIELD;
+
+                    int result = tokenizer_token_buffer_append(state->token_buffer, c);
+                    if (result != 0) {
+                        perror("Error: Could not append character to token buffer.");
+                        return TOKENIZER_ERROR;
+                    }
+
+                    state->current_offset++;
+                    continue;
+                }
+
+                if (c == EOF) {
+                    state->state = TOKENIZER_FINAL;
+
+                    state->current_offset++;
+                    pop_token(state, token);
+                    *end_row = true;
+                    return TOKENIZER_PARSE_ERROR;
+                }
+
+                if (c == ' ' || c == '\t') {
+                    state->state = TOKENIZER_TRAILING;
+                    state->current_offset++;
+                    continue;
+                }
+
+                if (c == tokenizer->column_delimiter || c == tokenizer->row_delimiter) {
+                    state->state = TOKENIZER_FIELD;
+
+                    state->current_offset++;
+                    pop_token(state, token);
+                    *end_row = (c == tokenizer->row_delimiter);
+                    return (c == tokenizer->column_delimiter) ? TOKENIZER_OK : TOKENIZER_NEW_COLUMN;
+                }
+
+                /* c is any other character */ {
+                    state->current_offset++;
+                    return TOKENIZER_PARSE_ERROR;
+                }
+            }
+
+            case TOKENIZER_TRAILING: {
+                char c = next_character(state);
+                printf("TRAILING %c\n", c);
+
+                if (c == ' ' || c == '\t') {
+                    state->state = TOKENIZER_TRAILING;
+                    state->current_offset++;
+                    continue;
+                }
+
+                if (c == tokenizer->column_delimiter || c == tokenizer->row_delimiter) {
+                    state->state = TOKENIZER_FIELD;
+
+                    state->current_offset++;
+                    pop_token(state, token);
+                    *end_row = (c == tokenizer->row_delimiter);
+                    return (c == tokenizer->column_delimiter) ? TOKENIZER_OK : TOKENIZER_NEW_COLUMN;
+                }
+
+
+                if (c == EOF) {
+                    state->state = TOKENIZER_FINAL;
+
+                    state->current_offset++;
+                    pop_token(state, token);
+                    *end_row = true;
+                    return TOKENIZER_END_OF_FILE;
+                }
+
+                /* c is any other character */ {
+                    state->state = TOKENIZER_FINAL;
+
+                    state->current_offset++;
+                    pop_token(state, token);
+                    *end_row = true;
+                    return TOKENIZER_PARSE_ERROR;
+                }
+            }
+
             case TOKENIZER_INITIAL: {
+
+                printf("INITIAL\n");
 
                 int seek_status = fseek(state->file, state->initial_offset, SEEK_SET);
                 if (seek_status < 0) {
                     perror("Error: cannot seek to initial position");
-                    return TOKENIZER_ERROR; // TODO VALUE
+                    return TOKENIZER_ERROR;
                 }
 
                 state->state = TOKENIZER_FIELD;
@@ -225,6 +350,7 @@ tokenizer_result_t next (tokenizer_t *tokenizer, tokenizer_state_t *state, token
             }
 
             default:
+                printf("UNIMPLEMENTED %i\n", state->state);
                 perror("Error: unimplemented");
                 return TOKENIZER_ERROR;
         }
@@ -235,10 +361,11 @@ tokenizer_result_t next (tokenizer_t *tokenizer, tokenizer_state_t *state, token
 
 const char *tokenizer_result_to_string (tokenizer_result_t result) {
     switch (result) {
-        case TOKENIZER_OK:          return "OK";
-        case TOKENIZER_NEW_COLUMN:  return "NEW COLUMN";
-        case TOKENIZER_END_OF_FILE: return "END OF FILE";
-        default:                    return "ERROR";
+        case TOKENIZER_OK:                      return "OK";
+        case TOKENIZER_NEW_COLUMN:              return "NEW COLUMN";
+        case TOKENIZER_END_OF_FILE:             return "END OF FILE";
+        case TOKENIZER_PARSE_ERROR:       return "PARSE ERROR";
+        default:                                return "ERROR";
     }
 }
 

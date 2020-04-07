@@ -19,7 +19,7 @@ typedef enum {
     TOKENIZER_UNQUOTED_FIELD,
     TOKENIZER_QUOTED_FIELD,
     TOKENIZER_QUOTE,
-    TOKENIZER_TRAILING_SPACE,
+    TOKENIZER_TRAILING,
     TOKENIZER_ESCAPE,
     TOKENIZER_FINAL,
 }  tokenizer_state_value_t;
@@ -28,6 +28,7 @@ typedef enum {
     TOKENIZER_OK,
     TOKENIZER_NEW_COLUMN,
     TOKENIZER_END_OF_FILE,
+    TOKENIZER_PARSE_ERROR,
     TOKENIZER_ERROR,
 } tokenizer_result_t;
 
@@ -55,7 +56,6 @@ typedef struct {
     tokenizer_token_buffer_t *token_buffer;
 } tokenizer_state_t;
 
-
 tokenizer_t               csv_tokenizer ();
 
 tokenizer_state_t        *tokenizer_state_init (char *path, long initial_offset, size_t buffer_size);
@@ -69,8 +69,7 @@ void                      tokenizer_token_buffer_free (tokenizer_token_buffer_t 
 
 tokenizer_token_t        *tokenizer_token_empty ();
 
+const char               *tokenizer_result_to_string (tokenizer_result_t);
 
 
 tokenizer_result_t next (tokenizer_t *tokenizer, tokenizer_state_t *state, tokenizer_token_t **token, bool *end_row);
-
-const char *tokenizer_result_to_string (tokenizer_result_t);
