@@ -82,6 +82,23 @@ ufo_matrix_bin <- function(type, path, rows, cols, min_load_count = 0) {
   stop(paste0("Unknown UFO matrix type: ", type))
 }
 
+ufo_csv <- function(path) {
+  .Call("ufo_delim")
+}
+
+#ufo_rep <- function(x, times) {
+#    if (missing(x)) stop("Missing vector to repeat.")
+#    if (missing(times)) stop("Missing number of times to repeat the vector.")
+#
+#    if (length(x) == 0) return(x)
+#    if (times == 0) return(vector(typeof(x)))
+#    if (times == 1) return(x)
+#
+#    if (length(times) != 1) stop("Invalid times argument.")
+#
+#    .Call("ufo_rep", x, times)
+#}
+
 ufo_set_debug_mode <- function(debug=TRUE) {
   if (typeof(debug) != "logical") {
     stop(paste0("Argument is of type", typeof(debug),
