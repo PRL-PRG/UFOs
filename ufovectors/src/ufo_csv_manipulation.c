@@ -158,6 +158,18 @@ void tokenizer_close(tokenizer_t *tokenizer, tokenizer_state_t *state) {
     fclose(state->file);
 }
 
+static int is_whitespace(tokenizer_t* tokenizer, char c) {
+    return c == ' ' || c == '\t';
+}
+
+static int is_escape(tokenizer_t* tokenizer, char c) {
+    return c == tokenizer->escape && tokenizer->use_escape_character;
+}
+
+static int is_quote_escape(tokenizer_t* tokenizer, char c) {
+    return c == tokenizer->quote && tokenizer->use_double_quote_escape;
+}
+
 tokenizer_result_t tokenizer_next (tokenizer_t *tokenizer, tokenizer_state_t *state, tokenizer_token_t **token) {
 
     while (true) {
@@ -167,7 +179,7 @@ tokenizer_result_t tokenizer_next (tokenizer_t *tokenizer, tokenizer_state_t *st
                 if (c == EOF)                         { return __pop_and_yield(state, token, TOKENIZER_FINAL, TOKENIZER_END_OF_FILE);               }
                 if (c == tokenizer->column_delimiter) { return __pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_OK);                        }
                 if (c == tokenizer->row_delimiter)    { return __pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_END_OF_ROW);                }
-                if (c == ' ' || c == '\t')            {        __transition(state, TOKENIZER_FIELD);                                      continue; }
+                if (is_whitespace(tokenizer, c))      {        __transition(state, TOKENIZER_FIELD);                                      continue; }
                 if (c == tokenizer->quote)            {        __transition(state, TOKENIZER_QUOTED_FIELD);                               continue; }
                 /* c is any other character */        { if   (!__append(state, c, TOKENIZER_UNQUOTED_FIELD))                              continue;
                                                         else { __transition(state, TOKENIZER_CRASHED); return TOKENIZER_ERROR; }                    }
@@ -184,8 +196,8 @@ tokenizer_result_t tokenizer_next (tokenizer_t *tokenizer, tokenizer_state_t *st
 
             case TOKENIZER_QUOTED_FIELD: {
                 char c = next_character(state);
-                if (c == tokenizer->quote)            {        __transition(state, TOKENIZER_QUOTE);                                      continue; }
-                if (c == tokenizer->escape)           {        __transition(state, TOKENIZER_ESCAPE);                                     continue; }
+                if (is_quote_escape(tokenizer, c))    {        __transition(state, TOKENIZER_QUOTE);                                      continue; }
+                if (is_escape(tokenizer, c))          {        __transition(state, TOKENIZER_ESCAPE);                                     continue; }
                 if (c == EOF)                         { return __pop_and_yield(state, token, TOKENIZER_CRASHED, TOKENIZER_PARSE_ERROR);             }
                 /* c is any other character */        {        __append(state, c, TOKENIZER_QUOTED_FIELD);                                continue; }
             }
@@ -195,15 +207,15 @@ tokenizer_result_t tokenizer_next (tokenizer_t *tokenizer, tokenizer_state_t *st
                 if (c == tokenizer->quote)            { if   (!__append(state, c, TOKENIZER_QUOTED_FIELD))                                continue;
                                                         else { __transition(state, TOKENIZER_CRASHED); return TOKENIZER_ERROR; }                    }
                 if (c == EOF)                         { return __pop_and_yield(state, token, TOKENIZER_CRASHED, TOKENIZER_PARSE_ERROR);             }
-                if (c == ' ' || c == '\t')            {        __transition(state, TOKENIZER_TRAILING);                                   continue; }
-                if (c == tokenizer->column_delimiter) { return __pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_OK);                        }
-                if (c == tokenizer->row_delimiter)    { return __pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_END_OF_ROW);                }
+                if (is_whitespace(tokenizer, c))      {        __transition(state, TOKENIZER_TRAILING);                                   continue; }
+                if (c == tokenizer->column_delimiter) { return __pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_CRASHED);                   }
+                if (c == tokenizer->row_delimiter)    { return __pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_CRASHED);                   }
                 /* c is any other character */        {        __transition(state, TOKENIZER_CRASHED); return TOKENIZER_PARSE_ERROR;                }
             }
 
             case TOKENIZER_TRAILING: {
                 char c = next_character(state);
-                if (c == ' ' || c == '\t')            {        __transition(state, TOKENIZER_TRAILING);                                   continue; }
+                if (is_whitespace(tokenizer, c))      {        __transition(state, TOKENIZER_TRAILING);                                   continue; }
                 if (c == tokenizer->column_delimiter) { return __pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_OK);                        }
                 if (c == tokenizer->row_delimiter)    { return __pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_END_OF_ROW);                }
                 if (c == EOF)                         { return __pop_and_yield(state, token, TOKENIZER_FINAL, TOKENIZER_END_OF_FILE);               }
@@ -212,9 +224,11 @@ tokenizer_result_t tokenizer_next (tokenizer_t *tokenizer, tokenizer_state_t *st
 
             case TOKENIZER_ESCAPE: {
                 char c = next_character(state);
-                if (c == tokenizer->quote)            { if   (!__append(state, c, TOKENIZER_QUOTED_FIELD))                                continue;
+                if (c == tokenizer->escape)           { if   (!__append(state, c, TOKENIZER_QUOTED_FIELD))                                continue;
                                                         else { __transition(state, TOKENIZER_CRASHED); return TOKENIZER_ERROR; }                    }
                 if (c == EOF)                         { return __pop_and_yield(state, token, TOKENIZER_CRASHED, TOKENIZER_PARSE_ERROR);             }
+                if (c == tokenizer->column_delimiter) { return __pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_CRASHED);                   }
+                if (c == tokenizer->row_delimiter)    { return __pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_CRASHED);                   }
                 /* c is any other character */        { if   (!__append(state, tokenizer->escape, TOKENIZER_QUOTED_FIELD)
                                                         &&    !__append(state, c, TOKENIZER_QUOTED_FIELD))                                continue;
                                                         else { __transition(state, TOKENIZER_CRASHED); return TOKENIZER_ERROR; }                    }

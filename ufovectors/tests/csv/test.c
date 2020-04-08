@@ -25,6 +25,7 @@ void test_file(char* path) {
 };
 
 
-void main () {
+int main (int argc, char *argv[]) {
     test_file("test.csv");
+    return 0;
 }
