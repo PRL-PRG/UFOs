@@ -120,239 +120,99 @@ void pop_token (tokenizer_state_t *state, tokenizer_token_t **token) {
     tokenizer_token_buffer_clear(state->token_buffer);
 }
 
-tokenizer_result_t next (tokenizer_t *tokenizer, tokenizer_state_t *state, tokenizer_token_t **token, bool *end_row) {
+static inline void __transition(tokenizer_state_t *state, tokenizer_state_value_t next_state) {
+    state->state = next_state;
+    state->current_offset++;
+}
+
+static inline tokenizer_result_t __pop_and_yield(tokenizer_state_t *state, tokenizer_token_t **token, tokenizer_state_value_t next_state, tokenizer_result_t result) {
+    __transition(state, next_state);
+    pop_token(state, token);
+    return result;
+}
+
+static inline int __append(tokenizer_state_t *state, char c, tokenizer_state_value_t next_state) {
+    int result = tokenizer_token_buffer_append(state->token_buffer, c);
+    if (result != 0) {
+        perror("Error: Could not append character to token buffer.");
+        return -1;
+    }
+    __transition(state, next_state);
+    return 0;
+}
+
+
+int tokenizer_start(tokenizer_t *tokenizer, tokenizer_state_t *state) {
+    int seek_status = fseek(state->file, state->initial_offset, SEEK_SET);
+    if (seek_status < 0) {
+        perror("Error: cannot seek to initial position");
+        return 1;
+    }
+
+    state->state = TOKENIZER_FIELD;
+    state->current_offset = state->initial_offset;
+    return 0;
+}
+
+void tokenizer_close(tokenizer_t *tokenizer, tokenizer_state_t *state) {
+    fclose(state->file);
+}
+
+tokenizer_result_t tokenizer_next (tokenizer_t *tokenizer, tokenizer_state_t *state, tokenizer_token_t **token) {
 
     while (true) {
         switch (state->state) {
             case TOKENIZER_FIELD: {
-
                 char c = next_character(state);
-                printf("FIELD %c\n", c);
-
-                if (c == EOF) {
-                    state->state = TOKENIZER_FINAL;
-
-                    state->current_offset++;
-                    pop_token(state, token);
-                    *end_row = true;
-                    return TOKENIZER_END_OF_FILE;
-                }
-
-                if (c == tokenizer->column_delimiter || c == tokenizer->row_delimiter) {
-                    //state->state = TOKENIZER_FIELD;
-
-                    state->current_offset++;
-                    pop_token(state, token);
-                    *end_row = (c == tokenizer->row_delimiter);
-                    return (c == tokenizer->column_delimiter) ? TOKENIZER_OK : TOKENIZER_NEW_COLUMN;
-                }
-
-                if (c == ' ' || c == '\t') {
-                    //state->state = TOKENIZER_FIELD;
-                    state->current_offset++;
-                    continue;
-                }
-
-                if (c == tokenizer->quote) {
-                    state->state = TOKENIZER_QUOTED_FIELD;
-                    state->current_offset++;
-                    continue;
-                }
-
-                /* c is any other character */ {
-                    state->state = TOKENIZER_UNQUOTED_FIELD;
-
-                    int result = tokenizer_token_buffer_append(state->token_buffer, c);
-                    if (result != 0) {
-                        perror("Error: Could not append character to token buffer.");
-                        return TOKENIZER_ERROR;
-                    }
-
-                    state->current_offset++;
-                    continue;
-                }
-
+                if (c == EOF)                         { return __pop_and_yield(state, token, TOKENIZER_FINAL, TOKENIZER_END_OF_FILE);               }
+                if (c == tokenizer->column_delimiter) { return __pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_OK);                        }
+                if (c == tokenizer->row_delimiter)    { return __pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_END_OF_ROW);                }
+                if (c == ' ' || c == '\t')            {        __transition(state, TOKENIZER_FIELD);                                      continue; }
+                if (c == tokenizer->quote)            {        __transition(state, TOKENIZER_QUOTED_FIELD);                               continue; }
+                /* c is any other character */        { if   (!__append(state, c, TOKENIZER_UNQUOTED_FIELD))                              continue;
+                                                        else { __transition(state, TOKENIZER_CRASHED); return TOKENIZER_ERROR; }                    }
             }
 
             case TOKENIZER_UNQUOTED_FIELD: {
-
                 char c = next_character(state);
-                printf("UNQUOTED FIELD %c\n", c);
-
-                if (c == EOF) {
-                    state->state = TOKENIZER_FINAL;
-
-                    state->current_offset++;
-                    pop_token(state, token);
-                    *end_row = true;
-                    return TOKENIZER_END_OF_FILE;
-                }
-
-                if (c == tokenizer->column_delimiter || c == tokenizer->row_delimiter) {
-                    state->state = TOKENIZER_FIELD;
-
-                    state->current_offset++;
-                    pop_token(state, token);
-                    *end_row = (c == tokenizer->row_delimiter);
-                    return (c == tokenizer->column_delimiter) ? TOKENIZER_OK : TOKENIZER_NEW_COLUMN;
-                }
-
-                /* c is any other character */ {
-                    //state->state = TOKENIZER_UNQUOTED_FIELD;
-
-                    int result = tokenizer_token_buffer_append(state->token_buffer, c);
-                    if (result != 0) {
-                        perror("Error: Could not append character to token buffer.");
-                        return TOKENIZER_ERROR;
-                    }
-
-                    state->current_offset++;
-                    continue;
-                }
-
+                if (c == EOF)                         { return __pop_and_yield(state, token, TOKENIZER_FINAL, TOKENIZER_END_OF_FILE);               }
+                if (c == tokenizer->column_delimiter) { return __pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_OK);                        }
+                if (c == tokenizer->row_delimiter)    { return __pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_END_OF_ROW);                }
+                /* c is any other character */        { if   (!__append(state, c, TOKENIZER_UNQUOTED_FIELD))                              continue;
+                                                        else { __transition(state, TOKENIZER_CRASHED); return TOKENIZER_ERROR; }                    }
             }
 
             case TOKENIZER_QUOTED_FIELD: {
-
                 char c = next_character(state);
-                printf("QUOTED FIELD %c\n", c);
-
-                if (c == tokenizer->quote) {
-                    state->state = TOKENIZER_QUOTE;
-                    state->current_offset++;
-                    continue;
-                }
-
-                if (c == EOF) {
-                    state->state = TOKENIZER_FINAL;
-
-                    state->current_offset++;
-                    pop_token(state, token);
-                    *end_row = true;
-                    return TOKENIZER_PARSE_ERROR;
-                }
-
-                /* c is any other character */ {
-                    // state->state = TOKENIZER_QUOTED_FIELD;
-
-                    int result = tokenizer_token_buffer_append(state->token_buffer, c);
-                    if (result != 0) {
-                        perror("Error: Could not append character to token buffer.");
-                        return TOKENIZER_ERROR;
-                    }
-
-                    state->current_offset++;
-                    continue;
-                }
+                if (c == tokenizer->quote)            {        __transition(state, TOKENIZER_QUOTE);                                      continue; }
+                if (c == EOF)                         { return __pop_and_yield(state, token, TOKENIZER_CRASHED, TOKENIZER_PARSE_ERROR);             }
+                /* c is any other character */        {        __append(state, c, TOKENIZER_QUOTED_FIELD);                                continue; }
             }
 
             case TOKENIZER_QUOTE: {
-
                 char c = next_character(state);
-                printf("QUOTE %c\n", c);
-
-                if (c == tokenizer->quote) {
-                    state->state = TOKENIZER_QUOTED_FIELD;
-
-                    int result = tokenizer_token_buffer_append(state->token_buffer, c);
-                    if (result != 0) {
-                        perror("Error: Could not append character to token buffer.");
-                        return TOKENIZER_ERROR;
-                    }
-
-                    state->current_offset++;
-                    continue;
-                }
-
-                if (c == EOF) {
-                    state->state = TOKENIZER_FINAL;
-
-                    state->current_offset++;
-                    pop_token(state, token);
-                    *end_row = true;
-                    return TOKENIZER_PARSE_ERROR;
-                }
-
-                if (c == ' ' || c == '\t') {
-                    state->state = TOKENIZER_TRAILING;
-                    state->current_offset++;
-                    continue;
-                }
-
-                if (c == tokenizer->column_delimiter || c == tokenizer->row_delimiter) {
-                    state->state = TOKENIZER_FIELD;
-
-                    state->current_offset++;
-                    pop_token(state, token);
-                    *end_row = (c == tokenizer->row_delimiter);
-                    return (c == tokenizer->column_delimiter) ? TOKENIZER_OK : TOKENIZER_NEW_COLUMN;
-                }
-
-                /* c is any other character */ {
-                    state->current_offset++;
-                    return TOKENIZER_PARSE_ERROR;
-                }
+                if (c == tokenizer->quote)            { if   (!__append(state, c, TOKENIZER_QUOTED_FIELD))                               continue;
+                                                        else { __transition(state, TOKENIZER_CRASHED); return TOKENIZER_ERROR; }                    }
+                if (c == EOF)                         { return __pop_and_yield(state, token, TOKENIZER_CRASHED, TOKENIZER_PARSE_ERROR);             }
+                if (c == ' ' || c == '\t')            {        __transition(state, TOKENIZER_TRAILING);                                   continue; }
+                if (c == tokenizer->column_delimiter) { return __pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_OK);                        }
+                if (c == tokenizer->row_delimiter)    { return __pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_END_OF_ROW);                }
+                /* c is any other character */        {        __transition(state, TOKENIZER_CRASHED); return TOKENIZER_PARSE_ERROR;                }
             }
 
             case TOKENIZER_TRAILING: {
                 char c = next_character(state);
-                printf("TRAILING %c\n", c);
-
-                if (c == ' ' || c == '\t') {
-                    state->state = TOKENIZER_TRAILING;
-                    state->current_offset++;
-                    continue;
-                }
-
-                if (c == tokenizer->column_delimiter || c == tokenizer->row_delimiter) {
-                    state->state = TOKENIZER_FIELD;
-
-                    state->current_offset++;
-                    pop_token(state, token);
-                    *end_row = (c == tokenizer->row_delimiter);
-                    return (c == tokenizer->column_delimiter) ? TOKENIZER_OK : TOKENIZER_NEW_COLUMN;
-                }
-
-
-                if (c == EOF) {
-                    state->state = TOKENIZER_FINAL;
-
-                    state->current_offset++;
-                    pop_token(state, token);
-                    *end_row = true;
-                    return TOKENIZER_END_OF_FILE;
-                }
-
-                /* c is any other character */ {
-                    state->state = TOKENIZER_FINAL;
-
-                    state->current_offset++;
-                    pop_token(state, token);
-                    *end_row = true;
-                    return TOKENIZER_PARSE_ERROR;
-                }
+                if (c == ' ' || c == '\t')            {        __transition(state, TOKENIZER_TRAILING);                                   continue; }
+                if (c == tokenizer->column_delimiter) { return __pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_OK);                        }
+                if (c == tokenizer->row_delimiter)    { return __pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_END_OF_ROW);                }
+                if (c == EOF)                         { return __pop_and_yield(state, token, TOKENIZER_FINAL, TOKENIZER_END_OF_FILE);               }
+                /* c is any other character */        { return __pop_and_yield(state, token, TOKENIZER_CRASHED, TOKENIZER_PARSE_ERROR);             }
             }
 
-            case TOKENIZER_INITIAL: {
-
-                printf("INITIAL\n");
-
-                int seek_status = fseek(state->file, state->initial_offset, SEEK_SET);
-                if (seek_status < 0) {
-                    perror("Error: cannot seek to initial position");
-                    return TOKENIZER_ERROR;
-                }
-
-                state->state = TOKENIZER_FIELD;
-                state->current_offset = state->initial_offset;
-                continue;
-
-            }
-
-            default:
-                printf("UNIMPLEMENTED %i\n", state->state);
-                perror("Error: unimplemented");
-                return TOKENIZER_ERROR;
+            case TOKENIZER_INITIAL:                   { perror("Error: Tokenizer was now properly opened"); return TOKENIZER_ERROR;                 }
+            case TOKENIZER_FINAL:                     { perror("Error: Tokenizer completed reading this file"); return TOKENIZER_ERROR;             }
+            case TOKENIZER_CRASHED:                   { perror("Error: Tokenizer crashed and cannot continue"); return TOKENIZER_ERROR;             }
+            default:                                  { perror("Error: unimplemented"); return TOKENIZER_ERROR;                                     }
         }
 
     }
@@ -361,11 +221,11 @@ tokenizer_result_t next (tokenizer_t *tokenizer, tokenizer_state_t *state, token
 
 const char *tokenizer_result_to_string (tokenizer_result_t result) {
     switch (result) {
-        case TOKENIZER_OK:                      return "OK";
-        case TOKENIZER_NEW_COLUMN:              return "NEW COLUMN";
-        case TOKENIZER_END_OF_FILE:             return "END OF FILE";
-        case TOKENIZER_PARSE_ERROR:       return "PARSE ERROR";
-        default:                                return "ERROR";
+        case TOKENIZER_OK:          return "OK";
+        case TOKENIZER_END_OF_ROW:  return "END OF ROW";
+        case TOKENIZER_END_OF_FILE: return "END OF FILE";
+        case TOKENIZER_PARSE_ERROR: return "PARSE ERROR";
+        default:                    return "ERROR";
     }
 }
 

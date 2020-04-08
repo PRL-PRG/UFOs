@@ -22,11 +22,12 @@ typedef enum {
     TOKENIZER_TRAILING,
     TOKENIZER_ESCAPE,
     TOKENIZER_FINAL,
+    TOKENIZER_CRASHED,
 }  tokenizer_state_value_t;
 
 typedef enum {
     TOKENIZER_OK,
-    TOKENIZER_NEW_COLUMN,
+    TOKENIZER_END_OF_ROW,
     TOKENIZER_END_OF_FILE,
     TOKENIZER_PARSE_ERROR,
     TOKENIZER_ERROR,
@@ -72,4 +73,6 @@ tokenizer_token_t        *tokenizer_token_empty ();
 const char               *tokenizer_result_to_string (tokenizer_result_t);
 
 
-tokenizer_result_t next (tokenizer_t *tokenizer, tokenizer_state_t *state, tokenizer_token_t **token, bool *end_row);
+tokenizer_result_t tokenizer_next (tokenizer_t *tokenizer, tokenizer_state_t *state, tokenizer_token_t **token);
+int                tokenizer_start(tokenizer_t *tokenizer, tokenizer_state_t *state);
+void               tokenizer_close(tokenizer_t *tokenizer, tokenizer_state_t *state);
