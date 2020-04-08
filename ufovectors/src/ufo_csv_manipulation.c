@@ -185,13 +185,14 @@ tokenizer_result_t tokenizer_next (tokenizer_t *tokenizer, tokenizer_state_t *st
             case TOKENIZER_QUOTED_FIELD: {
                 char c = next_character(state);
                 if (c == tokenizer->quote)            {        __transition(state, TOKENIZER_QUOTE);                                      continue; }
+                if (c == tokenizer->escape)           {        __transition(state, TOKENIZER_ESCAPE);                                     continue; }
                 if (c == EOF)                         { return __pop_and_yield(state, token, TOKENIZER_CRASHED, TOKENIZER_PARSE_ERROR);             }
                 /* c is any other character */        {        __append(state, c, TOKENIZER_QUOTED_FIELD);                                continue; }
             }
 
             case TOKENIZER_QUOTE: {
                 char c = next_character(state);
-                if (c == tokenizer->quote)            { if   (!__append(state, c, TOKENIZER_QUOTED_FIELD))                               continue;
+                if (c == tokenizer->quote)            { if   (!__append(state, c, TOKENIZER_QUOTED_FIELD))                                continue;
                                                         else { __transition(state, TOKENIZER_CRASHED); return TOKENIZER_ERROR; }                    }
                 if (c == EOF)                         { return __pop_and_yield(state, token, TOKENIZER_CRASHED, TOKENIZER_PARSE_ERROR);             }
                 if (c == ' ' || c == '\t')            {        __transition(state, TOKENIZER_TRAILING);                                   continue; }
@@ -207,6 +208,16 @@ tokenizer_result_t tokenizer_next (tokenizer_t *tokenizer, tokenizer_state_t *st
                 if (c == tokenizer->row_delimiter)    { return __pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_END_OF_ROW);                }
                 if (c == EOF)                         { return __pop_and_yield(state, token, TOKENIZER_FINAL, TOKENIZER_END_OF_FILE);               }
                 /* c is any other character */        { return __pop_and_yield(state, token, TOKENIZER_CRASHED, TOKENIZER_PARSE_ERROR);             }
+            }
+
+            case TOKENIZER_ESCAPE: {
+                char c = next_character(state);
+                if (c == tokenizer->quote)            { if   (!__append(state, c, TOKENIZER_QUOTED_FIELD))                                continue;
+                                                        else { __transition(state, TOKENIZER_CRASHED); return TOKENIZER_ERROR; }                    }
+                if (c == EOF)                         { return __pop_and_yield(state, token, TOKENIZER_CRASHED, TOKENIZER_PARSE_ERROR);             }
+                /* c is any other character */        { if   (!__append(state, tokenizer->escape, TOKENIZER_QUOTED_FIELD)
+                                                        &&    !__append(state, c, TOKENIZER_QUOTED_FIELD))                                continue;
+                                                        else { __transition(state, TOKENIZER_CRASHED); return TOKENIZER_ERROR; }                    }
             }
 
             case TOKENIZER_INITIAL:                   { perror("Error: Tokenizer was now properly opened"); return TOKENIZER_ERROR;                 }
