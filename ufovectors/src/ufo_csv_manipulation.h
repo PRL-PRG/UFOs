@@ -47,19 +47,37 @@ typedef struct {
 } tokenizer_token_buffer_t;
 
 typedef struct {
+    char  *buffer;
+    size_t max_size;
+    size_t size;
+    size_t pointer;
+} tokenizer_read_buffer_t;
+
+typedef struct {
+    uint64_t rows;
+    uint32_t columns;
+    uint32_t max_columns;
+    long offset;
+    long offset_row_record_interval;
+    long *offset_row_record;
+    size_t offset_row_record_cursor;
+    size_t offset_row_record_size;
+} tokenizer_scan_info_t;
+
+typedef struct {
     FILE                     *file;
     tokenizer_state_value_t   state;
     long                      initial_offset; // long because fseek offset uses long
     long                      read_characters;
     long                      current_offset;
     long                      end_of_last_token;
-    char                     *read_buffer;
+    tokenizer_read_buffer_t   read_buffer;
     tokenizer_token_buffer_t *token_buffer;
 } tokenizer_state_t;
 
 tokenizer_t               csv_tokenizer ();
 
-tokenizer_state_t        *tokenizer_state_init (char *path, long initial_offset, size_t buffer_size);
+tokenizer_state_t        *tokenizer_state_init (char *path, long initial_offset, size_t max_token_size, size_t character_buffer_size);
 void                      tokenizer_state_close (tokenizer_state_t *);
 
 tokenizer_token_buffer_t *tokenizer_token_buffer_init (size_t max_size);
@@ -71,8 +89,9 @@ void                      tokenizer_token_buffer_free (tokenizer_token_buffer_t 
 tokenizer_token_t        *tokenizer_token_empty ();
 
 const char               *tokenizer_result_to_string (tokenizer_result_t);
-
+const char               *tokenizer_state_to_string (tokenizer_state_value_t);
 
 tokenizer_result_t tokenizer_next (tokenizer_t *tokenizer, tokenizer_state_t *state, tokenizer_token_t **token);
 int                tokenizer_start(tokenizer_t *tokenizer, tokenizer_state_t *state);
 void               tokenizer_close(tokenizer_t *tokenizer, tokenizer_state_t *state);
+
