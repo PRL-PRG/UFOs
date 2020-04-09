@@ -60,8 +60,8 @@ typedef struct {
     long offset;
     long offset_row_record_interval;
     long *offset_row_record;
-    size_t offset_row_record_cursor;
     size_t offset_row_record_size;
+    size_t offset_row_record_max_size;
 } tokenizer_scan_info_t;
 
 typedef struct {
@@ -95,3 +95,5 @@ tokenizer_result_t tokenizer_next (tokenizer_t *tokenizer, tokenizer_state_t *st
 int                tokenizer_start(tokenizer_t *tokenizer, tokenizer_state_t *state);
 void               tokenizer_close(tokenizer_t *tokenizer, tokenizer_state_t *state);
 
+tokenizer_scan_info_t scan_info_init (size_t row_record_interval, size_t initial_record_size);
+int tokenizer_scan (tokenizer_t *tokenizer, const char *path, tokenizer_scan_info_t *info, size_t buffer_size);

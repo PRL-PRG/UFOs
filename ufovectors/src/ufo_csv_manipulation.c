@@ -22,7 +22,7 @@ tokenizer_read_buffer_t read_buffer_init(size_t character_buffer_size) {
     read_buffer.buffer = (char *) malloc(10 * sizeof(char));
     read_buffer.max_size = character_buffer_size;
     read_buffer.size = character_buffer_size;                            // so that it triggers a full buffer...
-    read_buffer.pointer = character_buffer_size - 1;                     // ...check and initially populates it // FIXME
+    read_buffer.pointer = character_buffer_size;                         // ...check and initially populates it
     return read_buffer;
 }
 
@@ -91,14 +91,15 @@ tokenizer_token_t *tokenizer_token_buffer_get_token (tokenizer_token_buffer_t *b
     assert(buffer->size <= buffer->max_size);
 
     tokenizer_token_t *token = (tokenizer_token_t *) malloc(sizeof(tokenizer_token_t));
-    token->size = buffer->size;
-    token->string = (char *) malloc(sizeof(char) * buffer->size);
+    token->size = buffer->size + 1;
+    token->string = (char *) malloc(sizeof(char) * (buffer->size + 1));
     if (token->string == NULL) {
         perror("Error: cannot allocate memory for token");
         return NULL;
     }
 
     token->string = memcpy(token->string, buffer->buffer, buffer->size);
+    token->string[buffer->size] = '\0';
 
     return token;
 }
@@ -153,6 +154,7 @@ int tokenizer_start(tokenizer_t *tokenizer, tokenizer_state_t *state) {
 
     state->state = TOKENIZER_FIELD;
     state->current_offset = state->initial_offset;
+    state->end_of_last_token = 0;
     return 0;
 }
 
@@ -206,95 +208,104 @@ static inline int scanned_row (tokenizer_scan_info_t *info) {
         info->max_columns = info->columns;
     }
     if (info->rows % info->offset_row_record_interval == 0) {
-        if (info->offset_row_record_cursor >= info->offset_row_record_size) {
-            info->offset_row_record_size += (info->offset_row_record_size >> 1);
+        if (info->offset_row_record_size >= info->offset_row_record_max_size) {
+            info->offset_row_record_max_size += (info->offset_row_record_max_size >> 1);
             info->offset_row_record = (long *) realloc(info->offset_row_record,
-                                                       sizeof(long) * info->offset_row_record_size);
+                                                       sizeof(long) * info->offset_row_record_max_size);
             if (info->offset_row_record == NULL) {
                 perror("Error: cannot allocate memory to expand offset record");
                 return -1;
             }
         }
-        info->offset_row_record[info->offset_row_record_cursor++] = info->offset;
+        info->offset_row_record[info->offset_row_record_size++] = info->offset;
     }
     info->columns = 0;
     return 0;
 }
 
-tokenizer_scan_info_t scan_info_init (size_t row_record_interval) {
+tokenizer_scan_info_t scan_info_init (size_t row_record_interval, size_t initial_record_size) {
     tokenizer_scan_info_t info;
     info.columns = 0;
     info.max_columns = 0;
     info.rows = 0;
+    info.offset = 0;
 
-    info.offset_row_record_cursor = 0;
-    info.offset_row_record_size = 4;
-    info.offset_row_record = malloc(info.offset_row_record_size * sizeof(long));
+    info.offset_row_record_size = 0;
+    info.offset_row_record_max_size = initial_record_size;
+    info.offset_row_record = malloc(info.offset_row_record_max_size * sizeof(long));
 
     info.offset_row_record_interval = row_record_interval;
 
     return info;
 }
 
-int scan (tokenizer_t *tokenizer, FILE* source, size_t buffer_size, size_t row_record_interval) {
+int tokenizer_scan (tokenizer_t *tokenizer, const char* path, tokenizer_scan_info_t *info, size_t buffer_size) {
     tokenizer_read_buffer_t buffer = read_buffer_init(buffer_size);
-    tokenizer_scan_info_t info = scan_info_init(row_record_interval);
+    FILE *source = fopen(path, "r");
     tokenizer_state_value_t state = TOKENIZER_FIELD;
 
     while (true) {
         char c = next_character(&buffer, source);
-        info.offset++;
+        info->offset++;
 
         switch (state) {
             case TOKENIZER_FIELD: {
-                if (c == EOF)                         { scanned_row(&info); return 0; }
-                if (c == tokenizer->column_delimiter) { scanned_column(&info); continue; }
-                if (c == tokenizer->row_delimiter)    { scanned_row(&info); continue; }
+                if (c == EOF)                         { scanned_row(info); goto good; }
+                if (c == tokenizer->column_delimiter) { scanned_column(info); continue; }
+                if (c == tokenizer->row_delimiter)    { scanned_row(info); continue; }
                 if (is_whitespace(tokenizer, c))      { continue; }
                 if (c == tokenizer->quote)            { state = TOKENIZER_QUOTED_FIELD; continue; }
                 /* c is any other character */        { state = TOKENIZER_UNQUOTED_FIELD; continue; }
             }
 
             case TOKENIZER_UNQUOTED_FIELD: {
-                if (c == EOF)                         { scanned_row(&info); return 0; }
-                if (c == tokenizer->column_delimiter) { state = TOKENIZER_FIELD; scanned_column(&info); continue; }
-                if (c == tokenizer->row_delimiter)    { state = TOKENIZER_FIELD; scanned_row(&info); continue;  }
+                if (c == EOF)                         { scanned_row(info); goto good; }
+                if (c == tokenizer->column_delimiter) { state = TOKENIZER_FIELD; scanned_column(info); continue; }
+                if (c == tokenizer->row_delimiter)    { state = TOKENIZER_FIELD; scanned_row(info); continue;  }
                 /* c is any other character */        { continue;                      }
             }
 
             case TOKENIZER_QUOTED_FIELD: {
                 if (is_quote_escape(tokenizer, c))    { state = TOKENIZER_QUOTE; continue; }
                 if (is_escape(tokenizer, c))          { state = TOKENIZER_ESCAPE; continue; }
-                if (c == EOF)                         { return 1;            }
+                if (c == EOF)                         { goto bad;            }
                 /* c is any other character */        { continue; }
             }
 
             case TOKENIZER_QUOTE: {
                 if (c == tokenizer->quote)            { state = TOKENIZER_QUOTED_FIELD; continue; }
-                if (c == EOF)                         { return 1;             }
+                if (c == EOF)                         { goto bad;            }
                 if (is_whitespace(tokenizer, c))      { state = TOKENIZER_TRAILING;     continue; }
-                if (c == tokenizer->column_delimiter) { state = TOKENIZER_FIELD; scanned_column(&info); continue;      }
-                if (c == tokenizer->row_delimiter)    { state = TOKENIZER_FIELD; scanned_row(&info); continue;         }
-                /* c is any other character */        { return 1;                }
+                if (c == tokenizer->column_delimiter) { state = TOKENIZER_FIELD; scanned_column(info); continue;      }
+                if (c == tokenizer->row_delimiter)    { state = TOKENIZER_FIELD; scanned_row(info); continue;         }
+                /* c is any other character */        { goto bad;                }
             }
 
             case TOKENIZER_TRAILING: {
                 if (is_whitespace(tokenizer, c))      { state = TOKENIZER_TRAILING; continue; }
-                if (c == tokenizer->column_delimiter) { state = TOKENIZER_FIELD; scanned_column(&info); continue;      }
-                if (c == tokenizer->row_delimiter)    { state = TOKENIZER_FIELD; scanned_row(&info); continue;         }
-                if (c == EOF)                         { scanned_row(&info); return 0;               }
-                /* c is any other character */        { return 1;             }
+                if (c == tokenizer->column_delimiter) { state = TOKENIZER_FIELD; scanned_column(info); continue;      }
+                if (c == tokenizer->row_delimiter)    { state = TOKENIZER_FIELD; scanned_row(info); continue;         }
+                if (c == EOF)                         { scanned_row(info); goto good;               }
+                /* c is any other character */        { goto bad;             }
             }
 
             case TOKENIZER_ESCAPE: {
                 if (c == tokenizer->escape)           { state = TOKENIZER_QUOTED_FIELD; continue; }
-                if (c == EOF)                         { return 1;             }
+                if (c == EOF)                         { goto bad;             }
                 /* c is any other character */        { state = TOKENIZER_QUOTED_FIELD; continue; }
             }
 
-            default:                                  { perror("Error: unimplemented"); return TOKENIZER_ERROR;        }
+            default:                                  { perror("Error: unimplemented"); goto bad;        }
         }
     }
+
+    good:
+        fclose(source);
+        return 0;
+
+    bad:
+        fclose(source);
+        return 1;
 }
 
 tokenizer_result_t tokenizer_next (tokenizer_t *tokenizer, tokenizer_state_t *state, tokenizer_token_t **token) {

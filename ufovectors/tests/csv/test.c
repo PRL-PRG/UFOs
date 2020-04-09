@@ -4,7 +4,15 @@
 
 
 void test_scan(char* path) {
+    uint32_t interval = 2;
 
+    tokenizer_t tokenizer = csv_tokenizer();
+    tokenizer_scan_info_t info = scan_info_init(interval, 1);
+    int result = tokenizer_scan(&tokenizer, path, &info, 10);
+
+    for (size_t i = 0; i < info.offset_row_record_size; i++) {
+        printf("%lith row at offset %li\n", ((i + 1) * (interval)) + 1, info.offset_row_record[i]);
+    }
 };
 
 void test_file(char* path) {
