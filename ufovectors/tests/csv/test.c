@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include "../../src/ufo_csv_manipulation.h"
 
-
 void test_scan(char* path) {
     uint32_t interval = 2;
 
@@ -37,9 +36,23 @@ void test_file(char* path) {
     tokenizer_close(&tokenizer, state);
 };
 
+void test_initial_scan(char* path) {
+    scan_results_t *results = ufo_csv_perform_initial_scan(path);
+
+    printf("After initial scan of %s: \n\n", path);
+    printf("    rows: %li\n", results->rows);
+    printf("    cols: %li\n", results->columns);
+    printf("    column_types:\n\n");
+
+    for (size_t i = 0; i < results->columns; i++) {
+        printf("        [%li]: %s/%i\n", i, token_type_to_string(results->column_types[i]), results->column_types[i]);
+    }
+};
 
 int main (int argc, char *argv[]) {
     test_scan("test.csv");
     test_file("test.csv");
+    test_initial_scan("test.csv");
+    test_initial_scan("test2.csv");
     return 0;
 }
