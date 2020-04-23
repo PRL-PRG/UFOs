@@ -1,5 +1,8 @@
 #include "reader.h"
 
+#include <assert.h>
+
+#include "token.h"
 #include "tokenizer.h"
 
 typedef union {
@@ -122,7 +125,7 @@ void scan_results_free(scan_results_t *results) {
 
 scan_results_t *ufo_csv_perform_initial_scan(char* path, long record_row_offsets_at_interval) {
 
-    tokenizer_t tokenizer = csv_tokenizer();
+    tokenizer_t tokenizer = csv_tokenizer(); // TODO pass as argument
     tokenizer_state_t *state = tokenizer_state_init(path, 0, 10, 10);
     tokenizer_start(&tokenizer, state);
 
@@ -135,14 +138,14 @@ scan_results_t *ufo_csv_perform_initial_scan(char* path, long record_row_offsets
 
     while (true) {
         tokenizer_token_t *token = NULL;
-        tokenizer_result_t result = tokenizer_next(&tokenizer, state, &token);
+        tokenizer_result_t result = tokenizer_next(&tokenizer, state, &token, false);
 
         switch (result) {
             case TOKENIZER_PARSE_ERROR:
             case TOKENIZER_ERROR:
                 tokenizer_close(&tokenizer, state);
                 return NULL;
-            default: ;
+            default:;
         }
 
         token_type_t token_type = deduce_token_type(token);
@@ -176,6 +179,76 @@ scan_results_t *ufo_csv_perform_initial_scan(char* path, long record_row_offsets
                 token_type_vector_free(column_types);
                 tokenizer_close(&tokenizer, state);
                 return results;
+            }
+
+            default:;
+        }
+    }
+}
+
+tokenizer_token_t **ufo_csv_read_column(char *path, size_t target_column, scan_results_t *scan_results) {
+
+    tokenizer_t tokenizer = csv_tokenizer(); // TODO pass as argument
+
+    tokenizer_state_t *state = tokenizer_state_init(path, 0, 10, 10);
+    tokenizer_start(&tokenizer, state);
+
+    size_t row = 0;
+    size_t column = 0;
+    bool found_column = false;
+
+    tokenizer_token_t **tokens = (tokenizer_token_t **) malloc(sizeof(tokenizer_token_t *) * scan_results->rows);
+
+    while (true) {
+        tokenizer_token_t *token = NULL;
+        tokenizer_result_t result = tokenizer_next(&tokenizer, state, &token, column != target_column);
+
+        switch (result) {
+            case TOKENIZER_PARSE_ERROR:
+            case TOKENIZER_ERROR:
+                tokenizer_close(&tokenizer, state);
+                return NULL;
+            default: ;
+        }
+
+        if (column == target_column) {
+            assert(token != NULL);
+            tokens[row] = token;
+            found_column = true;
+
+            printf("(row: %li, column: %li) [size: %li, start: %li, end: %li, string: <%s>] is_target: %i, %s\n",
+                   row, column,
+                   token->size, token->position_start, token->position_end, token->string,
+                   column != target_column,
+                   tokenizer_result_to_string(result));
+
+        } else {
+            printf("(row: %li, column: %li) [skipped], %s\n",
+                   row, column,
+                   tokenizer_result_to_string(result));
+        }
+
+        switch (result) {
+            case TOKENIZER_OK:
+                column++;
+                break;
+
+            case TOKENIZER_END_OF_ROW:
+                column = 0;
+                if (!found_column) {
+                    tokens[row] = tokenizer_token_empty();
+                } else {
+                    found_column = false;
+                }
+                row++;
+                break;
+
+            case TOKENIZER_END_OF_FILE: {
+                if (!found_column) {
+                    tokens[row] = tokenizer_token_empty();
+                }
+                tokenizer_close(&tokenizer, state);
+                return tokens;
             }
 
             default: ;

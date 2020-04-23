@@ -18,5 +18,6 @@ typedef struct {
     offset_record_t *row_offsets;
 } scan_results_t;
 
-size_t          offset_record_human_readable_key(offset_record_t *record, size_t i);
-scan_results_t *ufo_csv_perform_initial_scan(char* path, long record_row_offsets_at_interval);
+size_t              offset_record_human_readable_key(offset_record_t *record, size_t i);
+scan_results_t     *ufo_csv_perform_initial_scan(char *path, long record_row_offsets_at_interval);
+tokenizer_token_t **ufo_csv_read_column(char *path, size_t target_column, scan_results_t *scan_results);

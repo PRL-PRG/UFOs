@@ -61,7 +61,7 @@ typedef struct {
 
 tokenizer_t               csv_tokenizer ();
 
-tokenizer_result_t        tokenizer_next (tokenizer_t *tokenizer, tokenizer_state_t *state, tokenizer_token_t **token);
+tokenizer_result_t        tokenizer_next (tokenizer_t *tokenizer, tokenizer_state_t *state, tokenizer_token_t **token, bool skip);
 int                       tokenizer_start(tokenizer_t *tokenizer, tokenizer_state_t *state);
 void                      tokenizer_close(tokenizer_t *tokenizer, tokenizer_state_t *state);
 

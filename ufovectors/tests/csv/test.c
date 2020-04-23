@@ -7,7 +7,7 @@
 #include "../../src/csv/reader.h"
 
 /*
- * gcc -o test test.c ../../src/csv/reader.c  ../../src/csv/tokenizer.c ../../src/csv/token.c -g -O2 -Wall
+ * gcc -o test -I../src/csv/ ../../src/csv/reader.c  ../../src/csv/tokenizer.c ../../src/csv/token.c test.c -g -O2 -Wall
  */
 
 void test_file(char* path) {
@@ -17,8 +17,7 @@ void test_file(char* path) {
     tokenizer_token_t *token;
 
     while (true) {
-        int result =
-                tokenizer_next(&tokenizer, state, &token);
+        int result = tokenizer_next(&tokenizer, state, &token, false);
 
         printf("Token: [size: %li, start: %li, end: %li, string: <%s>], %s\n",
                token->size, token->position_start, token->position_end, token->string,
@@ -33,6 +32,7 @@ void test_file(char* path) {
 };
 
 void test_initial_scan(char* path) {
+    //tokenizer_t tokenizer = csv_tokenizer();
     scan_results_t *results = ufo_csv_perform_initial_scan(path, 5);
 
     printf("After initial scan of %s: \n\n", path);
@@ -56,9 +56,26 @@ void test_initial_scan(char* path) {
     printf("\n");
 };
 
+void test_read_individual_columns(char* path) {
+    //tokenizer_t tokenizer = csv_tokenizer();
+    scan_results_t *results = ufo_csv_perform_initial_scan(path, 5);
+
+    for (size_t column = 0; column <= results->columns; column++) {
+
+        tokenizer_token_t **tokens = ufo_csv_read_column(path, column, results);
+
+        printf("After reading column %li of %s: \n\n", column, path);
+        for (size_t row = 0; row < results->rows; row++) {
+            printf("    [%li]: %s\n", row, tokens[row]->string);
+        }
+        printf("\n");
+    }
+}
+
 int main (int argc, char *argv[]) {
-    test_file("test.csv");
-    test_initial_scan("test.csv");
-    test_initial_scan("test2.csv");
+    //test_file("test.csv");
+    //test_initial_scan("test.csv");
+    //test_initial_scan("test2.csv");
+    test_read_individual_columns("test2.csv");
     return 0;
 }

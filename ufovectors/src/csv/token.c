@@ -9,6 +9,17 @@
 #include <R_ext/Utils.h>
 #endif
 
+tokenizer_token_t *tokenizer_token_empty () {
+    tokenizer_token_t *token = (tokenizer_token_t *) malloc(sizeof(tokenizer_token_t));
+
+    token->string = NULL;
+    token->size = 0;
+    token->position_start = 0;
+    token->position_end = 0;
+
+    return token;
+}
+
 const char *token_type_to_string(token_type_t type) {
     switch (type) {
         case TOKEN_EMPTY:                     { return "EMPTY";   }
@@ -101,3 +112,4 @@ token_type_t deduce_token_type(tokenizer_token_t *token) {
 
     return TOKEN_STRING;
 }
+
