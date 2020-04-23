@@ -1,22 +1,14 @@
 #include <assert.h>
 #include <stdio.h>
-#include "../../src/ufo_csv_manipulation.h"
+#include <stdint.h>
+
+#include "../../src/csv/token.h"
+#include "../../src/csv/tokenizer.h"
+#include "../../src/csv/reader.h"
 
 /*
- * gcc -o test test.c ../../src/ufo_csv_manipulation.c -g -O2 -Wall
+ * gcc -o test test.c ../../src/csv/reader.c  ../../src/csv/tokenizer.c ../../src/csv/token.c -g -O2 -Wall
  */
-
-void test_scan(char* path) {
-    uint32_t interval = 2;
-
-    tokenizer_t tokenizer = csv_tokenizer();
-    tokenizer_scan_info_t info = scan_info_init(interval, 1);
-    int result = tokenizer_scan(&tokenizer, path, &info, 10);
-
-    for (size_t i = 0; i < info.offset_row_record_size; i++) {
-        printf("%lith row at offset %li\n", ((i + 1) * (interval)) + 1, info.offset_row_record[i]);
-    }
-};
 
 void test_file(char* path) {
     tokenizer_t tokenizer = csv_tokenizer();
@@ -46,25 +38,25 @@ void test_initial_scan(char* path) {
     printf("After initial scan of %s: \n\n", path);
     printf("    rows: %li\n", results->rows);
     printf("    cols: %li\n", results->columns);
-    printf("    column_types:\n\n");
 
+    printf("    column_types:\n\n");
     for (size_t i = 0; i < results->columns; i++) {
         printf("        [%li]: %s/%i\n",
                 i, token_type_to_string(results->column_types[i]),
                 results->column_types[i]);
     }
+    printf("\n");
 
-    printf("\n    row_offsets:\n\n");
-
+    printf("    row_offsets:\n\n");
     for (size_t i = 0; i < results->row_offsets->size; i++) {
         printf("        [%li] (row #%li): %li\n",
                 i, offset_record_human_readable_key(results->row_offsets, i),
                 results->row_offsets->offsets[i]);
     }
+    printf("\n");
 };
 
 int main (int argc, char *argv[]) {
-    test_scan("test.csv");
     test_file("test.csv");
     test_initial_scan("test.csv");
     test_initial_scan("test2.csv");
