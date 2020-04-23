@@ -1,11 +1,11 @@
-#include "ufo_file_manipulation.h"
+#include "io.h"
 
 #define USE_RINTERNALS
 #include <R.h>
 #include <Rinternals.h>
 
-#include "ufo_metadata.h"
-#include "debug.h"
+#include "../ufo_metadata.h"
+#include "../debug.h"
 
 int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
                      ufUserData user_data, char* target) {

@@ -7,7 +7,7 @@
 #include "ufo_metadata.h"
 #include "helpers.h"
 #include "debug.h"
-#include "ufo_file_manipulation.h"
+#include "bin/io.h"
 
 #include "../include/mappedMemory/userfaultCore.h"
 
