@@ -111,9 +111,19 @@ typedef enum {
 const char *token_type_to_string(token_type_t);
 
 typedef struct {
+    long interval;
+    long *offsets;
+    size_t size;
+    size_t allocated;
+} offset_record_t;
+
+size_t offset_record_human_readable_key(offset_record_t *record, size_t i);
+
+typedef struct {
     size_t rows;
     size_t columns;
     token_type_t *column_types;
+    offset_record_t *row_offsets;
 } scan_results_t;
 
-scan_results_t *ufo_csv_perform_initial_scan(char* path);
+scan_results_t *ufo_csv_perform_initial_scan(char* path, long record_row_offsets_at_interval);
