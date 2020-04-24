@@ -109,6 +109,20 @@ size_t offset_record_human_readable_key(offset_record_t *record, size_t i) {
     return (i * (record->interval)) + 1;
 }
 
+size_t offset_record_key_at(offset_record_t *record, size_t i) {
+    return (i * (record->interval)) + 1;
+}
+
+void offset_record_get_value_closest_to_this_key(offset_record_t *record, size_t target, long* offset, size_t* key_at_offset) {
+    size_t target_index = target / record->interval; // floor
+
+    assert(record->size > target_index);
+    *offset = record->offsets[target_index];
+    *key_at_offset = offset_record_key_at(record, target_index);
+
+    printf("target: %li -> target_index: %li (key: %li) -> %li\n", target, target_index, *key_at_offset, *offset);
+}
+
 void offset_record_free(offset_record_t *record) {
     free(record->offsets);
     free(record);
@@ -204,14 +218,18 @@ read_results_t ufo_csv_read_column(char *path, size_t target_column, scan_result
 
     tokenizer_t tokenizer = csv_tokenizer(); // TODO pass as argument
 
-    tokenizer_state_t *state = tokenizer_state_init(path, 0, 10, 10);
+    long offset = 0;
+    size_t row_at_offset;
+    offset_record_get_value_closest_to_this_key(scan_results->row_offsets, first_row, &offset, &row_at_offset);
+
+    tokenizer_state_t *state = tokenizer_state_init(path, offset, 10, 10);
     tokenizer_start(&tokenizer, state);
 
     if (last_row == 0) {
         last_row = scan_results->rows - 1;
     }
 
-    size_t row = 0;
+    size_t row = row_at_offset;
     size_t column = 0;
     bool found_column = false;
 
@@ -223,6 +241,8 @@ read_results_t ufo_csv_read_column(char *path, size_t target_column, scan_result
     }
 
     while (true) {
+        printf("(row: %li, column: %li)\n", row, column);
+
         tokenizer_token_t *token = NULL;
         tokenizer_result_t result = tokenizer_next(&tokenizer, state, &token, column != target_column);
 
@@ -270,10 +290,10 @@ read_results_t ufo_csv_read_column(char *path, size_t target_column, scan_result
                     found_column = false;
                 }
 
-                if (result == TOKENIZER_END_OF_FILE || (last_row != 0 && row > last_row)) {
+                if (result == TOKENIZER_END_OF_FILE || (last_row != 0 && row >= last_row)) {
                     tokenizer_close(&tokenizer, state);
 
-                    read_results_t result = {.tokens = tokens, .size = row - first_row};
+                    read_results_t result = {.tokens = tokens, .size = row - first_row + 1};
                     return result;
                 }
 

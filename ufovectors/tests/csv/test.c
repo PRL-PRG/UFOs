@@ -58,10 +58,10 @@ void test_initial_scan(char* path) {
 
 void test_read_individual_columns(char* path) {
     //tokenizer_t tokenizer = csv_tokenizer();
-    scan_results_t *results = ufo_csv_perform_initial_scan(path, 5);
+    scan_results_t *results = ufo_csv_perform_initial_scan(path, 3);
 
-    size_t start = 2;
-    size_t end = 6;
+    size_t start = 4;
+    size_t end = 5;
 
     for (size_t column = 0; column <= results->columns; column++) {
         read_results_t column_tokens = ufo_csv_read_column(path, column, results, start, end);
