@@ -9,6 +9,7 @@ typedef struct {
 } tokenizer_token_t;
 
 typedef enum {
+    TOKEN_NOTHING = 0,
     TOKEN_EMPTY   = 1,
     TOKEN_NA      = 2,
     TOKEN_BOOLEAN = 4,
@@ -19,4 +20,5 @@ typedef enum {
 
 tokenizer_token_t        *tokenizer_token_empty();
 token_type_t              deduce_token_type(tokenizer_token_t *token);
+char                     *token_into_string(tokenizer_token_t *token);
 const char               *token_type_to_string(token_type_t type);

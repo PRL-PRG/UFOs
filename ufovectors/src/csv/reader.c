@@ -4,6 +4,7 @@
 
 #include "token.h"
 #include "tokenizer.h"
+#include "string_vector.h"
 
 typedef union {
     struct {
@@ -132,7 +133,8 @@ scan_results_t *scan_results_new(size_t rows, size_t columns, offset_record_t *r
     scan_results_t *results = (scan_results_t *) malloc(sizeof(scan_results_t));
     results->rows = rows;
     results->columns = columns;
-    results->column_types = (token_type_t *) malloc(sizeof(token_type_t) * columns);
+    results->column_types = (token_type_t *) malloc(sizeof(token_type_t) * columns); // FIXME check
+    results->column_names = (char **) malloc(sizeof(char *) * columns); // FIXME check
     results->row_offsets = row_offset_record;
     return results;
 }
@@ -143,7 +145,7 @@ void scan_results_free(scan_results_t *results) {
     free(results);
 }
 
-scan_results_t *ufo_csv_perform_initial_scan(char* path, long record_row_offsets_at_interval) {
+scan_results_t *ufo_csv_perform_initial_scan(char* path, long record_row_offsets_at_interval, bool header) {
 
     tokenizer_t tokenizer = csv_tokenizer(); // TODO pass as argument
     tokenizer_state_t *state = tokenizer_state_init(path, 0, 10, 10);
@@ -155,6 +157,55 @@ scan_results_t *ufo_csv_perform_initial_scan(char* path, long record_row_offsets
     size_t column = 0;
 
     token_type_vector_t *column_types = token_type_vector_new(32);
+    string_vector_t *column_names = string_vector_new(32);
+
+    if (header) {
+        bool loop = true;
+        while (loop) {
+            tokenizer_token_t *token = NULL;
+            tokenizer_result_t result = tokenizer_next(&tokenizer, state, &token, false);
+
+            switch (result) {
+                case TOKENIZER_PARSE_ERROR:
+                case TOKENIZER_ERROR:
+                    goto error;
+                default:;
+            }
+
+            token_type_vector_add_type(column_types, column, TOKEN_NOTHING);
+
+            int append_ok = string_vector_append(column_names, token_into_string(token)); // token consumed here
+            if (0 != append_ok) {
+                goto error;
+            }
+
+            switch (result) {
+                case TOKENIZER_OK:
+                    column++;
+                    break;
+
+                case TOKENIZER_END_OF_ROW:
+                    column = 0;
+                    loop = false;
+                    break;
+
+                case TOKENIZER_END_OF_FILE: {
+                    scan_results_t *results = scan_results_new(0, column + 1, NULL);
+                    for (size_t i = 0; i < column + 1; i++) {
+                        results->column_types[i] = TOKEN_EMPTY;
+                        results->column_names[i] = column_names->strings[i];
+                    }
+
+                    string_vector_free(column_names);
+                    token_type_vector_free(column_types);
+                    tokenizer_close(&tokenizer, state);
+                    return results;
+                }
+
+                default:;
+            }
+        }
+    }
 
     while (true) {
         tokenizer_token_t *token = NULL;
@@ -163,12 +214,12 @@ scan_results_t *ufo_csv_perform_initial_scan(char* path, long record_row_offsets
         switch (result) {
             case TOKENIZER_PARSE_ERROR:
             case TOKENIZER_ERROR:
-                tokenizer_close(&tokenizer, state);
-                return NULL;
+                goto error;
             default:;
         }
 
         token_type_t token_type = deduce_token_type(token);
+        token_type_vector_add_type(column_types, column, token_type);
 //        printf("(row: %li, column: %li) [size: %li, start: %li, end: %li, string: <%s> type: [%s/%i]], %s\n",
 //               row, column,
 //               token->size, token->position_start, token->position_end, token->string,
@@ -177,8 +228,6 @@ scan_results_t *ufo_csv_perform_initial_scan(char* path, long record_row_offsets
         if (column == 0 && offset_record_is_interesting(row_offsets, row)) {
             offset_record_add(row_offsets, token->position_start);
         }
-
-        token_type_vector_add_type(column_types, column, token_type);
 
         switch (result) {
             case TOKENIZER_OK:
@@ -194,8 +243,10 @@ scan_results_t *ufo_csv_perform_initial_scan(char* path, long record_row_offsets
                 scan_results_t *results = scan_results_new(row + (0 == column ? 0 : 1), column_types->size, row_offsets);
                 for (size_t i = 0; i < column_types->size; i++) {
                     results->column_types[i] = type_from_type_map(column_types->types[i]);
+                    results->column_names[i] = (i < column_names->size) ? column_names->strings[i] : "";
                 }
 
+                string_vector_free(column_names);
                 token_type_vector_free(column_types);
                 tokenizer_close(&tokenizer, state);
                 return results;
@@ -204,6 +255,14 @@ scan_results_t *ufo_csv_perform_initial_scan(char* path, long record_row_offsets
             default:;
         }
     }
+
+
+    error:
+    perror("merde");
+    string_vector_free(column_names);
+    token_type_vector_free(column_types);
+    tokenizer_close(&tokenizer, state);
+    return NULL;
 }
 
 read_results_t ufo_csv_read_column(char *path, size_t target_column, scan_results_t *scan_results, size_t first_row, size_t last_row) {

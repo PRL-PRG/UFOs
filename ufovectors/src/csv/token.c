@@ -26,6 +26,12 @@ tokenizer_token_t *tokenizer_token_empty () {
     return token;
 }
 
+char *token_into_string(tokenizer_token_t *token) {
+    char *string = token->string;
+    free(token);
+    return string;
+}
+
 const char *token_type_to_string(token_type_t type) {
     switch (type) {
         case TOKEN_EMPTY:                     { return "EMPTY";   }
@@ -34,6 +40,7 @@ const char *token_type_to_string(token_type_t type) {
         case TOKEN_INTEGER:                   { return "INTEGER"; }
         case TOKEN_DOUBLE:                    { return "NUMERIC"; }
         case TOKEN_STRING:                    { return "STRING";  }
+        case TOKEN_NOTHING:                   { return "NOTHING"; }
     }
     return "U.N. Owen";
 }

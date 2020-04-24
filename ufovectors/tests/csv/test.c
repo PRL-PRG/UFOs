@@ -1,13 +1,14 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "../../src/csv/token.h"
 #include "../../src/csv/tokenizer.h"
 #include "../../src/csv/reader.h"
 
 /*
- * gcc -o test -I../src/csv/ ../../src/csv/reader.c  ../../src/csv/tokenizer.c ../../src/csv/token.c test.c -g -O2 -Wall
+ * gcc -o test -I../src/csv/ ../../src/csv/reader.c  ../../src/csv/tokenizer.c ../../src/csv/token.c ../../src/csv/string_vector.c test.c -g -O0 -Wall
  */
 
 void test_file(char* path) {
@@ -31,13 +32,19 @@ void test_file(char* path) {
     tokenizer_close(&tokenizer, state);
 };
 
-void test_initial_scan(char* path) {
+void test_initial_scan(char* path, bool headers) {
     //tokenizer_t tokenizer = csv_tokenizer();
-    scan_results_t *results = ufo_csv_perform_initial_scan(path, 5);
+    scan_results_t *results = ufo_csv_perform_initial_scan(path, 5, headers);
 
     printf("After initial scan of %s: \n\n", path);
     printf("    rows: %li\n", results->rows);
     printf("    cols: %li\n", results->columns);
+
+    printf("    column_names:\n\n");
+    for (size_t i = 0; i < results->columns; i++) {
+        printf("        [%li]: %s\n", i, results->column_names[i]);
+    }
+    printf("\n");
 
     printf("    column_types:\n\n");
     for (size_t i = 0; i < results->columns; i++) {
@@ -56,9 +63,9 @@ void test_initial_scan(char* path) {
     printf("\n");
 };
 
-void test_read_individual_columns(char* path) {
+void test_read_individual_columns(char* path, bool headers) {
     //tokenizer_t tokenizer = csv_tokenizer();
-    scan_results_t *results = ufo_csv_perform_initial_scan(path, 3);
+    scan_results_t *results = ufo_csv_perform_initial_scan(path, 3, headers);
 
     size_t start = 4;
     size_t end = 5;
@@ -82,7 +89,7 @@ int main (int argc, char *argv[]) {
     //test_initial_scan("test.csv");
     //test_read_individual_columns("test.csv");
 
-    test_initial_scan("test2.csv");
-    test_read_individual_columns("test2.csv");
+    test_initial_scan("test2.csv", true);
+    test_read_individual_columns("test2.csv", true);
     return 0;
 }
