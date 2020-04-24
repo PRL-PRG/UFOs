@@ -61,12 +61,14 @@ void test_read_individual_columns(char* path) {
     scan_results_t *results = ufo_csv_perform_initial_scan(path, 5);
 
     size_t start = 2;
-    size_t end = 0;//results->rows - 1;
+    size_t end = 6;
 
     for (size_t column = 0; column <= results->columns; column++) {
         read_results_t column_tokens = ufo_csv_read_column(path, column, results, start, end);
 
-        printf("After reading column %li of %s/%li: \n\n", column, path, column_tokens.size);
+        printf("After reading column %li of %s/%li from row %li to row %li (inclusive): \n\n",
+                column, path, column_tokens.size, start, end);
+
         for (size_t row = 0; row < column_tokens.size; row++) {
             printf("    [%li+%li]: %s\n", start, row, column_tokens.tokens[row]->string);
         }
@@ -76,8 +78,11 @@ void test_read_individual_columns(char* path) {
 
 int main (int argc, char *argv[]) {
     //test_file("test.csv");
+
     //test_initial_scan("test.csv");
-    //test_initial_scan("test2.csv");
+    //test_read_individual_columns("test.csv");
+
+    test_initial_scan("test2.csv");
     test_read_individual_columns("test2.csv");
     return 0;
 }
