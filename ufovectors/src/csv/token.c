@@ -4,6 +4,7 @@
 #include <limits.h>
 #include <errno.h>
 #include <string.h>
+#include <stdio.h>
 
 #ifdef USE_R_STUFF
 #include <R_ext/Utils.h>
@@ -12,7 +13,12 @@
 tokenizer_token_t *tokenizer_token_empty () {
     tokenizer_token_t *token = (tokenizer_token_t *) malloc(sizeof(tokenizer_token_t));
 
-    token->string = NULL;
+    token->string = (char*) malloc(sizeof(char));
+    if (token->string == NULL) {
+        perror("Cannot allocate empty string to create empty token.");
+    }
+
+    token->string[0] = '\0';
     token->size = 0;
     token->position_start = 0;
     token->position_end = 0;

@@ -74,11 +74,17 @@ void token_type_vector_free(token_type_vector_t *vector) {
 }
 
 offset_record_t *offset_record_new(long interval, size_t initial_size) {
+    assert(initial_size > 0);
+
     offset_record_t *record = (offset_record_t *) malloc(sizeof(offset_record_t));
     record->allocated = initial_size;
     record->size = 0;
     record->interval = interval;
-    record->offsets = (long *) malloc(sizeof(long) * record->size);
+
+    record->offsets = (long *) malloc(sizeof(long) * initial_size);
+    if (record->offsets == NULL) {
+        perror("Error: cannot allocate memory to create offset record");
+    }
     return record;
 }
 
@@ -171,7 +177,7 @@ scan_results_t *ufo_csv_perform_initial_scan(char* path, long record_row_offsets
                 break;
 
             case TOKENIZER_END_OF_FILE: {
-                scan_results_t *results = scan_results_new(row + 1, column_types->size, row_offsets);
+                scan_results_t *results = scan_results_new(row + (0 == column ? 0 : 1), column_types->size, row_offsets);
                 for (size_t i = 0; i < column_types->size; i++) {
                     results->column_types[i] = type_from_type_map(column_types->types[i]);
                 }
@@ -186,18 +192,34 @@ scan_results_t *ufo_csv_perform_initial_scan(char* path, long record_row_offsets
     }
 }
 
-tokenizer_token_t **ufo_csv_read_column(char *path, size_t target_column, scan_results_t *scan_results) {
+read_results_t ufo_csv_read_column(char *path, size_t target_column, scan_results_t *scan_results, size_t first_row, size_t last_row) {
+
+    if (scan_results->rows == 0) {
+        read_results_t result = {.tokens = NULL, .size = 0};
+        return result;
+    }
 
     tokenizer_t tokenizer = csv_tokenizer(); // TODO pass as argument
 
     tokenizer_state_t *state = tokenizer_state_init(path, 0, 10, 10);
     tokenizer_start(&tokenizer, state);
 
+    if (last_row == 0) {
+        last_row = scan_results->rows - 1;
+        printf("last row was zero so setting it to %li - 1 = %li\n", scan_results->rows, last_row);
+    }
+
     size_t row = 0;
     size_t column = 0;
     bool found_column = false;
 
-    tokenizer_token_t **tokens = (tokenizer_token_t **) malloc(sizeof(tokenizer_token_t *) * scan_results->rows);
+    size_t expected_tokens = last_row - first_row + 1;
+    printf("first_row: %li, last_row: %li, total_rows: %li, expected_tokens: %li\n", first_row, last_row, scan_results->rows, expected_tokens);
+
+    tokenizer_token_t **tokens = (tokenizer_token_t **) malloc(expected_tokens * sizeof(tokenizer_token_t *));
+    if (tokens == NULL) {
+        perror("Cannot allocate token array.");
+    }
 
     while (true) {
         tokenizer_token_t *token = NULL;
@@ -207,24 +229,32 @@ tokenizer_token_t **ufo_csv_read_column(char *path, size_t target_column, scan_r
             case TOKENIZER_PARSE_ERROR:
             case TOKENIZER_ERROR:
                 tokenizer_close(&tokenizer, state);
-                return NULL;
+
+                free(tokens);
+                printf("...\n");
+                read_results_t result = {.tokens = NULL, .size = row};
+                return result;
             default: ;
         }
 
-        if (column == target_column) {
+        if (column == target_column && row >= first_row && (last_row == 0 || row <= last_row)) {
             assert(token != NULL);
-            tokens[row] = token;
+            assert(row - first_row >= 0);
+            tokens[row - first_row] = token;
             found_column = true;
 
-            printf("(row: %li, column: %li) [size: %li, start: %li, end: %li, string: <%s>] is_target: %i, %s\n",
+            printf("(row: %li, column: %li) [size: %li, start: %li, end: %li, string: <%s>] is_target: %i, is_within_range: %i %s\n",
                    row, column,
                    token->size, token->position_start, token->position_end, token->string,
                    column != target_column,
+                   row >= first_row && (last_row == 0 || row <= last_row),
                    tokenizer_result_to_string(result));
 
         } else {
-            printf("(row: %li, column: %li) [skipped], %s\n",
+            printf("(row: %li, column: %li) is_target: %i, is_within_range: %i [skipped], %s\n",
                    row, column,
+                   column != target_column,
+                   row >= first_row && (last_row == 0 || row <= last_row),
                    tokenizer_result_to_string(result));
         }
 
@@ -234,21 +264,28 @@ tokenizer_token_t **ufo_csv_read_column(char *path, size_t target_column, scan_r
                 break;
 
             case TOKENIZER_END_OF_ROW:
+            case TOKENIZER_END_OF_FILE: {
+
                 column = 0;
-                if (!found_column) {
-                    tokens[row] = tokenizer_token_empty();
+                if (!found_column && row >= first_row && (last_row == 0 || row <= last_row)) {
+                        tokenizer_token_t *token = tokenizer_token_empty();
+                        printf("%li - %li < %li\n", row, first_row, expected_tokens);
+                        assert(row - first_row >= 0);
+                        assert(row - first_row < expected_tokens);
+                        tokens[row - first_row] = token;
                 } else {
                     found_column = false;
                 }
-                row++;
-                break;
 
-            case TOKENIZER_END_OF_FILE: {
-                if (!found_column) {
-                    tokens[row] = tokenizer_token_empty();
+                if (result == TOKENIZER_END_OF_FILE || (last_row != 0 && row > last_row)) {
+                    tokenizer_close(&tokenizer, state);
+                    printf("??? %li %li \n", row, (row - first_row));
+
+                    read_results_t result = {.tokens = tokens, .size = row - first_row};
+                    return result;
                 }
-                tokenizer_close(&tokenizer, state);
-                return tokens;
+
+                row++;
             }
 
             default: ;

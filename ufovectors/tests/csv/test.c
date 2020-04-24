@@ -60,13 +60,15 @@ void test_read_individual_columns(char* path) {
     //tokenizer_t tokenizer = csv_tokenizer();
     scan_results_t *results = ufo_csv_perform_initial_scan(path, 5);
 
+    size_t start = 2;
+    size_t end = 0;//results->rows - 1;
+
     for (size_t column = 0; column <= results->columns; column++) {
+        read_results_t column_tokens = ufo_csv_read_column(path, column, results, start, end);
 
-        tokenizer_token_t **tokens = ufo_csv_read_column(path, column, results);
-
-        printf("After reading column %li of %s: \n\n", column, path);
-        for (size_t row = 0; row < results->rows; row++) {
-            printf("    [%li]: %s\n", row, tokens[row]->string);
+        printf("After reading column %li of %s/%li: \n\n", column, path, column_tokens.size);
+        for (size_t row = 0; row < column_tokens.size; row++) {
+            printf("    [%li+%li]: %s\n", start, row, column_tokens.tokens[row]->string);
         }
         printf("\n");
     }
