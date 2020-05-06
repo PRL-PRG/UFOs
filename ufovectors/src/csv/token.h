@@ -1,6 +1,21 @@
 #pragma once
 #include <stdlib.h>
 
+#ifdef USE_R_STUFF
+#include <R_ext/Utils.h>
+typedef trinary_t = Rboolean;
+
+#else
+#include <math.h>
+#include <limits.h>
+#define NA_INTEGER INT_MIN
+#define NA_REAL NAN
+typedef enum {
+    FALSE = 0, TRUE = 1, NA_LOGICAL = INT_MIN
+} trinary_t;
+
+#endif
+
 typedef struct {
     /*const*/ char  *string; //const?
     size_t size;
@@ -22,3 +37,7 @@ tokenizer_token_t        *tokenizer_token_empty();
 token_type_t              deduce_token_type(tokenizer_token_t *token);
 char                     *token_into_string(tokenizer_token_t *token);
 const char               *token_type_to_string(token_type_t type);
+
+trinary_t token_to_logical(tokenizer_token_t *token);
+int token_to_integer(tokenizer_token_t *token);
+double token_to_numeric(tokenizer_token_t *token);

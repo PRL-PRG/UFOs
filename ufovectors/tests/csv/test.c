@@ -63,6 +63,8 @@ void test_initial_scan(char* path, bool headers) {
     printf("\n");
 };
 
+
+
 void test_read_individual_columns(char* path, bool headers) {
     //tokenizer_t tokenizer = csv_tokenizer();
     scan_results_t *results = ufo_csv_perform_initial_scan(path, 3, headers);
@@ -71,13 +73,66 @@ void test_read_individual_columns(char* path, bool headers) {
     size_t end = 5;
 
     for (size_t column = 0; column <= results->columns; column++) {
-        read_results_t column_tokens = ufo_csv_read_column(path, column, results, start, end);
+        read_results_t column_tokens = ufo_csv_read_column(path, column, results, headers, start, end);
 
         printf("After reading column %li of %s/%li from row %li to row %li (inclusive): \n\n",
                 column, path, column_tokens.size, start, end);
 
+
         for (size_t row = 0; row < column_tokens.size; row++) {
             printf("    [%li+%li]: %s\n", start, row, column_tokens.tokens[row]->string);
+        }
+        printf("\n");
+    }
+}
+
+void test_read_typed_columns(char* path, bool headers) {
+    //tokenizer_t tokenizer = csv_tokenizer();
+    scan_results_t *results = ufo_csv_perform_initial_scan(path, 3, headers);
+
+    for (size_t column = 0; column <= results->columns; column++) {
+        read_results_t column_tokens = ufo_csv_read_column(path, column, results, headers, 0L, 0L);
+
+        printf("After reading column %li of %s/%li from row %li to row %li (inclusive): \n\n",
+               column, path, column_tokens.size, 0L, 0L);
+
+        for (size_t row = 0; row < column_tokens.size; row++) {
+            switch (results->column_types[column]) {
+                case TOKEN_NOTHING:
+                    printf("    [%li]: <nothing>\n", row);
+                    break;
+                case TOKEN_EMPTY: {
+                    printf("    [%li]: <empty>\n", row);
+                    break;
+                }
+                case TOKEN_NA: {
+                    printf("    [%li]: <NA>\n", row);
+                    break;
+                }
+                case TOKEN_BOOLEAN: {
+                    trinary_t value = token_to_logical(column_tokens.tokens[row]);
+                    printf("    [%li]: %s\n", row, (value == TRUE ? "true" : (value == FALSE ? "false" : "NA")));
+                    break;
+                }
+                case TOKEN_INTEGER: {
+                    int value = token_to_integer(column_tokens.tokens[row]);
+                    if (value == NA_INTEGER) {
+                        printf("    [%li]: %i\n", row, value);
+                    } else {
+                        printf("    [%li]: <NA>\n", row);
+                    }
+                    break;
+                }
+                case TOKEN_DOUBLE: {
+                    double value = token_to_numeric(column_tokens.tokens[row]);
+                    printf("    [%li]: %f\n", row, value);
+                    break;
+                }
+                case TOKEN_STRING: {
+                    printf("    [%li]: %s\n", row, column_tokens.tokens[row]->string);
+                    break;
+                }
+            }
         }
         printf("\n");
     }
@@ -90,6 +145,7 @@ int main (int argc, char *argv[]) {
     //test_read_individual_columns("test.csv");
 
     test_initial_scan("test2.csv", true);
-    test_read_individual_columns("test2.csv", true);
+    //test_read_individual_columns("test2.csv", true);
+    test_read_typed_columns("test2.csv", true);
     return 0;
 }

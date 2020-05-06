@@ -111,7 +111,7 @@ size_t offset_record_human_readable_key(offset_record_t *record, size_t i) {
 }
 
 size_t offset_record_key_at(offset_record_t *record, size_t i) {
-    return (i * (record->interval)) + 1;
+    return (i * (record->interval));
 }
 
 void offset_record_get_value_closest_to_this_key(offset_record_t *record, size_t target, long* offset, size_t* key_at_offset) {
@@ -256,7 +256,6 @@ scan_results_t *ufo_csv_perform_initial_scan(char* path, long record_row_offsets
         }
     }
 
-
     error:
     perror("merde");
     string_vector_free(column_names);
@@ -265,7 +264,7 @@ scan_results_t *ufo_csv_perform_initial_scan(char* path, long record_row_offsets
     return NULL;
 }
 
-read_results_t ufo_csv_read_column(char *path, size_t target_column, scan_results_t *scan_results, size_t first_row, size_t last_row) {
+read_results_t ufo_csv_read_column(char *path, size_t target_column, scan_results_t *scan_results, bool header, size_t first_row, size_t last_row) {
 
     assert(first_row <= last_row);
     assert(last_row < scan_results->rows);
@@ -300,8 +299,6 @@ read_results_t ufo_csv_read_column(char *path, size_t target_column, scan_result
     }
 
     while (true) {
-        printf("(row: %li, column: %li)\n", row, column);
-
         tokenizer_token_t *token = NULL;
         tokenizer_result_t result = tokenizer_next(&tokenizer, state, &token, column != target_column);
 

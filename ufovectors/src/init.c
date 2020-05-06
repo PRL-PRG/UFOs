@@ -21,9 +21,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"ufo_matrix_cplxsxp_bin", (DL_FUNC) &ufo_matrix_cplxsxp_bin, 4},
     {"ufo_matrix_lglsxp_bin",  (DL_FUNC) &ufo_matrix_lglsxp_bin,  4},
     {"ufo_matrix_rawsxp_bin",  (DL_FUNC) &ufo_matrix_rawsxp_bin,  4},
-
+    
     // CSV support
-    {"ufo_delim",  (DL_FUNC) &ufo_delim,  1},
+    {"ufo_csv",  (DL_FUNC) &ufo_csv,  1},
 
     // Storage.
     {"ufo_store_bin", (DL_FUNC) &ufo_store_bin, 2},

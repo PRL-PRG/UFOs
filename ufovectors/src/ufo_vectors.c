@@ -163,9 +163,3 @@ SEXP ufo_matrix_lglsxp_bin(SEXP/*STRSXP*/ path, SEXP/*INTSXP*/ rows, SEXP/*INTSX
 SEXP ufo_matrix_rawsxp_bin(SEXP/*STRSXP*/ path, SEXP/*INTSXP*/ rows, SEXP/*INTSXP*/ cols, SEXP/*INTSXP*/ min_load_count) {
     return __make_matrix(UFO_RAW, path, rows, cols, min_load_count);
 }
-
-SEXP/*RAWSXP*/ ufo_delim(SEXP/*STRSXP*/ path) {
-
-
-    return R_NilValue;
-}

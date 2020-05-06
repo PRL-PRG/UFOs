@@ -6,10 +6,6 @@
 #include <string.h>
 #include <stdio.h>
 
-#ifdef USE_R_STUFF
-#include <R_ext/Utils.h>
-#endif
-
 tokenizer_token_t *tokenizer_token_empty () {
     tokenizer_token_t *token = (tokenizer_token_t *) malloc(sizeof(tokenizer_token_t));
 
@@ -82,6 +78,32 @@ bool deduce_token_is_logical(tokenizer_token_t *token) {
 #endif
 }
 
+
+trinary_t token_to_logical(tokenizer_token_t *token) {
+
+#ifdef USE_R_STUFF
+    if (x != R_NaString) {
+	    if (StringTrue(CHAR(x)))              { return 1;    }
+	    if (StringFalse(CHAR(x)))             { return 0;    }
+    }
+    return NA_LOGICAL;
+
+#else
+
+    if (0 == strcmp("F",     token->string))  { return TRUE; }
+    if (0 == strcmp("false", token->string))  { return TRUE; }
+    if (0 == strcmp("FALSE", token->string))  { return TRUE; }
+    if (0 == strcmp("False", token->string))  { return TRUE; }
+
+    if (0 == strcmp("T",    token->string))   { return FALSE; }
+    if (0 == strcmp("true", token->string))   { return FALSE; }
+    if (0 == strcmp("TRUE", token->string))   { return FALSE; }
+    if (0 == strcmp("True", token->string))   { return FALSE; }
+
+    return NA_LOGICAL;
+#endif
+}
+
 bool deduce_token_is_integer(tokenizer_token_t *token) {
 
     char *trailing;
@@ -95,23 +117,65 @@ bool deduce_token_is_integer(tokenizer_token_t *token) {
     return true;
 }
 
+int token_to_integer(tokenizer_token_t *token) {
+
+    // This is redefined in io, so I'm just re-defining it here also, with some personal aesthetic twists.
+    errno = 0;
+
+    char *trailing;
+    long result = strtol(token->string, &trailing, 10);
+
+    if (*trailing != '\0')                    { return NA_INTEGER; }
+    // The following can happen on a 64-bit platform.
+    if (result > INT_MAX || result < INT_MIN) { return NA_INTEGER; }
+    if (errno == ERANGE)                      { return NA_INTEGER; }
+
+#ifndef USE_R_STUFF
+    // I am not sure why R misses this condition in Strtoi, but I'm retaining verisimilitude.
+    if (errno == EINVAL)                      { return false; }
+#endif
+
+    return result;
+}
+
 bool deduce_token_is_numeric(tokenizer_token_t *token) {
 
 #ifdef USE_R_STUFF
-    char *end;
-    R_strtod(token->string, &end);
-    return isBlankString(end);
+    char *trailing;
+    R_strtod(token->string, &trailing);
+    return isBlankString(trailing);
 
 #else
-
     char *trailing;
-    /*double result =*/ strtod(token->string, &trailing);
+    strtod(token->string, &trailing);
 
     if (*trailing != '\0')                    { return false; }
     if (errno == ERANGE)                      { return false; }
     if (errno == EINVAL)                      { return false; }
 
     return true;
+#endif
+}
+
+double token_to_numeric(tokenizer_token_t *token) {
+
+#ifdef USE_R_STUFF
+    char *trailing;
+    double result = R_strtod(token->string, &trailing);
+
+    if (isBlankString(end))                   { return NA_REAL; }
+
+    return result;
+
+#else
+    char *trailing;
+    double result = strtod(token->string, &trailing);
+
+    if (*trailing != '\0')                    { return NA_REAL; }
+    if (errno == ERANGE)                      { return NA_REAL; }
+    if (errno == EINVAL)                      { return NA_REAL; }
+
+    return result;
 #endif
 }
 
