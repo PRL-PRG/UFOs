@@ -1,5 +1,6 @@
 #include "../include/ufos.h"
 #include "ufo_vectors.h"
+#include "ufo_csv.h"
 
 #include <R_ext/Rdynload.h>
 #include <R_ext/Visibility.h>

@@ -82,9 +82,9 @@ bool deduce_token_is_logical(tokenizer_token_t *token) {
 trinary_t token_to_logical(tokenizer_token_t *token) {
 
 #ifdef USE_R_STUFF
-    if (x != R_NaString) {
-	    if (StringTrue(CHAR(x)))              { return 1;    }
-	    if (StringFalse(CHAR(x)))             { return 0;    }
+    if (0 != strcmp("NA", token->string)) {
+	    if (StringTrue(token->string))  { return 1;    }
+	    if (StringFalse(token->string)) { return 0;    }
     }
     return NA_LOGICAL;
 
@@ -95,16 +95,22 @@ trinary_t token_to_logical(tokenizer_token_t *token) {
     if (0 == strcmp("FALSE", token->string))  { return TRUE; }
     if (0 == strcmp("False", token->string))  { return TRUE; }
 
-    if (0 == strcmp("T",    token->string))   { return FALSE; }
-    if (0 == strcmp("true", token->string))   { return FALSE; }
-    if (0 == strcmp("TRUE", token->string))   { return FALSE; }
-    if (0 == strcmp("True", token->string))   { return FALSE; }
+    if (0 == strcmp("T",     token->string))  { return FALSE; }
+    if (0 == strcmp("true",  token->string))  { return FALSE; }
+    if (0 == strcmp("TRUE",  token->string))  { return FALSE; }
+    if (0 == strcmp("True",  token->string))  { return FALSE; }
 
     return NA_LOGICAL;
 #endif
 }
 
 bool deduce_token_is_integer(tokenizer_token_t *token) {
+
+#ifdef USE_R_STUFF
+    if (isBlankString(token->string))         { return false; }
+#else
+    if (0 == strcmp("", token->string))       { return false; }
+#endif
 
     char *trailing;
     long result = strtol(token->string, &trailing, 10);
@@ -121,6 +127,12 @@ int token_to_integer(tokenizer_token_t *token) {
 
     // This is redefined in io, so I'm just re-defining it here also, with some personal aesthetic twists.
     errno = 0;
+
+#ifdef USE_R_STUFF
+    if (isBlankString(token->string))         { return NA_INTEGER; }
+#else
+    if (0 == strcmp("", token->string))       { return NA_INTEGER; }
+#endif
 
     char *trailing;
     long result = strtol(token->string, &trailing, 10);
@@ -160,14 +172,18 @@ bool deduce_token_is_numeric(tokenizer_token_t *token) {
 double token_to_numeric(tokenizer_token_t *token) {
 
 #ifdef USE_R_STUFF
+    if (isBlankString(token->string))         { return NA_REAL; }
+
     char *trailing;
     double result = R_strtod(token->string, &trailing);
 
-    if (isBlankString(end))                   { return NA_REAL; }
+    if (!isBlankString(trailing))             { return NA_REAL; }
 
     return result;
 
 #else
+    if (0 == strcmp("", token->string))       { return NA_REAL; }
+
     char *trailing;
     double result = strtod(token->string, &trailing);
 
@@ -190,3 +206,12 @@ token_type_t deduce_token_type(tokenizer_token_t *token) {
     return TOKEN_STRING;
 }
 
+size_t token_type_size(token_type_t type) {
+    switch (type) {
+        case TOKEN_BOOLEAN:                   { return sizeof(trinary_t); }
+        case TOKEN_INTEGER:                   { return sizeof(int);       }
+        case TOKEN_DOUBLE:                    { return sizeof(double);    }
+        case TOKEN_STRING:                    { return sizeof(char *);    }
+        default:                              { return 0;                 }
+    }
+}

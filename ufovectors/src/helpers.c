@@ -1,4 +1,5 @@
 #include "helpers.h"
+#include "assert.h"
 
 int __extract_int_or_die(SEXP/*INTSXP*/ sexp) {
     if (TYPEOF(sexp) != INTSXP) {
@@ -102,6 +103,17 @@ size_t __get_element_size(SEXPTYPE vector_type) {
     }
 }
 
+/**
+ * Calculates how many elements fit in 1 MB of memory.
+ *
+ * @param element_size
+ * @return number of elements
+ */
+int32_t __1MB_of_elements(size_t element_size) {
+    assert (element_size < 1 << 24);
+    assert (element_size > 0);
+    return (1024 * 1024) / ((int32_t) element_size);
+}
 
 
 

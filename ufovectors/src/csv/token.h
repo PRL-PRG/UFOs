@@ -2,8 +2,9 @@
 #include <stdlib.h>
 
 #ifdef USE_R_STUFF
+#include <Rinternals.h>
 #include <R_ext/Utils.h>
-typedef trinary_t = Rboolean;
+typedef Rboolean trinary_t;
 
 #else
 #include <math.h>
@@ -41,3 +42,5 @@ const char               *token_type_to_string(token_type_t type);
 trinary_t token_to_logical(tokenizer_token_t *token);
 int token_to_integer(tokenizer_token_t *token);
 double token_to_numeric(tokenizer_token_t *token);
+
+size_t token_type_size(token_type_t type);

@@ -121,7 +121,7 @@ void offset_record_get_value_closest_to_this_key(offset_record_t *record, size_t
     *offset = record->offsets[target_index];
     *key_at_offset = offset_record_key_at(record, target_index);
 
-    printf("target: %li -> target_index: %li (key: %li) -> %li\n", target, target_index, *key_at_offset, *offset);
+    //printf("target: %li -> target_index: %li (key: %li) -> %li\n", target, target_index, *key_at_offset, *offset);
 }
 
 void offset_record_free(offset_record_t *record) {
@@ -145,7 +145,7 @@ void scan_results_free(scan_results_t *results) {
     free(results);
 }
 
-scan_results_t *ufo_csv_perform_initial_scan(char* path, long record_row_offsets_at_interval, bool header) {
+scan_results_t *ufo_csv_perform_initial_scan(const char* path, long record_row_offsets_at_interval, bool header) {
 
     tokenizer_t tokenizer = csv_tokenizer(); // TODO pass as argument
     tokenizer_state_t *state = tokenizer_state_init(path, 0, 10, 10);
@@ -264,7 +264,7 @@ scan_results_t *ufo_csv_perform_initial_scan(char* path, long record_row_offsets
     return NULL;
 }
 
-read_results_t ufo_csv_read_column(char *path, size_t target_column, scan_results_t *scan_results, bool header, size_t first_row, size_t last_row) {
+read_results_t ufo_csv_read_column(const char *path, size_t target_column, scan_results_t *scan_results, size_t first_row, size_t last_row) {
 
     assert(first_row <= last_row);
     assert(last_row < scan_results->rows);
@@ -325,7 +325,6 @@ read_results_t ufo_csv_read_column(char *path, size_t target_column, scan_result
 //                   column != target_column,
 //                   row >= first_row && (last_row == 0 || row <= last_row),
 //                   tokenizer_result_to_string(result));
-
         }
 
         switch (result) {

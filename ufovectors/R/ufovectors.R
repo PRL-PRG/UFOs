@@ -82,8 +82,8 @@ ufo_matrix_bin <- function(type, path, rows, cols, min_load_count = 0) {
   stop(paste0("Unknown UFO matrix type: ", type))
 }
 
-ufo_csv <- function(path) {
-  .Call("ufo_delim")
+ufo_csv <- function(path, min_load_count = 0) {
+  .Call("ufo_csv", path.expand(.check_path(path)), as.integer(min_load_count))
 }
 
 #ufo_rep <- function(x, times) {

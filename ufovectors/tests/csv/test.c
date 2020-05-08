@@ -69,11 +69,37 @@ void test_read_individual_columns(char* path, bool headers) {
     //tokenizer_t tokenizer = csv_tokenizer();
     scan_results_t *results = ufo_csv_perform_initial_scan(path, 3, headers);
 
+    printf("After initial scan of %s: \n\n", path);
+    printf("    rows: %li\n", results->rows);
+    printf("    cols: %li\n", results->columns);
+
+    printf("    column_names:\n\n");
+    for (size_t i = 0; i < results->columns; i++) {
+        printf("        [%li]: %s\n", i, results->column_names[i]);
+    }
+    printf("\n");
+
+    printf("    column_types:\n\n");
+    for (size_t i = 0; i < results->columns; i++) {
+        printf("        [%li]: %s/%i\n",
+               i, token_type_to_string(results->column_types[i]),
+               results->column_types[i]);
+    }
+    printf("\n");
+
+    printf("    row_offsets:\n\n");
+    for (size_t i = 0; i < results->row_offsets->size; i++) {
+        printf("        [%li] (row #%li): %li\n",
+               i, offset_record_human_readable_key(results->row_offsets, i),
+               results->row_offsets->offsets[i]);
+    }
+    printf("\n");
+
     size_t start = 4;
     size_t end = 5;
 
     for (size_t column = 0; column <= results->columns; column++) {
-        read_results_t column_tokens = ufo_csv_read_column(path, column, results, headers, start, end);
+        read_results_t column_tokens = ufo_csv_read_column(path, column, results, start, end);
 
         printf("After reading column %li of %s/%li from row %li to row %li (inclusive): \n\n",
                 column, path, column_tokens.size, start, end);
@@ -90,8 +116,34 @@ void test_read_typed_columns(char* path, bool headers) {
     //tokenizer_t tokenizer = csv_tokenizer();
     scan_results_t *results = ufo_csv_perform_initial_scan(path, 3, headers);
 
+    printf("After initial scan of %s: \n\n", path);
+    printf("    rows: %li\n", results->rows);
+    printf("    cols: %li\n", results->columns);
+
+    printf("    column_names:\n\n");
+    for (size_t i = 0; i < results->columns; i++) {
+        printf("        [%li]: %s\n", i, results->column_names[i]);
+    }
+    printf("\n");
+
+    printf("    column_types:\n\n");
+    for (size_t i = 0; i < results->columns; i++) {
+        printf("        [%li]: %s/%i\n",
+                i, token_type_to_string(results->column_types[i]),
+                results->column_types[i]);
+    }
+    printf("\n");
+
+    printf("    row_offsets:\n\n");
+    for (size_t i = 0; i < results->row_offsets->size; i++) {
+        printf("        [%li] (row #%li): %li\n",
+                i, offset_record_human_readable_key(results->row_offsets, i),
+                results->row_offsets->offsets[i]);
+    }
+    printf("\n");
+
     for (size_t column = 0; column <= results->columns; column++) {
-        read_results_t column_tokens = ufo_csv_read_column(path, column, results, headers, 0L, 0L);
+        read_results_t column_tokens = ufo_csv_read_column(path, column, results, 0L, 0L);
 
         printf("After reading column %li of %s/%li from row %li to row %li (inclusive): \n\n",
                column, path, column_tokens.size, 0L, 0L);
@@ -144,8 +196,9 @@ int main (int argc, char *argv[]) {
     //test_initial_scan("test.csv");
     //test_read_individual_columns("test.csv");
 
-    test_initial_scan("test2.csv", true);
+    //test_initial_scan("test2.csv", true);
     //test_read_individual_columns("test2.csv", true);
     test_read_typed_columns("test2.csv", true);
+    test_read_typed_columns("test3.csv", true);
     return 0;
 }

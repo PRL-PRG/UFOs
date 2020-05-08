@@ -53,7 +53,7 @@ tokenizer_token_buffer_t *tokenizer_token_buffer_init(size_t max_size) {
     return buffer;
 }
 
-tokenizer_state_t *tokenizer_state_init (char *path, long initial_offset, size_t max_token_size, size_t character_buffer_size) {
+tokenizer_state_t *tokenizer_state_init (const char *path, long initial_offset, size_t max_token_size, size_t character_buffer_size) {
     tokenizer_state_t *state = (tokenizer_state_t *) malloc(sizeof(tokenizer_state_t));
     if (state == NULL) {
         perror("Error: cannot allocate memory for state");
