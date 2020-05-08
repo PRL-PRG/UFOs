@@ -4,7 +4,7 @@ project(ufos)
 SET(EX_PLATFORM 64)
 SET(EX_PLATFORM_NAME "x64")
 
-add_definitions(-Wall -O2 -D__UFOs_CoreDev__)
+add_definitions(-Wall -g -D__UFOs_CoreDev__)
                 #-Wall -g
 
 set(CMAKE_CXX_STANDARD 11)
@@ -16,7 +16,9 @@ set(CORE_SRC    src/mappedMemory/userfaultCore.h
                 src/mappedMemory/sparseList.c
                 src/mappedMemory/userfaultCore.c
                 src/mappedMemory/userFaultCoreInternal.h
-                src/mappedMemory/userfaultGettersSetters.c)
+                src/mappedMemory/userfaultGettersSetters.c
+                src/mappedMemory/oroboros.h
+                src/mappedMemory/oroboros.c)
 
 set(UNSTDLIB_SRC
                 src/unstdLib/errors.h
@@ -41,6 +43,10 @@ target_link_libraries(ufos ${R_LIBRARIES})
 
 add_executable(ufoTest ${CORE_SRC} ${UNSTDLIB_SRC} src/mappedMemory/ufoTest.c)
 target_link_libraries(ufoTest ${CMAKE_THREAD_LIBS_INIT})
+
+
+add_executable(oroborosTest src/mappedMemory/oroboros.c src/mappedMemory/oroboros.h src/mappedMemory/oroborosTest.c)
+#target_link_libraries(oroborosTest ${CMAKE_THREAD_LIBS_INIT})
 
 add_executable(strideTest ${CORE_SRC} src/mappedMemory/stride.c)
 target_link_libraries(strideTest ${CMAKE_THREAD_LIBS_INIT})

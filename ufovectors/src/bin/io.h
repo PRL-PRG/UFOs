@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include "../include/mappedMemory/userfaultCore.h"
+#include "../../include/mappedMemory/userfaultCore.h"
 
 /**
  * Load a range of values from a binary file.

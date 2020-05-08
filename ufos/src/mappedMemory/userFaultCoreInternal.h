@@ -7,6 +7,7 @@
 
 #include "sparseList.h"
 #include "userfaultCore.h"
+#include "oroboros.h"
 
 /*
  * This is an internals file. This is not meant for use by developers\
@@ -40,9 +41,15 @@ typedef struct {
   char*             buffer;
   uint64_t          bufferSize;
 
+  uint64_t          nextID;
   sparseList_t      objects;
 
   uint16_t          concurrency;
+
+  oroboros_t        chunkRecord;
+  size_t            highWaterMarkBytes;
+  size_t            lowWaterMarkBytes;
+  size_t            usedMemory;
 } ufInstance;
 
 typedef struct {
@@ -54,6 +61,8 @@ typedef struct {
   };
   uint64_t          trueSize;
   sparseList_t      rangeMetadata;
+
+  uint64_t          id;
 } ufObject;
 
 typedef uint32_t loadOrder;
