@@ -178,7 +178,7 @@ SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp) {
     setAttrib(data_frame, R_ClassSymbol, mkString("data.frame"));
 
     SEXP/*INTSXP*/ row_names = PROTECT(Rf_allocVector(INTSXP, csv_metadata->rows)); // FIXME use UFO here too
-    for (size_t i = 0; i < XLENGTH(row_names); i++) {                              // FIXME int size?
+    for (size_t i = 0; i < XLENGTH(row_names); i++) {                               // FIXME int size?
         SET_INTEGER_ELT(row_names, i, i + 1);
     }
     setAttrib(data_frame, R_RowNamesSymbol, row_names);

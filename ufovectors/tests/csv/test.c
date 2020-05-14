@@ -6,9 +6,10 @@
 #include "../../src/csv/token.h"
 #include "../../src/csv/tokenizer.h"
 #include "../../src/csv/reader.h"
+#include "../../src/csv/string_set.h"
 
 /*
- * gcc -o test -I../src/csv/ ../../src/csv/reader.c  ../../src/csv/tokenizer.c ../../src/csv/token.c ../../src/csv/string_vector.c test.c -g -O0 -Wall
+ * gcc -o test -I../src/csv/ ../../src/csv/reader.c  ../../src/csv/tokenizer.c ../../src/csv/token.c ../../src/csv/string_vector.c ../../src/csv/string_set.c test.c -g -O0 -Wall
  */
 
 void test_file(char* path) {
@@ -168,7 +169,7 @@ void test_read_typed_columns(char* path, bool headers) {
                 }
                 case TOKEN_INTEGER: {
                     int value = token_to_integer(column_tokens.tokens[row]);
-                    if (value == NA_INTEGER) {
+                    if (value != NA_INTEGER) {
                         printf("    [%li]: %i\n", row, value);
                     } else {
                         printf("    [%li]: <NA>\n", row);
@@ -188,6 +189,18 @@ void test_read_typed_columns(char* path, bool headers) {
         }
         printf("\n");
     }
+
+    for (size_t column = 0; column <= results->columns; column++) {
+        string_set_t *tokens = ufo_csv_read_column_unique_values(path, column, results);
+
+        printf("Column %li of %s has the following unique values: \n\n", column, path);
+
+        for (size_t i = 0; i < tokens->size; i++) {
+            printf("    [%li]: %s\n", i, tokens->strings[i]);
+        }
+
+        printf("\n");
+    }
 }
 
 int main (int argc, char *argv[]) {
@@ -197,8 +210,8 @@ int main (int argc, char *argv[]) {
     //test_read_individual_columns("test.csv");
 
     //test_initial_scan("test2.csv", true);
-    //test_read_individual_columns("test2.csv", true);
-    test_read_typed_columns("test2.csv", true);
+    test_read_individual_columns("test3.csv", true);
+    //test_read_typ`ed_columns("test2.csv", true);
     test_read_typed_columns("test3.csv", true);
     return 0;
 }

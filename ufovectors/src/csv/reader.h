@@ -1,7 +1,7 @@
 #pragma once
 #include <stdbool.h>
 #include <stdio.h>
-
+#include "string_set.h"
 #include "token.h"
 
 typedef struct {
@@ -22,9 +22,11 @@ typedef struct {
 typedef struct {
     size_t size;
     tokenizer_token_t **tokens;
-} read_results_t;
+} read_results_t; // FIXME rename
+
 
 size_t              offset_record_human_readable_key(offset_record_t *record, size_t i);
 scan_results_t     *ufo_csv_perform_initial_scan(const char *path, long record_row_offsets_at_interval, bool header);
+string_set_t       *ufo_csv_read_column_unique_values(const char *path, size_t target_column, scan_results_t *scan_results);
 read_results_t      ufo_csv_read_column(const char *path, size_t target_column, scan_results_t *scan_results, size_t first_row, size_t last_row);
 void                scan_results_free(scan_results_t *results);

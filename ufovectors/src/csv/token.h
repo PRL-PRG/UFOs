@@ -34,10 +34,10 @@ typedef enum {
     TOKEN_STRING  = 32,
 } token_type_t;
 
-tokenizer_token_t        *tokenizer_token_empty();
-token_type_t              deduce_token_type(tokenizer_token_t *token);
-char                     *token_into_string(tokenizer_token_t *token);
-const char               *token_type_to_string(token_type_t type);
+tokenizer_token_t  *tokenizer_token_empty();
+token_type_t        deduce_token_type(tokenizer_token_t *token);
+char               *token_into_string(tokenizer_token_t *token);
+const char         *token_type_to_string(token_type_t type);
 
 trinary_t token_to_logical(tokenizer_token_t *token);
 int token_to_integer(tokenizer_token_t *token);

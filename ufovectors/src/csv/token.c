@@ -24,6 +24,7 @@ tokenizer_token_t *tokenizer_token_empty () {
 
 char *token_into_string(tokenizer_token_t *token) {
     char *string = token->string;
+    token->string = NULL;
     free(token);
     return string;
 }
@@ -137,7 +138,6 @@ int token_to_integer(tokenizer_token_t *token) {
     char *trailing;
     long result = strtol(token->string, &trailing, 10);
 
-    if (*trailing != '\0')                    { return NA_INTEGER; }
     // The following can happen on a 64-bit platform.
     if (result > INT_MAX || result < INT_MIN) { return NA_INTEGER; }
     if (errno == ERANGE)                      { return NA_INTEGER; }
