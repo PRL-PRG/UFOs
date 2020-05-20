@@ -25,13 +25,15 @@ typedef struct {
 } tokenizer_token_t;
 
 typedef enum {
-    TOKEN_NOTHING = 0,
-    TOKEN_EMPTY   = 1,
-    TOKEN_NA      = 2,
-    TOKEN_BOOLEAN = 4,
-    TOKEN_INTEGER = 8,
-    TOKEN_DOUBLE  = 16,
-    TOKEN_STRING  = 32,
+    TOKEN_NOTHING         = 0,
+    TOKEN_EMPTY           = 1,
+    TOKEN_NA              = 2,
+    TOKEN_BOOLEAN         = 4,
+    TOKEN_INTEGER         = 8,
+    TOKEN_DOUBLE          = 16,
+    TOKEN_STRING          = 32,
+    TOKEN_INTERNED_STRING = 64,
+    TOKEN_FREE_STRING     = 128,
 } token_type_t;
 
 tokenizer_token_t  *tokenizer_token_empty();

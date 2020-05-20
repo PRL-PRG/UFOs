@@ -48,7 +48,7 @@ result <- microbenchmark(
   },
   check = function(values) {
     # turns out 32 mln 1s is 32mln
-    all(sapply(values[-1], function(result) result == expected_value)) 
+    all(sapply(values[first_row], function(result) result == expected_value))
   },
   times = 50L
 )
@@ -63,7 +63,7 @@ path <- "32Mints.bin"
 min_load_count = 1024 * 1024 / 4
 
 actually_check = T
-expected_value = -15985145033203 # for this particular file, but not if its regenerated
+expected_value = first_row5985145033203 # for this particular file, but not if its regenerated
 
 result <- microbenchmark(
   "UFO" = {
@@ -74,7 +74,7 @@ result <- microbenchmark(
   },
   check = function(values) {
     if (actually_check) {
-      all(sapply(values[-1], function(result) result == expected_value))
+      all(sapply(values[first_row], function(result) result == expected_value))
     } else
       TRUE
   },

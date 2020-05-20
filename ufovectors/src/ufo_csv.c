@@ -12,12 +12,14 @@
 #include "debug.h"
 
 #include "csv/reader.h"
+#include "evil/bad_strings.h"
 
 typedef struct {
     const char*         path;
     size_t              column;
     scan_results_t     *metadata;
     uint32_t           *references_to_metadata;
+    tokenizer_t        *tokenizer;
 } ufo_csv_column_source_t;
 
 
@@ -42,7 +44,7 @@ int load_column_from_csv(uint64_t start, uint64_t end, ufPopulateCallout cf, ufU
     size_t first_row = start;
     size_t last_row = end;
 
-    read_results_t tokens = ufo_csv_read_column(data->path, data->column, data->metadata, first_row, last_row);
+    read_results_t tokens = ufo_csv_read_column(data->tokenizer, data->path, data->column, data->metadata, first_row, last_row);
 
     switch (data->metadata->column_types[data->column]) {
         case TOKEN_INTEGER: {
@@ -50,6 +52,38 @@ int load_column_from_csv(uint64_t start, uint64_t end, ufPopulateCallout cf, ufU
             for (size_t i = 0; i < tokens.size; i++) {
                 ints[i] = token_to_integer(tokens.tokens[i]);
             }
+            break;
+        }
+
+        case TOKEN_INTERNED_STRING: {
+            SEXP/*CHARSXP*/ *strings = (SEXP *) target;
+            for (size_t i = 0; i < tokens.size; i++) {
+                strings[i] = mkChar(tokens.tokens[i]->string);
+            }
+            break;
+        }
+
+        case TOKEN_STRING: {
+            perror("Column type should be either TOKEN_FREE_STRING or TOKEN_INTERN_STRING. "
+                   "Defaulting to TOKEN_FREE_STRING");
+            /* no break */
+        }
+
+        case TOKEN_FREE_STRING: {
+            SEXP/*CHARSXP*/ *strings = (SEXP *) target;
+
+            for (size_t i = 0; i < tokens.size; i++) {
+                strings[i] = mkBadChar(tokens.tokens[i]->string);
+            }
+
+            if (__get_debug_mode()) {
+                REprintf("           created bad strings:\n\n");
+                for (size_t i = 0; i < tokens.size; i++) {
+                    REprintf("               %-20s %x\n", tokens.tokens[i]->string, strings[i]);
+                }
+                REprintf("\n");
+            }
+
             break;
         }
 
@@ -69,7 +103,16 @@ int load_column_from_csv(uint64_t start, uint64_t end, ufPopulateCallout cf, ufU
             break;
         }
 
-        default: printf("Not implemented");
+        case TOKEN_EMPTY:
+        case TOKEN_NA: {
+            Rboolean *bools = (Rboolean *) target;
+            for (size_t i = 0; i < tokens.size; i++) {
+                bools[i] = NA_LOGICAL;
+            }
+            break;
+        }
+
+        default: perror("Not implemented");
     }
 
     return 0;
@@ -89,6 +132,7 @@ void destroy_column(ufUserData *user_data) {
 
     if (*(data->references_to_metadata) == 1) {
         scan_results_free(data->metadata);
+        tokenizer_free(data->tokenizer);
         free(data->references_to_metadata);
     } else {
         *(data->references_to_metadata) = *(data->references_to_metadata) - 1;
@@ -100,11 +144,28 @@ void destroy_column(ufUserData *user_data) {
 SEXPTYPE token_type_to_sexp_type(token_type_t type) {
     switch (type) {
         case TOKEN_NA:
-        case TOKEN_BOOLEAN: return LGLSXP;
-        case TOKEN_INTEGER: return INTSXP;
-        case TOKEN_DOUBLE:  return REALSXP;
-        case TOKEN_STRING:  return STRSXP;
-        default:            return -1;
+        case TOKEN_EMPTY:
+        case TOKEN_BOOLEAN:         return LGLSXP;
+        case TOKEN_INTEGER:         return INTSXP;
+        case TOKEN_DOUBLE:          return REALSXP;
+        case TOKEN_FREE_STRING:
+        case TOKEN_INTERNED_STRING:
+        case TOKEN_STRING:          return STRSXP;
+        default:                    return -1;
+    }
+}
+
+ufo_vector_type_t token_type_to_ufo_type(token_type_t type) {
+    switch (type) {
+        case TOKEN_NA:
+        case TOKEN_EMPTY:
+        case TOKEN_BOOLEAN:         return UFO_LGL;
+        case TOKEN_INTEGER:         return UFO_INT;
+        case TOKEN_DOUBLE:          return UFO_REAL;
+        case TOKEN_FREE_STRING:
+        case TOKEN_INTERNED_STRING:
+        case TOKEN_STRING:          return UFO_STR;
+        default:                    return -1;
     }
 }
 
@@ -115,7 +176,8 @@ SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp) {
 
     const char *path = __extract_path_or_die(path_sexp);
 
-    scan_results_t *csv_metadata = ufo_csv_perform_initial_scan(path, interval, headers);
+    tokenizer_t *tokenizer = new_csv_tokenizer();
+    scan_results_t *csv_metadata = ufo_csv_perform_initial_scan(tokenizer, path, interval, headers);
     uint32_t *references_to_metadata = (uint32_t *) malloc(sizeof(uint32_t));
     *references_to_metadata = csv_metadata->columns;
 
@@ -132,19 +194,63 @@ SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp) {
 
         REprintf("    column_types:\n\n");
         for (size_t i = 0; i < csv_metadata->columns; i++) {
-            REprintf("        [%li]: %s/%i\n",
+            REprintf("        [%li]: %s/%i\tSEXPTYPE=%i (%s)\n",
                      i, token_type_to_string(csv_metadata->column_types[i]),
-                     csv_metadata->column_types[i]);
+                     csv_metadata->column_types[i],
+                     token_type_to_sexp_type(csv_metadata->column_types[i]),
+                     type2char(token_type_to_sexp_type(csv_metadata->column_types[i])));
         }
         REprintf("\n");
 
         REprintf("    row_offsets:\n\n");
         for (size_t i = 0; i < csv_metadata->row_offsets->size; i++) {
-            REprintf("        [%li] (row #%li): %li\n",
+            REprintf("        [%li]: (row #%li): %li\n",
                      i, offset_record_human_readable_key(csv_metadata->row_offsets, i),
                      csv_metadata->row_offsets->offsets[i]);
         }
         REprintf("\n");
+    }
+
+    // Pre-intern strings
+    for (size_t column = 0; column < csv_metadata->columns; column++) {
+        if (csv_metadata->column_types[column] == TOKEN_STRING) {
+            size_t limit = 3; //FIXME as parameter also FIXME make work
+            string_set_t *unique_values = ufo_csv_read_column_unique_values(tokenizer, path, column, csv_metadata, limit);
+            REprintf("    ... [%li]: %li vs %li\n\n", column, unique_values->size, limit);
+            if (unique_values->size == limit) {
+                if (__get_debug_mode()) {
+                    REprintf("    cannot pre-intern strings for column [%li]: %li (or more) unique values\n\n",
+                             column, unique_values->size);
+                }
+
+                csv_metadata->column_types[column] = TOKEN_FREE_STRING;
+                continue;
+            }
+
+            csv_metadata->column_types[column] = TOKEN_INTERNED_STRING;
+
+            if (__get_debug_mode()) {
+                REprintf("    pre-interning %li strings for column [%li]:\n\n", unique_values->size, column);
+            }
+
+            for (size_t i = 0; i < unique_values->size; i++) {
+                SEXP pointer = mkChar(unique_values->strings[i]); // FIXME PROTECT?
+
+#ifdef SWITCH_TO_REFCNT
+                SET_REFCNT(pointer, 1);
+#else
+                SET_NAMED(pointer, 1);
+#endif
+
+                if (__get_debug_mode()) {
+                    REprintf("        %-20s 0x%x\n", unique_values->strings[i], pointer);
+                }
+            }
+
+            if (__get_debug_mode()) {
+                REprintf("\n");
+            }
+        }
     }
 
     SEXP/*VECSXP*/ data_frame = PROTECT(allocVector(VECSXP, csv_metadata->columns));
@@ -156,7 +262,7 @@ SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp) {
         source->population_function = load_column_from_csv;
         source->destructor_function = destroy_column;
         source->data = (ufUserData *) data;
-        source->vector_type = token_type_to_sexp_type(csv_metadata->column_types[column]);
+        source->vector_type = token_type_to_ufo_type(csv_metadata->column_types[column]);
         source->element_size = token_type_size(source->vector_type);
         source->vector_size = csv_metadata->rows;
         source->dimensions = 0;
@@ -169,7 +275,7 @@ SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp) {
         data->column = column;
         data->metadata = csv_metadata;
         data->references_to_metadata = references_to_metadata;
-
+        data->tokenizer = tokenizer;
 
         ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
         SET_VECTOR_ELT(data_frame, column, PROTECT(ufo_new(source)));
@@ -182,7 +288,6 @@ SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp) {
         SET_INTEGER_ELT(row_names, i, i + 1);
     }
     setAttrib(data_frame, R_RowNamesSymbol, row_names);
-
 
     SEXP/*STRSXP*/ names = PROTECT(Rf_allocVector(STRSXP, csv_metadata->columns));
     for (size_t i =  0; i < XLENGTH(names); i++) {

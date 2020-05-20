@@ -36,6 +36,8 @@ const char *token_type_to_string(token_type_t type) {
         case TOKEN_BOOLEAN:                   { return "LOGICAL"; }
         case TOKEN_INTEGER:                   { return "INTEGER"; }
         case TOKEN_DOUBLE:                    { return "NUMERIC"; }
+        case TOKEN_FREE_STRING:
+        case TOKEN_INTERNED_STRING:
         case TOKEN_STRING:                    { return "STRING";  }
         case TOKEN_NOTHING:                   { return "NOTHING"; }
     }
@@ -211,6 +213,8 @@ size_t token_type_size(token_type_t type) {
         case TOKEN_BOOLEAN:                   { return sizeof(trinary_t); }
         case TOKEN_INTEGER:                   { return sizeof(int);       }
         case TOKEN_DOUBLE:                    { return sizeof(double);    }
+        case TOKEN_INTERNED_STRING:
+        case TOKEN_FREE_STRING:
         case TOKEN_STRING:                    { return sizeof(char *);    }
         default:                              { return 0;                 }
     }

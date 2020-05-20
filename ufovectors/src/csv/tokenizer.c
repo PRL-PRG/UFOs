@@ -21,6 +21,16 @@ tokenizer_t csv_tokenizer() {
     return tokenizer;
 }
 
+tokenizer_t *new_csv_tokenizer() {
+    tokenizer_t *tokenizer = (tokenizer_t *) malloc(sizeof(tokenizer_t));
+    *tokenizer = csv_tokenizer();
+    return tokenizer;
+}
+
+void tokenizer_free(tokenizer_t *tokenizer) {
+    free(tokenizer);
+}
+
 tokenizer_read_buffer_t read_buffer_init(size_t character_buffer_size) {
     tokenizer_read_buffer_t read_buffer;
 
@@ -174,7 +184,7 @@ int tokenizer_start(tokenizer_t *tokenizer, tokenizer_state_t *state) {
     return 0;
 }
 
-void tokenizer_close(tokenizer_t *tokenizer, tokenizer_state_t *state) {
+void tokenizer_close(tokenizer_t *tokenizer, tokenizer_state_t *state) { // TODO remove tokenizer
     fclose(state->file);
 }
 

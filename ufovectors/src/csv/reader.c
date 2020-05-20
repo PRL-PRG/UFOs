@@ -145,11 +145,10 @@ void scan_results_free(scan_results_t *results) {
     free(results);
 }
 
-scan_results_t *ufo_csv_perform_initial_scan(const char* path, long record_row_offsets_at_interval, bool header) {
+scan_results_t *ufo_csv_perform_initial_scan(tokenizer_t *tokenizer, const char* path, long record_row_offsets_at_interval, bool header) {
 
-    tokenizer_t tokenizer = csv_tokenizer(); // TODO pass as argument
     tokenizer_state_t *state = tokenizer_state_init(path, 0, 10, 10);
-    tokenizer_start(&tokenizer, state);
+    tokenizer_start(tokenizer, state);
 
     offset_record_t *row_offsets = offset_record_new(record_row_offsets_at_interval, 100);
 
@@ -163,12 +162,12 @@ scan_results_t *ufo_csv_perform_initial_scan(const char* path, long record_row_o
         bool loop = true;
         while (loop) {
             tokenizer_token_t *token = NULL;
-            tokenizer_result_t result = tokenizer_next(&tokenizer, state, &token, false);
+            tokenizer_result_t result = tokenizer_next(tokenizer, state, &token, false);
 
             switch (result) {
                 case TOKENIZER_PARSE_ERROR:
                 case TOKENIZER_ERROR:
-                    goto error;
+                    goto bad;
                 default:;
             }
 
@@ -176,7 +175,7 @@ scan_results_t *ufo_csv_perform_initial_scan(const char* path, long record_row_o
 
             int append_ok = string_vector_append(column_names, token_into_string(token)); // token consumed here
             if (0 != append_ok) {
-                goto error;
+                goto bad;
             }
 
             switch (result) {
@@ -198,7 +197,7 @@ scan_results_t *ufo_csv_perform_initial_scan(const char* path, long record_row_o
 
                     string_vector_free(column_names);
                     token_type_vector_free(column_types);
-                    tokenizer_close(&tokenizer, state);
+                    tokenizer_close(tokenizer, state);
                     return results;
                 }
 
@@ -209,12 +208,12 @@ scan_results_t *ufo_csv_perform_initial_scan(const char* path, long record_row_o
 
     while (true) {
         tokenizer_token_t *token = NULL;
-        tokenizer_result_t result = tokenizer_next(&tokenizer, state, &token, false);
+        tokenizer_result_t result = tokenizer_next(tokenizer, state, &token, false);
 
         switch (result) {
             case TOKENIZER_PARSE_ERROR:
             case TOKENIZER_ERROR:
-                goto error;
+                goto bad;
             default:;
         }
 
@@ -248,7 +247,7 @@ scan_results_t *ufo_csv_perform_initial_scan(const char* path, long record_row_o
 
                 string_vector_free(column_names);
                 token_type_vector_free(column_types);
-                tokenizer_close(&tokenizer, state);
+                tokenizer_close(tokenizer, state);
                 return results;
             }
 
@@ -256,39 +255,36 @@ scan_results_t *ufo_csv_perform_initial_scan(const char* path, long record_row_o
         }
     }
 
-    error:
+    bad:
     perror("merde");
     string_vector_free(column_names);
     token_type_vector_free(column_types);
-    tokenizer_close(&tokenizer, state);
+    tokenizer_close(tokenizer, state);
     return NULL;
 }
 
 
 
-string_set_t *ufo_csv_read_column_unique_values(const char *path, size_t target_column, scan_results_t *scan_results) {
+string_set_t *ufo_csv_read_column_unique_values(tokenizer_t *tokenizer, const char *path, size_t target_column, scan_results_t *scan_results, size_t limit) {
     string_set_t *unique_tokens = string_set_new(10);
 
     if (scan_results->rows == 0) {
         return unique_tokens;
     }
 
-
     long offset = 0;
     size_t row_at_offset;
     offset_record_get_value_closest_to_this_key(scan_results->row_offsets, 0, &offset, &row_at_offset);
 
-
-    tokenizer_t tokenizer = csv_tokenizer(); // TODO pass as argument
     tokenizer_state_t *state = tokenizer_state_init(path, offset, 10, 10); // FIXME values
-    tokenizer_start(&tokenizer, state);
+    tokenizer_start(tokenizer, state);
 
     size_t row = row_at_offset;
     size_t column = 0;
 
     while (true) {
         tokenizer_token_t *token = NULL;
-        tokenizer_result_t result = tokenizer_next(&tokenizer, state, &token, column != target_column);
+        tokenizer_result_t result = tokenizer_next(tokenizer, state, &token, column != target_column);
 
         if (TOKENIZER_ERROR == result || TOKENIZER_PARSE_ERROR == result) {
             goto bad;
@@ -296,6 +292,11 @@ string_set_t *ufo_csv_read_column_unique_values(const char *path, size_t target_
 
         if (column == target_column) {
             assert(token != NULL);
+
+            if (string_set_size(unique_tokens) >= limit) {
+                goto good;
+            }
+
             bool ok = string_set_add(unique_tokens, token_into_string(token));
             if (!ok) { goto bad; }
         }
@@ -311,8 +312,7 @@ string_set_t *ufo_csv_read_column_unique_values(const char *path, size_t target_
                 break;
 
             case TOKENIZER_END_OF_FILE:
-                tokenizer_close(&tokenizer, state);
-                return unique_tokens;
+                goto good;
 
             default:
                 goto bad;
@@ -320,16 +320,20 @@ string_set_t *ufo_csv_read_column_unique_values(const char *path, size_t target_
 
     }
 
+    good:
+    tokenizer_close(tokenizer, state);
+    return unique_tokens;
+
     bad:
     perror("merde");
     string_set_free(unique_tokens);
-    tokenizer_close(&tokenizer, state);
+    tokenizer_close(tokenizer, state);
     return NULL;
 
 }
 
 
-read_results_t ufo_csv_read_column(const char *path, size_t target_column, scan_results_t *scan_results, size_t first_row, size_t last_row) {
+read_results_t ufo_csv_read_column(tokenizer_t *tokenizer, const char *path, size_t target_column, scan_results_t *scan_results, size_t first_row, size_t last_row) {
 
     assert(first_row <= last_row);
     assert(last_row < scan_results->rows);
@@ -339,14 +343,12 @@ read_results_t ufo_csv_read_column(const char *path, size_t target_column, scan_
         return result;
     }
 
-    tokenizer_t tokenizer = csv_tokenizer(); // TODO pass as argument
-
     long offset = 0;
     size_t row_at_offset;
     offset_record_get_value_closest_to_this_key(scan_results->row_offsets, first_row, &offset, &row_at_offset);
 
     tokenizer_state_t *state = tokenizer_state_init(path, offset, 10, 10);
-    tokenizer_start(&tokenizer, state);
+    tokenizer_start(tokenizer, state);
 
     if (last_row == 0) {
         last_row = scan_results->rows - 1;
@@ -365,12 +367,12 @@ read_results_t ufo_csv_read_column(const char *path, size_t target_column, scan_
 
     while (true) {
         tokenizer_token_t *token = NULL;
-        tokenizer_result_t result = tokenizer_next(&tokenizer, state, &token, column != target_column);
+        tokenizer_result_t result = tokenizer_next(tokenizer, state, &token, column != target_column);
 
         switch (result) {
             case TOKENIZER_PARSE_ERROR:
             case TOKENIZER_ERROR:
-                tokenizer_close(&tokenizer, state);
+                tokenizer_close(tokenizer, state);
 
                 free(tokens);
                 read_results_t result = {.tokens = NULL, .size = row};
@@ -411,7 +413,7 @@ read_results_t ufo_csv_read_column(const char *path, size_t target_column, scan_
                 }
 
                 if (result == TOKENIZER_END_OF_FILE || (last_row != 0 && row >= last_row)) {
-                    tokenizer_close(&tokenizer, state);
+                    tokenizer_close(tokenizer, state);
 
                     read_results_t result = {.tokens = tokens, .size = row - first_row + 1};
                     return result;

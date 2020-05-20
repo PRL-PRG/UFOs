@@ -23,6 +23,10 @@ bool string_set_contains(string_set_t *set, char *string) {
     return false;
 }
 
+size_t string_set_size(string_set_t *set) {
+    return set->size;
+}
+
 bool string_set_add(string_set_t *set, char *string) {
     if (string_set_contains(set, string)) {
         return true;

@@ -35,6 +35,8 @@ size_t __get_ufo_element_size(ufo_vector_type_t vector_type) {
             return sizeof(Rcomplex);
         case UFO_RAW:
             return sizeof(Rbyte);
+        case UFO_STR:
+            return sizeof(SEXP/*STRSXP*/);
         default:
             Rf_error("Unrecognized vector type: %d\n", vector_type);
     }

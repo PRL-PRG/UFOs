@@ -73,6 +73,8 @@ uint32_t __get_stride_from_type_or_die(ufo_vector_type_t type) {
             return strideOf(Rcomplex);
         case UFO_RAW:
             return strideOf(Rbyte);
+        case UFO_STR:
+            return strideOf(SEXP);
         default:
             Rf_error("Cannot derive stride for vector type: %d\n", type);
     }
@@ -134,7 +136,10 @@ SEXPTYPE ufo_type_to_vector_type (ufo_vector_type_t ufo_type) {
             return CPLXSXP;
         case UFO_RAW:
             return RAWSXP;
+        case UFO_STR:
+            return STRSXP;
         default:
+            printf("Cannot convert ufo_type_t=%i to SEXPTYPE", ufo_type);
             return -1;
     }
 }
@@ -192,7 +197,11 @@ SEXP ufo_new(ufo_source_t* source) {
     R_allocator_t* allocator = __ufo_new_allocator(source);
 
     // Create a new vector of the appropriate type using the allocator.
+#ifdef USE_R_HACKS
+    SEXP ufo = PROTECT(allocVectorIII(type, source->vector_size, allocator, 1));
+#else
     SEXP ufo = PROTECT(allocVector3(type, source->vector_size, allocator));
+#endif
 
     // Workaround for scalar vectors ignoring custom allocator:
     // Pre-load the data in, at least it'll work as read-only.

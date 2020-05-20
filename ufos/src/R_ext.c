@@ -12,7 +12,11 @@ SEXP allocMatrix3(SEXPTYPE mode, int nrow, int ncol, R_allocator_t *allocator)
     error("allocMatrix: too many elements specified");
 #endif
     n = ((R_xlen_t) nrow) * ncol;
+#ifdef USE_R_HACKS
+    PROTECT(s = allocVectorIII(mode, n, allocator, 1));
+#else
     PROTECT(s = allocVector3(mode, n, allocator));
+#endif
     PROTECT(t = allocVector(INTSXP, 2));
     INTEGER(t)[0] = nrow;
     INTEGER(t)[1] = ncol;
