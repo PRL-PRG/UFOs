@@ -69,6 +69,15 @@ int token_type_vector_add_type(token_type_vector_t *vector, size_t index, token_
     return 0;
 }
 
+
+bool token_type_vector_is_string(token_type_vector_t *vector, size_t index) {
+    if (index >= vector->size) {
+        return false;
+    } else {
+        return 1 == vector->types[index].flags.string;
+    }
+}
+
 void token_type_vector_free(token_type_vector_t *vector) {
     free(vector->types);
     free(vector);
@@ -207,8 +216,10 @@ scan_results_t *ufo_csv_perform_initial_scan(tokenizer_t *tokenizer, const char*
     }
 
     while (true) {
+        bool column_type_is_string = token_type_vector_is_string(column_types, column);
+
         tokenizer_token_t *token = NULL;
-        tokenizer_result_t result = tokenizer_next(tokenizer, state, &token, false);
+        tokenizer_result_t result = tokenizer_next(tokenizer, state, &token, column_type_is_string);
 
         switch (result) {
             case TOKENIZER_PARSE_ERROR:
@@ -217,12 +228,10 @@ scan_results_t *ufo_csv_perform_initial_scan(tokenizer_t *tokenizer, const char*
             default:;
         }
 
-        token_type_t token_type = deduce_token_type(token);
-        token_type_vector_add_type(column_types, column, token_type);
-//        printf("(row: %li, column: %li) [size: %li, start: %li, end: %li, string: <%s> type: [%s/%i]], %s\n",
-//               row, column,
-//               token->size, token->position_start, token->position_end, token->string,
-//               token_type_to_string(token_type), token_type, tokenizer_result_to_string(result));
+        if (!column_type_is_string) {
+            token_type_t token_type = deduce_token_type(token);
+            token_type_vector_add_type(column_types, column, token_type);
+        }
 
         if (column == 0 && offset_record_is_interesting(row_offsets, row)) {
             offset_record_add(row_offsets, token->position_start);
