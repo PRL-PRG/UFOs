@@ -214,7 +214,7 @@ SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp) {
     // Pre-intern strings
     for (size_t column = 0; column < csv_metadata->columns; column++) {
         if (csv_metadata->column_types[column] == TOKEN_STRING) {
-            size_t limit = 3; //FIXME as parameter also FIXME make work
+            size_t limit = 5; //FIXME as parameter also FIXME make work
             string_set_t *unique_values = ufo_csv_read_column_unique_values(tokenizer, path, column, csv_metadata, limit);
             REprintf("    ... [%li]: %li vs %li\n\n", column, unique_values->size, limit);
             if (unique_values->size == limit) {

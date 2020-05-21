@@ -23,6 +23,10 @@
 #endif
 
 SEXP/*CHARSXP*/ mkBadChar(const char* contents) {
+    if (0 == strcmp(contents, ""))       return R_BlankString;
+    if (0 == strcmp(contents, "NA"))     return NA_STRING;
+    //if (0 == strcmp(contents, "base"))   return R_BaseNamespaceName;
+
     SEXP/*CHARSXP*/ bad_string;
     R_len_t size = strlen(contents);
 
