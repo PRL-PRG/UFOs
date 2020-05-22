@@ -55,7 +55,7 @@ typedef struct {
     long                      read_characters;
     long                      current_offset;
     long                      end_of_last_token;
-    tokenizer_read_buffer_t   read_buffer;
+    tokenizer_read_buffer_t  *read_buffer;
     tokenizer_token_buffer_t *token_buffer;
 } tokenizer_state_t;
 
@@ -67,7 +67,7 @@ tokenizer_result_t        tokenizer_next (tokenizer_t *tokenizer, tokenizer_stat
 int                       tokenizer_start(tokenizer_t *tokenizer, tokenizer_state_t *state);
 void                      tokenizer_close(tokenizer_t *tokenizer, tokenizer_state_t *state);
 
-tokenizer_state_t        *tokenizer_state_init (const char *path, long initial_offset, size_t max_token_size, size_t character_buffer_size);
+tokenizer_state_t        *tokenizer_state_init (const char *path, long initial_offset, size_t token_buffer_size, size_t character_buffer_size);
 void                      tokenizer_state_close (tokenizer_state_t *);
 const char               *tokenizer_state_to_string (tokenizer_state_value_t);
 

@@ -27,7 +27,7 @@ typedef struct {
 
 
 size_t              offset_record_human_readable_key(offset_record_t *, size_t i);
-scan_results_t     *ufo_csv_perform_initial_scan(tokenizer_t *, const char *path, long record_row_offsets_at_interval, bool header);
-string_set_t       *ufo_csv_read_column_unique_values(tokenizer_t *, const char *path, size_t target_column, scan_results_t *, size_t limit);
-read_results_t      ufo_csv_read_column(tokenizer_t *, const char *path, size_t target_column, scan_results_t *, size_t first_row, size_t last_row);
+scan_results_t     *ufo_csv_perform_initial_scan(tokenizer_t *, const char *path, long record_row_offsets_at_interval, bool header, size_t initial_buffer_size);
+string_set_t       *ufo_csv_read_column_unique_values(tokenizer_t *, const char *path, size_t target_column, scan_results_t *, size_t limit, size_t initial_buffer_size);
+read_results_t      ufo_csv_read_column(tokenizer_t *, const char *path, size_t target_column, scan_results_t *, size_t first_row, size_t last_row, size_t initial_buffer_size);
 void                scan_results_free(scan_results_t *);

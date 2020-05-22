@@ -31,18 +31,23 @@ void tokenizer_free(tokenizer_t *tokenizer) {
     free(tokenizer);
 }
 
-tokenizer_read_buffer_t read_buffer_init(size_t character_buffer_size) {
-    tokenizer_read_buffer_t read_buffer;
+tokenizer_read_buffer_t *read_buffer_init(size_t character_buffer_size) {
+    tokenizer_read_buffer_t *read_buffer = (tokenizer_read_buffer_t *) malloc(sizeof(tokenizer_read_buffer_t));
 
-    read_buffer.buffer = (char *) malloc(10 * sizeof(char));
-    read_buffer.max_size = character_buffer_size;
-    read_buffer.size = character_buffer_size;                            // so that it triggers a full buffer...
-    read_buffer.pointer = character_buffer_size;                         // ...check and initially populates it
+    read_buffer->buffer = (char *) malloc(character_buffer_size * sizeof(char));
+    read_buffer->max_size = character_buffer_size;
+    read_buffer->size = character_buffer_size;                            // so that it triggers a full buffer...
+    read_buffer->pointer = character_buffer_size;                         // ...check and initially populates it
 
     return read_buffer;
 }
 
-tokenizer_token_buffer_t *tokenizer_token_buffer_init(size_t max_size) {
+void read_buffer_free(tokenizer_read_buffer_t *read_buffer) {
+    free(read_buffer->buffer);
+    free(read_buffer);
+}
+
+tokenizer_token_buffer_t *tokenizer_token_buffer_init(size_t initial_token_size) {
     tokenizer_token_buffer_t *buffer =
             (tokenizer_token_buffer_t *) malloc(sizeof(tokenizer_token_buffer_t));
 
@@ -51,9 +56,9 @@ tokenizer_token_buffer_t *tokenizer_token_buffer_init(size_t max_size) {
         return NULL;
     }
 
-    buffer->max_size = max_size;
+    buffer->max_size = initial_token_size;
     buffer->size = 0;
-    buffer->buffer = (char *) malloc(sizeof(char) * max_size);
+    buffer->buffer = (char *) malloc(sizeof(char) * initial_token_size);
 
     if (buffer->buffer == NULL) {
         perror("Error: cannot allocate memory for token buffer's internal buffer");
@@ -63,7 +68,7 @@ tokenizer_token_buffer_t *tokenizer_token_buffer_init(size_t max_size) {
     return buffer;
 }
 
-tokenizer_state_t *tokenizer_state_init (const char *path, long initial_offset, size_t max_token_size, size_t character_buffer_size) {
+tokenizer_state_t *tokenizer_state_init (const char *path, long initial_offset, size_t token_buffer_size, size_t character_buffer_size) {
     tokenizer_state_t *state = (tokenizer_state_t *) malloc(sizeof(tokenizer_state_t));
     if (state == NULL) {
         perror("Error: cannot allocate memory for state");
@@ -80,24 +85,24 @@ tokenizer_state_t *tokenizer_state_init (const char *path, long initial_offset, 
     state->read_characters = 0L;
 
     state->read_buffer = read_buffer_init(character_buffer_size);
-    state->token_buffer = tokenizer_token_buffer_init(max_token_size);
+    state->token_buffer = tokenizer_token_buffer_init(token_buffer_size);
 
     return state;
 }
 
 
-char next_character (tokenizer_read_buffer_t *read_buffer, FILE *source) {
-    assert(read_buffer->pointer <= read_buffer->size);
-    if (read_buffer->pointer == read_buffer->size) {
-        int read_characters = fread(read_buffer->buffer, sizeof(char), read_buffer->max_size, source);
+char next_character (tokenizer_state_t *state) {
+    assert(state->read_buffer->pointer <= state->read_buffer->size);
+    if (state->read_buffer->pointer == state->read_buffer->size) {
+        int read_characters = fread(state->read_buffer->buffer, sizeof(char), state->read_buffer->max_size, state->file);
         if (read_characters == 0) {
             return EOF;
         }
-        read_buffer->pointer = 0;
-        read_buffer->size = read_characters;
+        state->read_buffer->pointer = 0;
+        state->read_buffer->size = read_characters;
     }
 
-    return read_buffer->buffer[read_buffer->pointer++];
+    return state->read_buffer->buffer[state->read_buffer->pointer++];
 }
 
 tokenizer_token_t *tokenizer_token_buffer_get_token (tokenizer_token_buffer_t *buffer, bool trim_trailing) {
@@ -154,6 +159,8 @@ void tokenizer_token_buffer_free (tokenizer_token_buffer_t *buffer) {
 
 void tokenizer_state_close (tokenizer_state_t *state) {
     fclose(state->file);
+    tokenizer_token_buffer_free(state->token_buffer);
+    read_buffer_free(state->read_buffer);
     free(state);
 }
 
@@ -232,7 +239,7 @@ tokenizer_result_t tokenizer_next (tokenizer_t *tokenizer, tokenizer_state_t *st
     while (true) {
         switch (state->state) {
             case TOKENIZER_FIELD: {
-                char c = next_character(&state->read_buffer, state->file);
+                char c = next_character(state);
                 if (c == EOF)                         { return pop_and_yield(state, token, TOKENIZER_FINAL, TOKENIZER_END_OF_FILE, skip);         }
                 if (c == tokenizer->column_delimiter) { return pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_OK, skip);                  }
                 if (c == tokenizer->row_delimiter)    { return pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_END_OF_ROW, skip);          }
@@ -243,7 +250,7 @@ tokenizer_result_t tokenizer_next (tokenizer_t *tokenizer, tokenizer_state_t *st
             }
 
             case TOKENIZER_UNQUOTED_FIELD: {
-                char c = next_character(&state->read_buffer, state->file);
+                char c = next_character(state);
                 if (c == EOF)                         { return trim_pop_and_yield(state, token, TOKENIZER_FINAL, TOKENIZER_END_OF_FILE, skip);    }
                 if (c == tokenizer->column_delimiter) { return trim_pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_OK, skip);             }
                 if (c == tokenizer->row_delimiter)    { return trim_pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_END_OF_ROW, skip);     }
@@ -252,7 +259,7 @@ tokenizer_result_t tokenizer_next (tokenizer_t *tokenizer, tokenizer_state_t *st
             }
 
             case TOKENIZER_QUOTED_FIELD: {
-                char c = next_character(&state->read_buffer, state->file);
+                char c = next_character(state);
                 if (is_quote_escape(tokenizer, c))    {        transition(state, TOKENIZER_QUOTE);                                      continue; }
                 if (is_escape(tokenizer, c))          {        transition(state, TOKENIZER_ESCAPE);                                     continue; }
                 if (c == EOF)                         { return pop_and_yield(state, token, TOKENIZER_CRASHED, TOKENIZER_PARSE_ERROR, skip);       }
@@ -260,7 +267,7 @@ tokenizer_result_t tokenizer_next (tokenizer_t *tokenizer, tokenizer_state_t *st
             }
 
             case TOKENIZER_QUOTE: {
-                char c = next_character(&state->read_buffer, state->file);
+                char c = next_character(state);
                 if (c == tokenizer->quote)            { if   (!append(state, c, TOKENIZER_QUOTED_FIELD))                                continue;
                                                         else { transition(state, TOKENIZER_CRASHED); return TOKENIZER_ERROR; }                    }
                 if (c == EOF)                         { return pop_and_yield(state, token, TOKENIZER_CRASHED, TOKENIZER_PARSE_ERROR, skip);       }
@@ -271,7 +278,7 @@ tokenizer_result_t tokenizer_next (tokenizer_t *tokenizer, tokenizer_state_t *st
             }
 
             case TOKENIZER_TRAILING: {
-                char c = next_character(&state->read_buffer, state->file);
+                char c = next_character(state);
                 if (is_whitespace(tokenizer, c))      {        transition(state, TOKENIZER_TRAILING);                                   continue; }
                 if (c == tokenizer->column_delimiter) { return pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_OK, skip);                  }
                 if (c == tokenizer->row_delimiter)    { return pop_and_yield(state, token, TOKENIZER_FIELD, TOKENIZER_END_OF_ROW, skip);          }
@@ -280,7 +287,7 @@ tokenizer_result_t tokenizer_next (tokenizer_t *tokenizer, tokenizer_state_t *st
             }
 
             case TOKENIZER_ESCAPE: {
-                char c = next_character(&state->read_buffer, state->file);
+                char c = next_character(state);
                 if (c == tokenizer->escape)           { if   (!append(state, c, TOKENIZER_QUOTED_FIELD))                                continue;
                                                         else { transition(state, TOKENIZER_CRASHED); return TOKENIZER_ERROR; }                    }
                 if (c == EOF)                         { return pop_and_yield(state, token, TOKENIZER_CRASHED, TOKENIZER_PARSE_ERROR, skip);       }
