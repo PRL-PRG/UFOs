@@ -169,11 +169,10 @@ ufo_vector_type_t token_type_to_ufo_type(token_type_t type) {
     }
 }
 
-SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp) {
+SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp, SEXP/*LGLSXP*/ headers_sexp) {
 
     long interval = 1000;
-    bool headers = true;
-
+    bool headers = __extract_boolean_or_die(headers_sexp);
     const char *path = __extract_path_or_die(path_sexp);
 
     tokenizer_t *tokenizer = new_csv_tokenizer();

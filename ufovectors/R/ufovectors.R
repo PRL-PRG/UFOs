@@ -82,9 +82,20 @@ ufo_matrix_bin <- function(type, path, rows, cols, min_load_count = 0) {
   stop(paste0("Unknown UFO matrix type: ", type))
 }
 
-ufo_csv <- function(path, min_load_count = 0) {
-  .Call("ufo_csv", path.expand(.check_path(path)), as.integer(min_load_count))
+ufo_csv <- function(path, min_load_count = 0, check_names=T, header=T, col.names) {
+  df <- .Call("ufo_csv", path.expand(.check_path(path)), as.integer(min_load_count), header)
+  if (!missing(col.names)) {
+    names(df) <- col.names
+  }
+  else if (!header && missing(col.names)) {
+    names(df) <- sapply(1:length(df), function(i) paste0("V", i))
+  }
+  if(check_names) {
+    names(df) <- make.names(names(df), unique=T)
+  }
+  df
 }
+# todo row.names
 
 #ufo_rep <- function(x, times) {
 #    if (missing(x)) stop("Missing vector to repeat.")
