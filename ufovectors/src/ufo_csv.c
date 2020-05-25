@@ -80,7 +80,7 @@ int load_column_from_csv(uint64_t start, uint64_t end, ufPopulateCallout cf, ufU
             if (__get_debug_mode()) {
                 REprintf("           created bad strings:\n\n");
                 for (size_t i = 0; i < tokens.size; i++) {
-                    REprintf("               %-20s %x\n", tokens.tokens[i]->string, strings[i]);
+                    REprintf("               %-20s %p\n", tokens.tokens[i]->string, strings[i]);
                 }
                 REprintf("\n");
             }
@@ -237,14 +237,14 @@ SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp, SEXP/
             for (size_t i = 0; i < unique_values->size; i++) {
                 SEXP pointer = mkChar(unique_values->strings[i]); // FIXME PROTECT?
 
-#ifdef SWITCH_TO_REFCNT
-                SET_REFCNT(pointer, 1);
-#else
-                SET_NAMED(pointer, 1);
-#endif
+//#ifdef SWITCH_TO_REFCNT
+//                SET_REFCNT(pointer, 1);
+//#else
+//                SET_NAMED(pointer, 1);
+//#endif
 
                 if (__get_debug_mode()) {
-                    REprintf("        %-20s 0x%x\n", unique_values->strings[i], pointer);
+                    REprintf("        %-20s %p\n", unique_values->strings[i], pointer);
                 }
             }
 
@@ -255,6 +255,10 @@ SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp, SEXP/
     }
 
     SEXP/*VECSXP*/ data_frame = PROTECT(allocVector(VECSXP, csv_metadata->columns));
+    if (__get_debug_mode()) {
+        REprintf("Creating UFOs to insert into data frame SEXP at %p\n\n", data_frame);
+    }
+
     for (size_t column = 0; column < csv_metadata->columns; column++) {
 
         ufo_csv_column_source_t *data = (ufo_csv_column_source_t *) malloc(sizeof(ufo_csv_column_source_t));
@@ -280,7 +284,15 @@ SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp, SEXP/
         data->initial_buffer_size = initial_buffer_size;
 
         ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
-        SET_VECTOR_ELT(data_frame, column, PROTECT(ufo_new(source)));
+        SEXP/*UFO*/ vector =  PROTECT(ufo_new(source));
+        SET_VECTOR_ELT(data_frame, column, vector);
+
+        if (__get_debug_mode()) {
+            REprintf("        [%li]: SEXP at   %p\n", column, vector);
+        }
+    }
+    if (__get_debug_mode()) {
+        REprintf("\n");
     }
 
     setAttrib(data_frame, R_ClassSymbol, mkString("data.frame"));
@@ -296,6 +308,12 @@ SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp, SEXP/
         SET_STRING_ELT(names, i, mkChar(csv_metadata->column_names[i]));
     }
     setAttrib(data_frame, R_NamesSymbol, names);
+
+    if (__get_debug_mode()) {
+        //REprintf("          class     %p\n", column, );
+        REprintf("          names     %p\n", column, names);
+        REprintf("          row.names %p\n", column, row_names);
+    }
 
     UNPROTECT(1 + csv_metadata->columns + 2);
     return data_frame;
