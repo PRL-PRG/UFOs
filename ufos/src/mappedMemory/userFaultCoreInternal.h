@@ -62,6 +62,10 @@ typedef struct {
   uint64_t          trueSize;
   sparseList_t      rangeMetadata;
 
+  int               writebackMmapFd;
+  uint8_t*          writebackMmapBase;
+  uint32_t          writebackMmapBitmapLength;
+
   uint64_t          id;
 } ufObject;
 
