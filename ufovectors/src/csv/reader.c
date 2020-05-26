@@ -154,12 +154,12 @@ void scan_results_free(scan_results_t *results) {
     free(results);
 }
 
-scan_results_t *ufo_csv_perform_initial_scan(tokenizer_t *tokenizer, const char* path, long record_row_offsets_at_interval, bool header) {
+scan_results_t *ufo_csv_perform_initial_scan(tokenizer_t *tokenizer, const char* path, long record_row_offsets_at_interval, bool header, size_t initial_buffer_size) {
 
-    tokenizer_state_t *state = tokenizer_state_init(path, 0, 10, 10);
+    tokenizer_state_t *state = tokenizer_state_init(path, 0, initial_buffer_size, initial_buffer_size);
     tokenizer_start(tokenizer, state);
 
-    offset_record_t *row_offsets = offset_record_new(record_row_offsets_at_interval, 100);
+    offset_record_t *row_offsets = offset_record_new(record_row_offsets_at_interval, initial_buffer_size);
 
     size_t row = 0;
     size_t column = 0;
@@ -274,7 +274,7 @@ scan_results_t *ufo_csv_perform_initial_scan(tokenizer_t *tokenizer, const char*
 
 
 
-string_set_t *ufo_csv_read_column_unique_values(tokenizer_t *tokenizer, const char *path, size_t target_column, scan_results_t *scan_results, size_t limit) {
+string_set_t *ufo_csv_read_column_unique_values(tokenizer_t *tokenizer, const char *path, size_t target_column, scan_results_t *scan_results, size_t limit, size_t initial_buffer_size) {
     string_set_t *unique_tokens = string_set_new(10);
 
     if (scan_results->rows == 0) {
@@ -285,7 +285,7 @@ string_set_t *ufo_csv_read_column_unique_values(tokenizer_t *tokenizer, const ch
     size_t row_at_offset;
     offset_record_get_value_closest_to_this_key(scan_results->row_offsets, 0, &offset, &row_at_offset);
 
-    tokenizer_state_t *state = tokenizer_state_init(path, offset, 10, 10); // FIXME values
+    tokenizer_state_t *state = tokenizer_state_init(path, offset, initial_buffer_size, initial_buffer_size);
     tokenizer_start(tokenizer, state);
 
     size_t row = row_at_offset;
@@ -342,7 +342,7 @@ string_set_t *ufo_csv_read_column_unique_values(tokenizer_t *tokenizer, const ch
 }
 
 
-read_results_t ufo_csv_read_column(tokenizer_t *tokenizer, const char *path, size_t target_column, scan_results_t *scan_results, size_t first_row, size_t last_row) {
+read_results_t ufo_csv_read_column(tokenizer_t *tokenizer, const char *path, size_t target_column, scan_results_t *scan_results, size_t first_row, size_t last_row, size_t initial_buffer_size) {
 
     assert(first_row <= last_row);
     assert(last_row < scan_results->rows);
@@ -356,7 +356,7 @@ read_results_t ufo_csv_read_column(tokenizer_t *tokenizer, const char *path, siz
     size_t row_at_offset;
     offset_record_get_value_closest_to_this_key(scan_results->row_offsets, first_row, &offset, &row_at_offset);
 
-    tokenizer_state_t *state = tokenizer_state_init(path, offset, 10, 10);
+    tokenizer_state_t *state = tokenizer_state_init(path, offset, initial_buffer_size, initial_buffer_size);
     tokenizer_start(tokenizer, state);
 
     if (last_row == 0) {
@@ -394,13 +394,6 @@ read_results_t ufo_csv_read_column(tokenizer_t *tokenizer, const char *path, siz
             assert(row - first_row >= 0);
             tokens[row - first_row] = token;
             found_column = true;
-
-//            printf("(row: %li, column: %li) [size: %li, start: %li, end: %li, string: <%s>] is_target: %i, is_within_range: %i %s\n",
-//                   row, column,
-//                   token->size, token->position_start, token->position_end, token->string,
-//                   column != target_column,
-//                   row >= first_row && (last_row == 0 || row <= last_row),
-//                   tokenizer_result_to_string(result));
         }
 
         switch (result) {

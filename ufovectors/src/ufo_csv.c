@@ -20,6 +20,7 @@ typedef struct {
     scan_results_t     *metadata;
     uint32_t           *references_to_metadata;
     tokenizer_t        *tokenizer;
+    size_t              initial_buffer_size;
 } ufo_csv_column_source_t;
 
 
@@ -44,7 +45,7 @@ int load_column_from_csv(uint64_t start, uint64_t end, ufPopulateCallout cf, ufU
     size_t first_row = start;
     size_t last_row = end;
 
-    read_results_t tokens = ufo_csv_read_column(data->tokenizer, data->path, data->column, data->metadata, first_row, last_row);
+    read_results_t tokens = ufo_csv_read_column(data->tokenizer, data->path, data->column, data->metadata, first_row, last_row, data->initial_buffer_size);
 
     switch (data->metadata->column_types[data->column]) {
         case TOKEN_INTEGER: {
@@ -169,15 +170,15 @@ ufo_vector_type_t token_type_to_ufo_type(token_type_t type) {
     }
 }
 
-SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp) {
+SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp, SEXP/*LGLSXP*/ headers_sexp, SEXP/*INTSXP*/ record_row_offsets_at_interval_sexp, SEXP/*INTSXP*/ initial_buffer_size_sexp) {
 
-    long interval = 1000;
-    bool headers = true;
-
+    bool headers = __extract_boolean_or_die(headers_sexp);
     const char *path = __extract_path_or_die(path_sexp);
+    long record_row_offsets_at_interval = __extract_int_or_die(record_row_offsets_at_interval_sexp);
+    size_t initial_buffer_size = __extract_int_or_die(initial_buffer_size_sexp);
 
     tokenizer_t *tokenizer = new_csv_tokenizer();
-    scan_results_t *csv_metadata = ufo_csv_perform_initial_scan(tokenizer, path, interval, headers);
+    scan_results_t *csv_metadata = ufo_csv_perform_initial_scan(tokenizer, path, record_row_offsets_at_interval, headers, initial_buffer_size);
     uint32_t *references_to_metadata = (uint32_t *) malloc(sizeof(uint32_t));
     *references_to_metadata = csv_metadata->columns;
 
@@ -215,7 +216,7 @@ SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp) {
     for (size_t column = 0; column < csv_metadata->columns; column++) {
         if (csv_metadata->column_types[column] == TOKEN_STRING) {
             size_t limit = 5; //FIXME as parameter also FIXME make work
-            string_set_t *unique_values = ufo_csv_read_column_unique_values(tokenizer, path, column, csv_metadata, limit);
+            string_set_t *unique_values = ufo_csv_read_column_unique_values(tokenizer, path, column, csv_metadata, limit, initial_buffer_size);
             REprintf("    ... [%li]: %li vs %li\n\n", column, unique_values->size, limit);
             if (unique_values->size == limit) {
                 if (__get_debug_mode()) {
@@ -276,6 +277,7 @@ SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp) {
         data->metadata = csv_metadata;
         data->references_to_metadata = references_to_metadata;
         data->tokenizer = tokenizer;
+        data->initial_buffer_size = initial_buffer_size;
 
         ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
         SET_VECTOR_ELT(data_frame, column, PROTECT(ufo_new(source)));
