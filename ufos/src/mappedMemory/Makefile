@@ -3,8 +3,8 @@
 UFO_KEY = -D__UFOs_CoreDev__
 PKG_LIBS = -pthread
 OBJ = sparseList.o userfaultCore.o userfaultGettersSetters.o oroboros.o
-CFLAGS = -fpic -g -O2 -Wall -Werror
-#-Og -ggdb -Wall -Werror -fPIC
+#CFLAGS = -fpic -g -O2 -Wall -Werror
+CFLAGS = -Og -ggdb -Wall -Werror -fPIC
 LIB = libmappedMemory.a
 LIBS = -lcrypto
 

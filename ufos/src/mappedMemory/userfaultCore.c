@@ -172,6 +172,8 @@ static int ufCopy(ufInstance* i, struct uffdio_copy* copy){
 }
 
 static int reclaimMemory(ufInstance* i, oroboros_item_t* chunkMetadata){
+  if(0 == chunkMetadata->size)
+    return 0; // this chunk was already reclaimed
   uint8_t* sha = (uint8_t*)alloca(SHA256_DIGEST_LENGTH);
   SHA256(chunkMetadata->address, chunkMetadata->size, sha);
 
@@ -555,8 +557,8 @@ static int initUfFileDescriptor(ufInstance* ins){
 int ufSetMemoryLimits(ufInstance_t instance, size_t highWaterMarkBytes, size_t lowWaterMarkBytes) {
   ufInstance* ins =  asUfInstance(instance);
 
-  if (!(ins->highWaterMarkBytes == 0 && ins->lowWaterMarkBytes == 0)) {
-    perror("Memory limits can only be set once");
+  if (0 != ins->userfaultThread) {
+    perror("Memory limits can only be set before init");
     return -1;
   }
 
