@@ -45,8 +45,10 @@ int oroboros_push(oroboros_t an_oroboros, oroboros_item_t item, int resize) {   
     if (!resize) {                                                              // sometimes it is not time to make oroboros bigger
       return -1;                                                                // but oroboros is full
     } else {                                                                    // perhaps it is time to make oroboros bigger
-      return oroboros_resize(an_oroboros,                                       // oroboros will try to grow
-                             oroboros->size + (oroboros->size >> 1));
+      if(oroboros_resize(an_oroboros,                                           // oroboros will try to grow
+          oroboros->size + (oroboros->size >> 1))){
+        return -1;                                                              // oroboros discovered resizing was unwise
+      }
     }
   }
 
