@@ -310,6 +310,7 @@ static int readHandleUfEvent(ufInstance* i){
           .address = (void *) faultAtLoadBoundaryAbsolute,
           .ufo     = ufo
   };
+  //TODO CMYK 2020.05.26 : Blake 2 or 3 would be faster, but this was handy
   SHA256(copySource, fillSizeBytes, chunkMetadata.sha);
 
 
