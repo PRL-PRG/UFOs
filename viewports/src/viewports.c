@@ -40,8 +40,14 @@ void read_start_and_size(SEXP/*INTSXP*/ window, R_xlen_t *start, R_xlen_t *size)
 SEXP viewport_new(SEXP source, R_xlen_t start, R_xlen_t size) {
 
     Rprintf("viewport_new %li, %li\n", start, size);
+    assert(TYPEOF(source) == INTSXP
+        || TYPEOF(source) == REALSXP
+        || TYPEOF(source) == CPLXSXP
+        || TYPEOF(source) == LGLSXP
+        || TYPEOF(source) == VECSXP
+        || TYPEOF(source) == STRSXP);
 
-    // TODO check vector size vs start and end
+                   // FIXME check vector size vs start and end
 
     SEXP/*INTSXP*/ window = allocVector(INTSXP, 2 * how_many_ints_in_R_xlen_t);
 
@@ -56,13 +62,37 @@ SEXP viewport_new(SEXP source, R_xlen_t start, R_xlen_t size) {
         SET_INTEGER_ELT(window, how_many_ints_in_R_xlen_t + i, size_converter.integers[i]);
     }
 
-    return R_new_altrep(viewport_altrep, window, source);
+    SEXP/*LISTSXP*/ data = allocSExp(LISTSXP);
+    SETCAR (data, source);     // The original vector
+    SET_TAG(data, R_NilValue); // Starts as R_NilValue, becomes a vector if it the viewport is written to
+    SETCDR (data, R_NilValue); // Nothing here
+
+    return R_new_altrep(viewport_altrep, window, data);
+}
+
+static inline SEXP/*INTSXP*/ get_window(SEXP x) {
+    return R_altrep_data1(x);
+}
+
+static inline SEXP get_source(SEXP x) {
+    SEXP/*LISTSXP*/ cell =  R_altrep_data2(x);
+    return CAR(cell);
+}
+
+static inline SEXP get_materialized_data(SEXP x) {
+    SEXP/*LISTSXP*/ cell =  R_altrep_data2(x);
+    return TAG(cell);
+}
+
+static inline bool is_materialized(SEXP x) {
+    SEXP/*LISTSXP*/ cell =  R_altrep_data2(x);
+    return TAG(cell) == R_NilValue;
 }
 
 SEXP viewport_duplicate(SEXP x, Rboolean deep) {
 
-    SEXP/*INTSXP*/ window = R_altrep_data1(x);
-    SEXP           source = R_altrep_data2(x);
+    SEXP/*INTSXP*/ window = get_window(x);
+    SEXP           source = get_source(x);
 
     if (deep) {
         R_xlen_t start = 0;
@@ -93,7 +123,7 @@ static R_xlen_t viewport_length(SEXP x) {
         Rprintf("           SEXP: %p\n", x);
     //}
 
-    SEXP/*INTSXP*/ window = R_altrep_data1(x);
+    SEXP/*INTSXP*/ window = get_window(x);
 
     R_xlen_t start = 0;
     R_xlen_t size  = 0;
@@ -103,8 +133,8 @@ static R_xlen_t viewport_length(SEXP x) {
 }
 
 const void *extract_read_only_data_pointer(SEXP x) {
-    SEXP/*INTSXP*/ window = R_altrep_data1(x);
-    SEXP           source = R_altrep_data2(x);
+    SEXP/*INTSXP*/ window = get_window(x);
+    SEXP           source = get_source(x);
 
     R_xlen_t start = 0;
     R_xlen_t size  = 0;
@@ -189,8 +219,10 @@ R_xlen_t project_index(SEXP/*INTSXP*/ window, R_xlen_t index) {
 static int viewport_integer_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
-    SEXP/*INTSXP*/ window = R_altrep_data1(x);
-    SEXP/*INTSXP*/ source = R_altrep_data2(x);
+    SEXP/*INTSXP*/ window = get_window(x);
+    SEXP/*INTSXP*/ source = get_source(x);
+
+    assert(TYPEOF(source) == INTSXP);
 
     R_xlen_t projected_index = project_index(window, i);
 
@@ -200,8 +232,10 @@ static int viewport_integer_element(SEXP x, R_xlen_t i) {
 static double viewport_numeric_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
-    SEXP/*INTSXP*/ window = R_altrep_data1(x);
-    SEXP/*INTSXP*/ source = R_altrep_data2(x);
+    SEXP/*INTSXP*/  window = get_window(x);
+    SEXP/*REALSXP*/ source = get_source(x);
+
+    assert(TYPEOF(source) == REALSXP);
 
     R_xlen_t projected_index = project_index(window, i);
 
@@ -211,8 +245,10 @@ static double viewport_numeric_element(SEXP x, R_xlen_t i) {
 static Rbyte viewport_raw_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
-    SEXP/*INTSXP*/ window = R_altrep_data1(x);
-    SEXP/*INTSXP*/ source = R_altrep_data2(x);
+    SEXP/*INTSXP*/ window = get_window(x);
+    SEXP/*RAWSXP*/ source = get_source(x);
+
+    assert(TYPEOF(source) == RAWSXP);
 
     R_xlen_t projected_index = project_index(window, i);
 
@@ -222,8 +258,10 @@ static Rbyte viewport_raw_element(SEXP x, R_xlen_t i) {
 static Rcomplex viewport_complex_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
-    SEXP/*INTSXP*/ window = R_altrep_data1(x);
-    SEXP/*INTSXP*/ source = R_altrep_data2(x);
+    SEXP/*INTSXP*/  window = get_window(x);
+    SEXP/*CPLXSXP*/ source = get_source(x);
+
+    assert(TYPEOF(source) == CPLXSXP);
 
     R_xlen_t projected_index = project_index(window, i);
 
@@ -233,8 +271,10 @@ static Rcomplex viewport_complex_element(SEXP x, R_xlen_t i) {
 static int viewport_logical_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
-    SEXP/*INTSXP*/ window = R_altrep_data1(x);
-    SEXP/*INTSXP*/ source = R_altrep_data2(x);
+    SEXP/*INTSXP*/ window = get_window(x);
+    SEXP/*LGLSXP*/ source = get_source(x);
+
+    assert(TYPEOF(source) == LGLSXP);
 
     R_xlen_t projected_index = project_index(window, i);
 
@@ -244,8 +284,10 @@ static int viewport_logical_element(SEXP x, R_xlen_t i) {
 static R_xlen_t viewport_integer_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf) {
     assert(x != R_NilValue);
 
-    SEXP/*INTSXP*/ window = R_altrep_data1(x);
-    SEXP/*INTSXP*/ source = R_altrep_data2(x);
+    SEXP/*INTSXP*/ window = get_window(x);
+    SEXP/*INTSXP*/ source = get_source(x);
+
+    assert(TYPEOF(source) == INTSXP);
 
     R_xlen_t projected_index = project_index(window, i);
 
@@ -255,8 +297,10 @@ static R_xlen_t viewport_integer_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int 
 static R_xlen_t viewport_numeric_get_region(SEXP x, R_xlen_t i, R_xlen_t n, double *buf) {
     assert(x != R_NilValue);
 
-    SEXP/*INTSXP*/ window = R_altrep_data1(x);
-    SEXP/*INTSXP*/ source = R_altrep_data2(x);
+    SEXP/*INTSXP*/ window = get_window(x);
+    SEXP/*REALSXP*/ source = get_source(x);
+
+    assert(TYPEOF(source) == REALSXP);
 
     R_xlen_t projected_index = project_index(window, i);
 
@@ -266,8 +310,10 @@ static R_xlen_t viewport_numeric_get_region(SEXP x, R_xlen_t i, R_xlen_t n, doub
 static R_xlen_t viewport_raw_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rbyte *buf) {
     assert(x != R_NilValue);
 
-    SEXP/*INTSXP*/ window = R_altrep_data1(x);
-    SEXP/*INTSXP*/ source = R_altrep_data2(x);
+    SEXP/*INTSXP*/ window = get_window(x);
+    SEXP/*RAWSXP*/ source = get_source(x);
+
+    assert(TYPEOF(source) == RAWSXP);
 
     R_xlen_t projected_index = project_index(window, i);
 
@@ -277,8 +323,10 @@ static R_xlen_t viewport_raw_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rbyte *b
 static R_xlen_t viewport_complex_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rcomplex *buf) {
     assert(x != R_NilValue);
 
-    SEXP/*INTSXP*/ window = R_altrep_data1(x);
-    SEXP/*INTSXP*/ source = R_altrep_data2(x);
+    SEXP/*INTSXP*/  window = get_window(x);
+    SEXP/*CPLXSXP*/ source = get_source(x);
+
+    assert(TYPEOF(source) == CPLXSXP);
 
     R_xlen_t projected_index = project_index(window, i);
 
@@ -288,8 +336,10 @@ static R_xlen_t viewport_complex_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rcom
 static R_xlen_t viewport_logical_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf) {
     assert(x != R_NilValue);
 
-    SEXP/*INTSXP*/ window = R_altrep_data1(x);
-    SEXP/*INTSXP*/ source = R_altrep_data2(x);
+    SEXP/*INTSXP*/ window = get_window(x);
+    SEXP/*LGLSXP*/ source = get_source(x);
+
+    assert(TYPEOF(source) == LGLSXP);
 
     R_xlen_t projected_index = project_index(window, i);
 
@@ -362,8 +412,8 @@ R_xlen_t get_first_element_as_length(SEXP/*INTSXP | REALSXP*/ indices) {
 }
 
 static SEXP ufo_extract_subset(SEXP x, SEXP indices, SEXP call) {
-    SEXP/*INTSXP*/ window = R_altrep_data1(x);
-    SEXP/*INTSXP*/ source = R_altrep_data2(x);
+    SEXP/*INTSXP*/ window = get_window(x);
+    SEXP           source = get_source(x);
 
     if (!are_indices_contiguous(indices)) {
         Rf_error("Non-contiguous viewports are not implemented yet.\n"); // FIXME
