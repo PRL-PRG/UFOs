@@ -1,4 +1,4 @@
 useDynLib(viewports, .registration = TRUE, .fixes = "")
 
-export(viewport)
-export(viewport_set_debug_mode)
+export(slice)
+export(viewports_set_debug_mode)

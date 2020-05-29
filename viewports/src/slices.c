@@ -12,9 +12,9 @@
 #include "debug.h"
 #include "helpers.h"
 
-#include "viewports.h"
+#include "slices.h"
 
-static R_altrep_class_t viewport_altrep;
+static R_altrep_class_t slice_altrep;
 
 # define how_many_ints_in_R_xlen_t (sizeof(R_xlen_t) / sizeof(int))
 typedef union {
@@ -37,7 +37,7 @@ void read_start_and_size(SEXP/*INTSXP*/ window, R_xlen_t *start, R_xlen_t *size)
     *size = size_converter.length;
 }
 
-SEXP viewport_new(SEXP source, R_xlen_t start, R_xlen_t size) {
+SEXP slice_new(SEXP source, R_xlen_t start, R_xlen_t size) {
 
     assert(TYPEOF(source) == INTSXP
         || TYPEOF(source) == REALSXP
@@ -49,7 +49,7 @@ SEXP viewport_new(SEXP source, R_xlen_t start, R_xlen_t size) {
                    // FIXME check vector size vs start and end
 
     if (__get_debug_mode()) {
-        Rprintf("viewport_new\n");
+        Rprintf("slice_new\n");
         Rprintf("           SEXP: %p\n", source);
         Rprintf("          start: %li\n", start);
         Rprintf("           size: %li\n", size);
@@ -70,10 +70,10 @@ SEXP viewport_new(SEXP source, R_xlen_t start, R_xlen_t size) {
 
     SEXP/*LISTSXP*/ data = allocSExp(LISTSXP);
     SETCAR (data, source);     // The original vector
-    SET_TAG(data, R_NilValue); // Starts as R_NilValue, becomes a vector if it the viewport is written to
+    SET_TAG(data, R_NilValue); // Starts as R_NilValue, becomes a vector if it the slice is written to
     SETCDR (data, R_NilValue); // Nothing here
 
-    return R_new_altrep(viewport_altrep, window, data);
+    return R_new_altrep(slice_altrep, window, data);
 }
 
 static inline SEXP/*INTSXP*/ get_window(SEXP x) {
@@ -100,10 +100,10 @@ static inline bool is_materialized(SEXP x) {
     return TAG(cell) != R_NilValue;
 }
 
-SEXP viewport_duplicate(SEXP x, Rboolean deep) {
+SEXP slice_duplicate(SEXP x, Rboolean deep) {
 
     if (__get_debug_mode()) {
-        Rprintf("viewport_duplicate\n");
+        Rprintf("slice_duplicate\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("           deep: %i\n", deep);
         Rprintf("is_materialized: %i\n", is_materialized(x));
@@ -116,25 +116,25 @@ SEXP viewport_duplicate(SEXP x, Rboolean deep) {
         R_xlen_t start = 0;
         R_xlen_t size  = 0;
         read_start_and_size(window, &start, &size);
-        SEXP viewport = viewport_new(source, start, size);
+        SEXP slice = slice_new(source, start, size);
         if (is_materialized(x)) {
             SEXP data = get_materialized_data(x);
-            set_materialized_data(viewport, duplicate(data));
+            set_materialized_data(slice, duplicate(data));
         }
-        return viewport;
+        return slice;
     } else {
         SEXP/*LISTSXP*/ meta = allocSExp(LISTSXP);
         SETCAR (meta, source);     // The original vector
         SEXP data = is_materialized(x) ? get_materialized_data(x) : R_NilValue;
-        SET_TAG(meta, data);       // Starts as R_NilValue, becomes a vector if it the viewport is written to
+        SET_TAG(meta, data);       // Starts as R_NilValue, becomes a vector if it the slice is written to
         SETCDR (meta, R_NilValue); // Nothing here
-        return R_new_altrep(viewport_altrep, window, meta);
+        return R_new_altrep(slice_altrep, window, meta);
     }
 }
 
-static Rboolean viewport_inspect(SEXP x, int pre, int deep, int pvec, void (*inspect_subtree)(SEXP, int, int, int)) {
+static Rboolean slice_inspect(SEXP x, int pre, int deep, int pvec, void (*inspect_subtree)(SEXP, int, int, int)) {
 
-    Rprintf("viewport_altrep %s\n", type2char(TYPEOF(x)));
+    Rprintf("slice_altrep %s\n", type2char(TYPEOF(x)));
 
     inspect_subtree(R_altrep_data1(x), pre, deep, pvec);
     inspect_subtree(R_altrep_data2(x), pre, deep, pvec);
@@ -142,9 +142,9 @@ static Rboolean viewport_inspect(SEXP x, int pre, int deep, int pvec, void (*ins
     return FALSE;
 }
 
-static R_xlen_t viewport_length(SEXP x) {
+static R_xlen_t slice_length(SEXP x) {
     if (__get_debug_mode()) {
-        Rprintf("viewport_length\n");
+        Rprintf("slice_length\n");
         Rprintf("           SEXP: %p\n", x);
     }
 
@@ -194,7 +194,7 @@ const void *extract_read_only_data_pointer(SEXP x) {
             const SEXP *sexps = (const SEXP *) data;
             return (const void *) (&sexps[start]);
         }
-        default: Rf_error("Illegal source type for a viewport: %i.\n", type);
+        default: Rf_error("Illegal source type for a slice: %i.\n", type);
     }
 }
 
@@ -254,17 +254,17 @@ SEXP copy_from_source(SEXP x) {
             }
             break;
         }
-        default: Rf_error("Illegal source type for a viewport: %i.\n", type);
+        default: Rf_error("Illegal source type for a slice: %i.\n", type);
     }
 
     return materialized;
 }
 
-static void *viewport_dataptr(SEXP x, Rboolean writeable) {
+static void *slice_dataptr(SEXP x, Rboolean writeable) {
     assert(x != NULL);
 
     if (__get_debug_mode()) {
-        Rprintf("viewport_dataptr\n");
+        Rprintf("slice_dataptr\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("      writeable: %i\n", writeable);
         Rprintf("is_materialized: %i\n", is_materialized(x));
@@ -284,11 +284,11 @@ static void *viewport_dataptr(SEXP x, Rboolean writeable) {
     return (void *) extract_read_only_data_pointer(x);
 }
 
-static const void *viewport_dataptr_or_null(SEXP x) {
+static const void *slice_dataptr_or_null(SEXP x) {
     assert(x != NULL);
 
     if (__get_debug_mode()) {
-        Rprintf("viewport_dataptr_or_null\n");
+        Rprintf("slice_dataptr_or_null\n");
         Rprintf("           SEXP: %p\n", x);
     }
 
@@ -317,11 +317,11 @@ R_xlen_t project_index(SEXP/*INTSXP*/ window, R_xlen_t index) {
     return projected_index;
 }
 
-static int viewport_integer_element(SEXP x, R_xlen_t i) {
+static int slice_integer_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
     if (__get_debug_mode()) {
-        Rprintf("viewport_integer_element\n");
+        Rprintf("slice_integer_element\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
         Rprintf("is_materialized: %i\n", is_materialized(x));
@@ -343,11 +343,11 @@ static int viewport_integer_element(SEXP x, R_xlen_t i) {
     return INTEGER_ELT(source, projected_index);
 }
 
-static double viewport_numeric_element(SEXP x, R_xlen_t i) {
+static double slice_numeric_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
     if (__get_debug_mode()) {
-        Rprintf("viewport_numeric_element\n");
+        Rprintf("slice_numeric_element\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
         Rprintf("is_materialized: %i\n", is_materialized(x));
@@ -369,11 +369,11 @@ static double viewport_numeric_element(SEXP x, R_xlen_t i) {
     return REAL_ELT(source, projected_index);
 }
 
-static Rbyte viewport_raw_element(SEXP x, R_xlen_t i) {
+static Rbyte slice_raw_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
     if (__get_debug_mode()) {
-        Rprintf("viewport_raw_element\n");
+        Rprintf("slice_raw_element\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
         Rprintf("is_materialized: %i\n", is_materialized(x));
@@ -395,11 +395,11 @@ static Rbyte viewport_raw_element(SEXP x, R_xlen_t i) {
     return RAW_ELT(source, projected_index);
 }
 
-static Rcomplex viewport_complex_element(SEXP x, R_xlen_t i) {
+static Rcomplex slice_complex_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
     if (__get_debug_mode()) {
-        Rprintf("viewport_complex_element\n");
+        Rprintf("slice_complex_element\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
         Rprintf("is_materialized: %i\n", is_materialized(x));
@@ -421,11 +421,11 @@ static Rcomplex viewport_complex_element(SEXP x, R_xlen_t i) {
     return COMPLEX_ELT(source, projected_index);
 }
 
-static int viewport_logical_element(SEXP x, R_xlen_t i) {
+static int slice_logical_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
     if (__get_debug_mode()) {
-        Rprintf("viewport_logical_element\n");
+        Rprintf("slice_logical_element\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
         Rprintf("is_materialized: %i\n", is_materialized(x));
@@ -447,11 +447,11 @@ static int viewport_logical_element(SEXP x, R_xlen_t i) {
     return LOGICAL_ELT(source, projected_index);
 }
 
-static R_xlen_t viewport_integer_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf) {
+static R_xlen_t slice_integer_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf) {
     assert(x != R_NilValue);
 
     if (__get_debug_mode()) {
-        Rprintf("viewport_integer_get_region\n");
+        Rprintf("slice_integer_get_region\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
         Rprintf("           size: %li\n", n);
@@ -474,11 +474,11 @@ static R_xlen_t viewport_integer_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int 
     return INTEGER_GET_REGION(source, projected_index, n, buf);
 }
 
-static R_xlen_t viewport_numeric_get_region(SEXP x, R_xlen_t i, R_xlen_t n, double *buf) {
+static R_xlen_t slice_numeric_get_region(SEXP x, R_xlen_t i, R_xlen_t n, double *buf) {
     assert(x != R_NilValue);
 
     if (__get_debug_mode()) {
-        Rprintf("viewport_numeric_get_region\n");
+        Rprintf("slice_numeric_get_region\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
         Rprintf("           size: %li\n", n);
@@ -501,11 +501,11 @@ static R_xlen_t viewport_numeric_get_region(SEXP x, R_xlen_t i, R_xlen_t n, doub
     return REAL_GET_REGION(source, projected_index, n, buf);
 }
 
-static R_xlen_t viewport_raw_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rbyte *buf) {
+static R_xlen_t slice_raw_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rbyte *buf) {
     assert(x != R_NilValue);
 
     if (__get_debug_mode()) {
-        Rprintf("viewport_raw_get_region\n");
+        Rprintf("slice_raw_get_region\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
         Rprintf("           size: %li\n", n);
@@ -528,11 +528,11 @@ static R_xlen_t viewport_raw_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rbyte *b
     return RAW_GET_REGION(source, projected_index, n, buf);
 }
 
-static R_xlen_t viewport_complex_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rcomplex *buf) {
+static R_xlen_t slice_complex_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rcomplex *buf) {
     assert(x != R_NilValue);
 
     if (__get_debug_mode()) {
-        Rprintf("viewport_complex_get_region\n");
+        Rprintf("slice_complex_get_region\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
         Rprintf("           size: %li\n", n);
@@ -555,11 +555,11 @@ static R_xlen_t viewport_complex_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rcom
     return COMPLEX_GET_REGION(source, projected_index, n, buf);
 }
 
-static R_xlen_t viewport_logical_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf) {
+static R_xlen_t slice_logical_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf) {
     assert(x != R_NilValue);
 
     if (__get_debug_mode()) {
-        Rprintf("viewport_logical_get_region\n");
+        Rprintf("slice_logical_get_region\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
         Rprintf("           size: %li\n", n);
@@ -631,7 +631,7 @@ bool are_indices_contiguous(SEXP/*INTSXP | REALSXP*/ indices) {
 	switch (type) {
 	    case INTSXP:  return are_integer_indices_contiguous(indices);
 	    case REALSXP: return are_numeric_indices_contiguous(indices);
-	    default:      Rf_error("Viewports can be indexed by integer or numeric vectors but found: %d\n", type);
+	    default:      Rf_error("Slices can be indexed by integer or numeric vectors but found: %d\n", type);
 	}
 }
 
@@ -689,7 +689,7 @@ SEXP copy_data_at_indices(SEXP source, SEXP/*INTSXP | REALSXP*/ indices) {
     switch (type) {
         case INTSXP:  return copy_data_at_integer_indices(source, indices);
         case REALSXP: return copy_data_at_numeric_indices(source, indices);
-        default:      Rf_error("Viewports can be indexed by integer or numeric vectors but found: %d\n", type);
+        default:      Rf_error("Slices can be indexed by integer or numeric vectors but found: %d\n", type);
     }
 }
 
@@ -701,11 +701,11 @@ R_xlen_t get_first_element_as_length(SEXP/*INTSXP | REALSXP*/ indices) {
     switch (type) {
         case INTSXP:  return (R_xlen_t) INTEGER_ELT(indices, 0);
         case REALSXP: return (R_xlen_t) REAL_ELT(indices, 0);
-        default:      Rf_error("Viewports can be indexed by integer or numeric vectors but found: %d\n", type);
+        default:      Rf_error("Slices can be indexed by integer or numeric vectors but found: %d\n", type);
     }
 }
 
-static SEXP viewport_extract_subset(SEXP x, SEXP indices, SEXP call) {
+static SEXP slice_extract_subset(SEXP x, SEXP indices, SEXP call) {
     assert(x != NULL);
 
     if (__get_debug_mode()) {
@@ -730,13 +730,13 @@ static SEXP viewport_extract_subset(SEXP x, SEXP indices, SEXP call) {
     }
 
     if (!are_indices_contiguous(indices)) {
-        Rf_error("Non-contiguous viewports are not implemented yet.\n"); // FIXME
+        Rf_error("Non-contiguous slices are not implemented yet.\n"); // FIXME
     }
 
     // Contiguous indices.
     R_xlen_t start = get_first_element_as_length(indices) - 1;
     R_xlen_t projected_start = project_index(window, start);
-    return viewport_new(source, projected_start, size);
+    return slice_new(source, projected_start, size);
 }
 
 // R_set_altstring_Set_elt_method
@@ -746,39 +746,38 @@ static SEXP viewport_extract_subset(SEXP x, SEXP indices, SEXP call) {
 // string_elt(SEXP x, R_xlen_t i)
 
 // UFO Inits
-void init_viewport_altrep_class(DllInfo * dll) {
-    //R_altrep_class_t viewport_altrep;
-    R_altrep_class_t cls = R_make_altinteger_class("viewport_altrep", "ufo_altrep", dll);
-    viewport_altrep = cls;
+void init_slice_altrep_class(DllInfo * dll) {
+    //R_altrep_class_t slice_altrep;
+    R_altrep_class_t cls = R_make_altinteger_class("slice_altrep", "viewport_altrep", dll);
+    slice_altrep = cls;
 
     /* Override ALTREP methods */
-    R_set_altrep_Duplicate_method(cls, viewport_duplicate);
-    R_set_altrep_Inspect_method(cls, viewport_inspect);
-    R_set_altrep_Length_method(cls, viewport_length);
+    R_set_altrep_Duplicate_method(cls, slice_duplicate);
+    R_set_altrep_Inspect_method(cls, slice_inspect);
+    R_set_altrep_Length_method(cls, slice_length);
 
     /* Override ALTVEC methods */
-    R_set_altvec_Dataptr_method(cls, viewport_dataptr);
-    R_set_altvec_Dataptr_or_null_method(cls, viewport_dataptr_or_null);
+    R_set_altvec_Dataptr_method(cls, slice_dataptr);
+    R_set_altvec_Dataptr_or_null_method(cls, slice_dataptr_or_null);
 
-    R_set_altinteger_Elt_method(cls, viewport_integer_element);
-    R_set_altlogical_Elt_method(cls, viewport_logical_element);
-    R_set_altreal_Elt_method   (cls, viewport_numeric_element);
-    R_set_altcomplex_Elt_method(cls, viewport_complex_element);
-    R_set_altraw_Elt_method    (cls, viewport_raw_element);
+    R_set_altinteger_Elt_method(cls, slice_integer_element);
+    R_set_altlogical_Elt_method(cls, slice_logical_element);
+    R_set_altreal_Elt_method   (cls, slice_numeric_element);
+    R_set_altcomplex_Elt_method(cls, slice_complex_element);
+    R_set_altraw_Elt_method    (cls, slice_raw_element);
 
-    R_set_altinteger_Get_region_method(cls, viewport_integer_get_region);
-    R_set_altlogical_Get_region_method(cls, viewport_logical_get_region);
-    R_set_altreal_Get_region_method   (cls, viewport_numeric_get_region);
-    R_set_altcomplex_Get_region_method(cls, viewport_complex_get_region);
-    R_set_altraw_Get_region_method    (cls, viewport_raw_get_region);
+    R_set_altinteger_Get_region_method(cls, slice_integer_get_region);
+    R_set_altlogical_Get_region_method(cls, slice_logical_get_region);
+    R_set_altreal_Get_region_method   (cls, slice_numeric_get_region);
+    R_set_altcomplex_Get_region_method(cls, slice_complex_get_region);
+    R_set_altraw_Get_region_method    (cls, slice_raw_get_region);
 
-    R_set_altvec_Extract_subset_method(cls, viewport_extract_subset);
+    R_set_altvec_Extract_subset_method(cls, slice_extract_subset);
 }
 
-SEXP/*NILSXP*/ viewport_set_debug_mode(SEXP/*LGLSXP*/);
-SEXP/*NILSXP*/ viewport(SEXP, SEXP/*INTSXP|REALSXP*/ start, SEXP/*INTSXP|REALSXP*/ size);
+//SEXP/*NILSXP*/ slice(SEXP, SEXP/*INTSXP|REALSXP*/ start, SEXP/*INTSXP|REALSXP*/ size);
 
-SEXP create_viewport(SEXP source, SEXP/*INTSXP|REALSXP*/ start_sexp, SEXP/*INTSXP|REALSXP*/ size_sexp) {
+SEXP create_slice(SEXP source, SEXP/*INTSXP|REALSXP*/ start_sexp, SEXP/*INTSXP|REALSXP*/ size_sexp) {
     assert(TYPEOF(start_sexp) == INTSXP || TYPEOF(start_sexp) == REALSXP);
     assert(TYPEOF(size_sexp) == INTSXP || TYPEOF(size_sexp) == REALSXP);
     assert(XLENGTH(start_sexp) > 0);
@@ -788,11 +787,11 @@ SEXP create_viewport(SEXP source, SEXP/*INTSXP|REALSXP*/ start_sexp, SEXP/*INTSX
     R_xlen_t size  = get_first_element_as_length(size_sexp);
 
     if (__get_debug_mode()) {
-        Rprintf("create viewport\n");
+        Rprintf("create slice\n");
         Rprintf("           SEXP: %p\n", source);
         Rprintf("          start: %li\n", start);
         Rprintf("           size: %li\n", size);
     }
 
-    return viewport_new(source, start, size);
+    return slice_new(source, start, size);
 }

@@ -1,4 +1,4 @@
-viewport_set_debug_mode <- function(debug=TRUE) {
+viewports_set_debug_mode <- function(debug=TRUE) {
   if (typeof(debug) != "logical") {
     stop(paste0("Argument is of type", typeof(debug),
                 ", must be a logical vector."))
@@ -13,9 +13,8 @@ viewport_set_debug_mode <- function(debug=TRUE) {
   invisible(.Call("set_debug_mode", debug))
 }
 
-viewport <- function(vector, start, size) {
-  print(paste("viewport", substitute(vector), start, size))
-  .Call("create_viewport",
+slice <- function(vector, start, size) {
+  .Call("create_slice",
         vector,
         .expect_exactly_one(.expect_types(start, c("integer", "double"))),
         .expect_exactly_one(.expect_types(size,  c("integer", "double"))))
