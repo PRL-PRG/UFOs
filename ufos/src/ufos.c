@@ -61,22 +61,14 @@ void __validate_status_or_die (int status) {
 
 uint32_t __get_stride_from_type_or_die(ufo_vector_type_t type) {
     switch(type) {
-        case UFO_CHAR:
-            return strideOf(Rbyte);
-        case UFO_LGL:
-            return strideOf(Rboolean);
-        case UFO_INT:
-            return strideOf(int);
-        case UFO_REAL:
-            return strideOf(double);
-        case UFO_CPLX:
-            return strideOf(Rcomplex);
-        case UFO_RAW:
-            return strideOf(Rbyte);
-        case UFO_STR:
-            return strideOf(SEXP);
-        default:
-            Rf_error("Cannot derive stride for vector type: %d\n", type);
+        case UFO_CHAR: return strideOf(Rbyte);
+        case UFO_LGL:  return strideOf(Rboolean);
+        case UFO_INT:  return strideOf(int);
+        case UFO_REAL: return strideOf(double);
+        case UFO_CPLX: return strideOf(Rcomplex);
+        case UFO_RAW:  return strideOf(Rbyte);
+        case UFO_STR:  return strideOf(SEXP);
+        default:       Rf_error("Cannot derive stride for vector type: %d\n", type);
     }
 }
 
@@ -124,23 +116,15 @@ void __ufo_free(R_allocator_t *allocator, void* ptr) {
 
 SEXPTYPE ufo_type_to_vector_type (ufo_vector_type_t ufo_type) {
     switch (ufo_type) {
-        case UFO_CHAR:
-            return CHARSXP;
-        case UFO_LGL:
-            return LGLSXP;
-        case UFO_INT:
-            return INTSXP;
-        case UFO_REAL:
-            return REALSXP;
-        case UFO_CPLX:
-            return CPLXSXP;
-        case UFO_RAW:
-            return RAWSXP;
-        case UFO_STR:
-            return STRSXP;
-        default:
-            printf("Cannot convert ufo_type_t=%i to SEXPTYPE", ufo_type);
-            return -1;
+        case UFO_CHAR: return CHARSXP;
+        case UFO_LGL:  return LGLSXP;
+        case UFO_INT:  return INTSXP;
+        case UFO_REAL: return REALSXP;
+        case UFO_CPLX: return CPLXSXP;
+        case UFO_RAW:  return RAWSXP;
+        case UFO_STR:  return STRSXP;
+        default:       printf("Cannot convert ufo_type_t=%i to SEXPTYPE", ufo_type);
+                       return -1;
     }
 }
 

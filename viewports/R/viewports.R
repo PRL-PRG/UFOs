@@ -10,11 +10,11 @@ viewport_set_debug_mode <- function(debug=TRUE) {
     warning(paste0("Argument is a vector containing multiple values, picking the",
                    "first one, ignoring the rest"))
   }
-  invisible(.Call("viewport_set_debug_mode", debug))
+  invisible(.Call("set_debug_mode", debug))
 }
 
 viewport <- function(vector, start, size) {
-  print(paste0("viewport", vector, start, size))
+  print(paste("viewport", substitute(vector), start, size))
   .Call("create_viewport",
         vector,
         .expect_exactly_one(.expect_types(start, c("integer", "double"))),
