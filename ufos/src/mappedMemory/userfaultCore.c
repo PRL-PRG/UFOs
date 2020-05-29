@@ -15,9 +15,12 @@
 #include <poll.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <sys/epoll.h>
 #include <stdlib.h>
 #include <errno.h>
+
+#include <openssl/sha.h>
 
 #include "userfaultCore.h"
 
@@ -40,6 +43,17 @@ static size_t get_page_size(){
   assert(ret > 0);
   return ret;
 }
+
+//static uint32_t loadChunkSize(ufObject* o){
+//  const uint32_t atOnce = o->config.objectsAtOnce;
+//  const uint32_t stride = o->config.stride;
+//
+//  assert(atOnce > 0);
+//  assert(stride > 0);
+//  assert(__builtin_clz(atOnce) + __builtin_clz(stride) >= 32);
+//
+//  return o->config.objectsAtOnce * o->config.stride;
+//}
 
 int check_totals (ufInstance* i) {
   uint64_t total = 0;
@@ -157,6 +171,56 @@ static int ufCopy(ufInstance* i, struct uffdio_copy* copy){
   }while(1);
 }
 
+static int reclaimMemory(ufInstance* i, oroboros_item_t* chunkMetadata){
+  if(0 == chunkMetadata->size)
+    return 0; // this chunk was already reclaimed
+  uint8_t* sha = (uint8_t*)alloca(SHA256_DIGEST_LENGTH);
+  SHA256(chunkMetadata->address, chunkMetadata->size, sha);
+
+  // Let the compiler make this fast
+  bool isEqual = true;
+  for(int i = 0; i < SHA256_DIGEST_LENGTH; i++)
+    isEqual = isEqual && sha[i] == chunkMetadata->sha[i];
+
+  if(!isEqual){
+    // When the memory changed write it out to the writeback file
+    ufObject *ufo = asUfo(chunkMetadata->ufo);
+    uint64_t offset = ((uint64_t)chunkMetadata->address) - (uint64_t) ufGetValuePointer(ufo);
+
+    uint32_t bitIndex = offset / (ufo->config.stride * ufo->config.objectsAtOnce);
+    ufo->writebackMmapBase[bitIndex >> 3] |= 1 << (bitIndex & 7);
+
+    memcpy(ufo->writebackMmapBase + ufo->writebackMmapBitmapLength, chunkMetadata->address, chunkMetadata->size);
+  }
+
+  madvise(chunkMetadata->address, chunkMetadata->size, MADV_DONTNEED); // also possible: MADV_FREE
+
+  i->usedMemory -= chunkMetadata->size;
+  assert(check_totals(i));
+
+  return 0;
+}
+
+static int ensureFreeMemory(ufInstance* i, uint32_t ensureFreeAmount){
+  int res;
+  if (i->usedMemory + ensureFreeAmount > i->highWaterMarkBytes) {
+    while (i->usedMemory + ensureFreeAmount > i->lowWaterMarkBytes) {
+      oroboros_item_t chunkMetadata;
+
+      tryPerrInt(res, oroboros_pop(i->chunkRecord, &chunkMetadata),
+          "Reclaiming all the elements from ring buffer did not free enough memory "
+          "to allocate incoming chunk without breaking the high water mark memory usage threshold",
+          error);
+      tryPerrInt(res, reclaimMemory(i, &chunkMetadata), "error reclaiming memory", error);
+    }
+  }
+
+  return 0;
+
+  error:
+  return -1;
+}
+
 static int readHandleUfEvent(ufInstance* i){
   struct uffd_msg msg;
 
@@ -201,40 +265,17 @@ static int readHandleUfEvent(ufInstance* i){
 
   const uint64_t fillSizeBytes = ceilDiv(actualFillCt * ufo->config.stride, pageSize) * pageSize;
   if (fillSizeBytes > i->highWaterMarkBytes) {
+    // This is guarded against at object creation but it remains here in case there is a change in the math and the check isn't properly performed
     perror("Cannot load a chunk whose size is greater than the total number of memory dedicated "
            "to storing chunk data (high water mark).");
     goto error;
   }
 
+  tryPerrInt(res, ensureFreeMemory(i, fillSizeBytes), "error ensuring memory capacity", error);
+
   if(__builtin_expect(i->bufferSize < fillSizeBytes, 0)){
     tryPerrNull(i->buffer, realloc(i->buffer, fillSizeBytes), "cannot realloc buffer", error);
     i->bufferSize = fillSizeBytes;
-  }
-
-  if (i->usedMemory + fillSizeBytes > i->highWaterMarkBytes) {
-    while (i->usedMemory + fillSizeBytes > i->lowWaterMarkBytes) {
-      int popResult;
-      oroboros_item_t chunkMetadata;
-
-      //tryPerrInt(popResult, oroboros_pop(i->chunkRecord, &chunkMetadata),
-      //           "Reclaiming all the elements from ring buffer did not free enough memory "
-      //           "to allocate incoming chunk without breaking the high water mark memory usage threshold", error);
-
-      popResult = oroboros_pop(i->chunkRecord, &chunkMetadata);
-      if(popResult!=0) {
-        printf("eeeee\n");
-        perror("Reclaiming all the elements from ring buffer did not free enough memory "
-               "to allocate incoming chunk without breaking the high water mark memory usage threshold");
-        goto error;
-      }
-
-      if (chunkMetadata.size > 0) {
-        i->usedMemory -= chunkMetadata.size;
-        assert(check_totals(i));
-        madvise(chunkMetadata.address, chunkMetadata.size, MADV_DONTNEED); // also possible: MADV_FREE
-      }
-      // TODO when writing is a thing, make sure to guard against stray writes here
-    }
   }
 
   int callout(ufPopulateCalloutMsg* msg){
@@ -248,25 +289,45 @@ static int readHandleUfEvent(ufInstance* i){
     }
     __builtin_unreachable();
   }
-  //uint64_t startValueIdx, uint64_t endValueIdx, ufPopulateCallout callout, ufUserData userData, char* target
-  tryPerrInt(res,
-      ufo->config.populateFunction(idx, idx + actualFillCt, callout, ufo->config.userConfig, i->buffer),
-      "populate error", error);
 
-  struct uffdio_copy copy = (struct uffdio_copy){.src = (uint64_t) i->buffer, .dst = faultAtLoadBoundaryAbsolute, .len = fillSizeBytes, .mode = 0};
-  tryPerrNegOne(res, ufCopy(i, &copy), "error copying", error);
+  uint32_t chunkIndex = faultAtLoadBoundaryRelBody / (ufo->config.stride * ufo->config.objectsAtOnce);
+  uint8_t* copySource;
+  assert((chunkIndex >> 3) <= ufo->writebackMmapBitmapLength);
+  if(ufo->writebackMmapBase[chunkIndex >> 3] & (1 << (chunkIndex & 7)) ){
+    // Pull in from the writeback
+    copySource = ufo->writebackMmapBase + ufo->writebackMmapBitmapLength;
+  }else{
+    // callout to the user supplied function
+    //uint64_t startValueIdx, uint64_t endValueIdx, ufPopulateCallout callout, ufUserData userData, char* target
+    tryPerrInt(res,
+        ufo->config.populateFunction(idx, idx + actualFillCt, callout, ufo->config.userConfig, i->buffer),
+        "populate error", error);
+    copySource = (uint8_t*)i->buffer;
+  }
 
   oroboros_item_t chunkMetadata = {
-          .size = fillSizeBytes,
+          .size    = fillSizeBytes,
           .address = (void *) faultAtLoadBoundaryAbsolute,
-          .owner_id = ufo->id,
+          .ufo     = ufo
   };
-  i->usedMemory += chunkMetadata.size;
+  //TODO CMYK 2020.05.26 : Blake 2 or 3 would be faster, but this was handy
+  SHA256(copySource, fillSizeBytes, chunkMetadata.sha);
 
-  tryPerrInt(res, oroboros_push(i->chunkRecord, chunkMetadata, true),
-             "Could not push metadata onto the ring buffer. The ring buffer cannot resize.", error);  // FIXME consider adding an upper limit to size
 
   assert(check_totals(i));
+
+  i->usedMemory += fillSizeBytes;
+  tryPerrInt(res, oroboros_push(i->chunkRecord, chunkMetadata, true),
+    "Could not push metadata onto the ring buffer. The ring buffer cannot resize.", error);  // FIXME consider adding an upper limit to size
+
+  assert(check_totals(i));
+
+  struct uffdio_copy copy = (struct uffdio_copy){
+      .src = (uint64_t) copySource,
+      .dst = faultAtLoadBoundaryAbsolute,
+      .len = fillSizeBytes,
+      .mode = 0};
+  tryPerrNegOne(res, ufCopy(i, &copy), "error copying", error);
 
   return 0;
 
@@ -289,9 +350,11 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
   }
 
   // allocate a memory region to be managed by userfaultfd
-  tryPerrNull(ufo->start, mmap(NULL, ufo->trueSize, PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0), "error allocating ufo memory", callerErr);
-  // |PROT_WRITE // don't allow write for now
-  tryPerrInt(res, mprotect(ufo->start, ufo->config.headerSzWithPadding, PROT_READ|PROT_WRITE), "error changing header write protections", mprotectErr); // make the header writeable
+  /* With writeback files we can allow writes! */
+  tryPerr(ufo->start, ufo->start == (void*)-1, mmap(NULL, ufo->trueSize, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0), "error allocating ufo memory", callerErr);
+
+  /* With writeback files the whole mapping is already writeable */
+  //  tryPerrInt(res, mprotect(ufo->start, ufo->config.headerSzWithPadding, PROT_READ|PROT_WRITE), "error changing header write protections", mprotectErr); // make the header writeable
 
   // register with the kernel
   struct uffdio_register ufM;
@@ -317,8 +380,8 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
 
   return 0;
 
-  mprotectErr:
-  munmap(ufo->start, size);
+//  mprotectErr:
+//  munmap(ufo->start, size);
 
   callerErr:
   *msg->return_p = -2; // error
@@ -346,17 +409,21 @@ static int freeUfo(ufInstance* i, ufAsyncMsg* msg){
   tryPerrInt(res, sem_post(msg->completionLock_p), "error unlocking waiter for free", error);
 
   void mark (size_t index, oroboros_item_t *item, void *data) {
-    if (item->owner_id == ufo->id) {
+    if (item->ufo == ufo) {
       //item->garbage_collected = true;
 
       i->usedMemory -= item->size;
-      item->size = 0;
+      // clear the structure entirely, also marks it as claimed by setting size to 0
+      memset(item, 0, sizeof(oroboros_item_t));
 
       assert(check_totals(i));
       // We don't actually reclaim here, because it's done for the whole object.
     }
   }
   oroboros_for_each(i->chunkRecord, mark, NULL);
+
+  munmap(ufo->writebackMmapBase, size + ufo->writebackMmapBitmapLength);
+  close(ufo->writebackMmapFd); // temnp file is destroyed when the last handle to it is closed
 
   return 0;
 
@@ -491,8 +558,8 @@ static int initUfFileDescriptor(ufInstance* ins){
 int ufSetMemoryLimits(ufInstance_t instance, size_t highWaterMarkBytes, size_t lowWaterMarkBytes) {
   ufInstance* ins =  asUfInstance(instance);
 
-  if (!(ins->highWaterMarkBytes == 0 && ins->lowWaterMarkBytes == 0)) {
-    perror("Memory limits can only be set once");
+  if (0 != ins->userfaultThread) {
+    perror("Memory limits can only be set before init");
     return -1;
   }
 
@@ -572,11 +639,13 @@ ufInstance_t ufMakeInstance(){
   i->objects = newList();
   i->chunkRecord = oroboros_init(1024);
 
+  i->highWaterMarkBytes = 2l * 1024l * 1024l * 1024l; // 2G
+  i->lowWaterMarkBytes  = 1l * 1024l * 1024l * 1024l; // 1G
+
   return i;
 }
 
 /* Objects and Object config */
-
 ufObjectConfig_t makeObjectConfig0(uint32_t headerSize, uint64_t ct, uint32_t stride, int32_t minLoadCt){
   if(stride < 1)
     return NULL;
@@ -649,6 +718,59 @@ int ufShutdown(ufInstance_t instance, bool free){
   return ufAwaitShutdown(instance);
 }
 
+////TODO CMYK 2020.05.22: make the temp folder configurable
+//static int writebackFileName(char** dst, ufInstance_t instance, uint64_t ufObjectBase){
+//  uint64_t myPid = (uint64_t) getpid();
+//  uint64_t instAddr = (uint64_t) instance;
+//
+//  // the pid is printed normally and the memory addresses are hex
+//  return asprintf(dst, "/tmp/%lu_%lx.%lx", myPid,
+//      // Try to make the name as compact as possible, but consistent
+//      instAddr     >> __builtin_ctz(sizeof(ufInstance)),
+//      ufObjectBase >> __builtin_ctz(pageSize));
+//}
+
+static int createWriebackFile(ufInstance* instance, ufObject* o){
+  int res;
+
+//  char* filename;
+  int fd;
+
+//  tryPerrNegOne(res, writebackFileName(&filename, instance, o->startI), "could name create writeback file Name", nameErr);
+//  fprintf(stderr, "%s\n", filename);
+
+  tryPerrNegOne(fd, open("/tmp/", O_RDWR | O_TMPFILE, 0600), "Could not open annon writeback file", fileErr);
+
+  uint32_t bitmapSize = ceilDiv(o->config.elementCt, o->config.objectsAtOnce); // number of slots
+  bitmapSize = ceilDiv(bitmapSize, 8); // number of bytes for those slots, rounded up
+  bitmapSize = ceilDiv(bitmapSize, pageSize) * pageSize; // round up to the next page boundary
+
+  uint64_t writebackSize = bitmapSize + (o->config.stride * o->config.elementCt);
+
+  assert(64 - __builtin_clz(writebackSize) <= (sizeof(off_t) << 3));
+  tryPerrInt(res, ftruncate(fd, writebackSize), "could not truncate file to required size", errTruncate);
+
+  void* writebackMmapPtr;
+  tryPerr(writebackMmapPtr, writebackMmapPtr == (void*)-1,
+    mmap(NULL, writebackSize, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0), "could not mmap writeback", errMMap);
+
+  o->writebackMmapFd = fd;
+  o->writebackMmapBase = writebackMmapPtr;
+  o->writebackMmapBitmapLength = bitmapSize;
+//  o->writebackFileName = filename;
+
+  return 0;
+
+  errMMap:
+  errTruncate:
+  close(fd);
+//  unlink(filename);
+
+  fileErr:
+//  nameErr:
+  return -1;
+}
+
 int ufCreateObject(ufInstance_t instance, ufObjectConfig_t objectConfig, ufObject_t* object_p){
   ufInstance*        i = asUfInstance(instance);
   ufObjectConfig* conf = asObjectConfig(objectConfig);
@@ -678,8 +800,11 @@ int ufCreateObject(ufInstance_t instance, ufObjectConfig_t objectConfig, ufObjec
   res = returnVal;
   if(res) goto initErr;
 
-  //If we got success then the worker surely allocated our object
+  // If we got success then the worker surely allocated our object
   assert(NULL != o->start);
+
+  // Create a file to contain writes
+  tryPerrInt(res, createWriebackFile(instance, o), "could not create writeback file", writebackErr);
 
   // Done and all went well
   sem_destroy(&completionLock);
@@ -687,6 +812,7 @@ int ufCreateObject(ufInstance_t instance, ufObjectConfig_t objectConfig, ufObjec
   *object_p = o;
   return 0;
 
+  writebackErr:
   initErr:
   awaitErr:
   sendErr:

@@ -4,13 +4,17 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <openssl/sha.h>
+
+#include "userfaultCore.h"
+
 typedef void *oroboros_t; // TODO undercasicide
 
 typedef struct {
-  uint64_t owner_id;              // the id of the UFO to which this item belongs
-  void*    address;
-  size_t   size;                  // in bytes
-  //bool     garbage_collected;     // true or false
+  ufObject_t ufo;     // the UFO to which this item belongs // TODO CMYK for KMS 2020.05.26: Is there a reason for this to be the ID instead of a pointer?
+  void*      address; // Location in memory inside some UFO
+  size_t     size;    // in bytes, set to zero as a flag that the object itself was GC'd
+  uint8_t    sha[SHA256_DIGEST_LENGTH];  // checksum on load, used by the writes system
 } oroboros_item_t;
 
 typedef void(*oroboros_fun_t)(size_t /*index*/, oroboros_item_t* /*element*/, void* user_data);
