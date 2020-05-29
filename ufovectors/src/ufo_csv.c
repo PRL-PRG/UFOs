@@ -311,8 +311,8 @@ SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp, SEXP/
 
     if (__get_debug_mode()) {
         //REprintf("          class     %p\n", column, );
-        REprintf("          names     %p\n", column, names);
-        REprintf("          row.names %p\n", column, row_names);
+        REprintf("          names     %p\n", names);
+        REprintf("          row.names %p\n", row_names);
     }
 
     UNPROTECT(1 + csv_metadata->columns + 2);

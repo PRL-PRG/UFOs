@@ -37,15 +37,15 @@ SEXP ufo_initialize() {
         if (__ufo_system == NULL) {
             Rf_error("Error initializing the UFO framework (null instance)");
         }
-        int result = ufInit(__ufo_system);
-        if (result != 0) {
-            Rf_error("Error initializing the UFO framework (%i)", result);
-        }
         size_t high = 200 * 1024 * 1024; // * 1024; for testing: 200MB
         size_t low = 100 * 1024 * 1024;  // * 1024; for testing: 100MB
-        result = ufSetMemoryLimits(__ufo_system, high, low);
+        int result = ufSetMemoryLimits(__ufo_system, high, low);
         if (result != 0) {
             Rf_error("Error setting memory limits for the UFO framework (%i)", result);
+        }
+        result = ufInit(__ufo_system);
+        if (result != 0) {
+            Rf_error("Error initializing the UFO framework (%i)", result);
         }
     }
     return R_NilValue;
