@@ -56,6 +56,14 @@ const char* __extract_path_or_die(SEXP/*STRSXP*/ path) {
     return CHAR(STRING_ELT(path, 0));
 }
 
+SEXP __check_type_or_die(SEXP sexp, SEXPTYPE type) {
+    if (TYPEOF(sexp) != type) {
+        Rf_error("Invalid type for SEXP. Expected %d, but got %d\n", type, TYPEOF(sexp));
+    }
+
+    return sexp;
+}
+
 /**
  * Translates the type of UFO vector to the size of its element in bytes.
  *

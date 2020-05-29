@@ -351,6 +351,37 @@ static R_xlen_t ufo_logical_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
     return ufo_vector_get_region(x, i, n, buf);
 }
 
+//static SEXP ufo_integer_sum(SEXP x, Rboolean narm) {
+//    printf("Hello. Nothing here yet. Here is ufo_integer_sum.\n");
+//    return R_NilValue;
+//}
+//
+//static SEXP ufo_numeric_sum(SEXP x, Rboolean narm) {
+//    printf("Hello. Nothing here yet. Here is ufo_numeric_sum.\n");
+//    return R_NilValue;
+//}
+//
+//static SEXP ufo_logical_sum(SEXP x, Rboolean narm) {
+//    printf("Hello. Nothing here yet. Here is ufo_logical_sum.\n");
+//    return R_NilValue;
+//}
+//
+//static SEXP ufo_complex_sum(SEXP x, Rboolean narm) {
+//    printf("Hello. Nothing here yet. Here is ufo_complex_sum.\n");
+//    return R_NilValue;
+//}
+//
+//static SEXP ufo_raw_sum(SEXP x, Rboolean narm) {
+//    printf("Hello. Nothing here yet. Here is ufo_raw_sum.\n");
+//    return R_NilValue;
+//}
+
+static SEXP ufo_integer_extract_subset(SEXP x, SEXP indx, SEXP call) {
+
+    return;
+}
+
+
 // UFO Inits
 void init_ufo_integer_altrep_class(DllInfo * dll) {
     R_altrep_class_t cls = R_make_altinteger_class("ufo_integer_altrep",
@@ -369,6 +400,10 @@ void init_ufo_integer_altrep_class(DllInfo * dll) {
     /* Override ALTINTEGER methods */
     R_set_altinteger_Elt_method(cls, ufo_integer_element);
     R_set_altinteger_Get_region_method(cls, ufo_integer_get_region);
+
+    //R_set_altinteger_Sum_method(cls, ufo_integer_sum);
+
+    R_set_altvec_Extract_subset_method(cls, ufo_integer_extract_subset);
 }
 
 void init_ufo_numeric_altrep_class(DllInfo * dll) {
@@ -388,6 +423,8 @@ void init_ufo_numeric_altrep_class(DllInfo * dll) {
     /* Override ALTREAL methods */
     R_set_altreal_Elt_method(cls, ufo_numeric_element);
     R_set_altreal_Get_region_method(cls, ufo_numeric_get_region);
+
+    //R_set_altreal_Sum_method(cls, ufo_numeric_sum);
 }
 
 void init_ufo_logical_altrep_class(DllInfo * dll) {
@@ -407,6 +444,8 @@ void init_ufo_logical_altrep_class(DllInfo * dll) {
     /* Override ALTLOGICAL methods */
     R_set_altlogical_Elt_method(cls, ufo_logical_element);
     R_set_altlogical_Get_region_method(cls, ufo_logical_get_region);
+
+    //R_set_altlogical_Sum_method(cls, ufo_logical_sum);
 }
 
 void init_ufo_complex_altrep_class(DllInfo * dll) {
@@ -426,6 +465,8 @@ void init_ufo_complex_altrep_class(DllInfo * dll) {
     /* Override ALTCOMPLEX methods */
     R_set_altcomplex_Elt_method(cls, ufo_complex_element);
     R_set_altcomplex_Get_region_method(cls, ufo_complex_get_region);
+
+    //R_set_altcomplex_Sum_method(cls, ufo_complex_sum);
 }
 
 void init_ufo_raw_altrep_class(DllInfo * dll) {
@@ -445,4 +486,6 @@ void init_ufo_raw_altrep_class(DllInfo * dll) {
     /* Override ALTRAW methods */
     R_set_altraw_Elt_method(cls, ufo_raw_element);
     R_set_altraw_Get_region_method(cls, ufo_raw_get_region);
+
+    //R_set_altraw_Sum_method(cls, ufo_raw_sum);
 }
