@@ -23,7 +23,11 @@ add_library(viewports
         src/slices.c
         src/slices.h
         src/mosaics.c
-        src/mosaics.h)
+        src/mosaics.h
+        src/prisms.c
+        src/prisms.h
+        src/common.c
+        src/common.h)
 
 include_directories(src ${R_INCLUDE_DIR})
 target_link_libraries(viewports ${R_LIBRARIES})

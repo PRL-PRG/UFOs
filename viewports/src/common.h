@@ -15,6 +15,7 @@ viewport_type_t recommend_vieport_type_for_indices(SEXP/*INTSXP | REALSXP*/ indi
 
 bool are_indices_contiguous(SEXP/*INTSXP | REALSXP*/ indices);
 bool are_indices_monotonic (SEXP/*INTSXP | REALSXP*/ indices);
+bool do_indices_contain_NAs(SEXP/*INTSXP | REALSXP*/ indices);
 
 R_xlen_t get_first_element_as_length(SEXP/*INTSXP | REALSXP*/ indices);
 void copy_element(SEXP source, R_xlen_t source_index, SEXP target, R_xlen_t target_index);

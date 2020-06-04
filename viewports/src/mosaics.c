@@ -553,6 +553,7 @@ static R_xlen_t mosaic_logical_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *b
 
 static SEXP mosaic_extract_subset(SEXP x, SEXP indices, SEXP call) {
     assert(x != NULL);
+    assert(TYPEOF(indices) == INTSXP || TYPEOF(indices) == REALSXP);
 
     if (__get_debug_mode()) {
         Rprintf("mosaic_extract_subset\n");
@@ -587,8 +588,8 @@ static SEXP mosaic_extract_subset(SEXP x, SEXP indices, SEXP call) {
     R_xlen_t viewport_index = 0;
     R_xlen_t indices_index = 0;
     for (R_xlen_t i = 0; i < translated_bitmap_size; i++) {
-        R_xlen_t index = TYPEOF(indices) == INTSXP ? (R_xlen_t) INTEGER_ELT(indices, indices_index) - 1
-                                                   : (R_xlen_t) REAL_ELT(indices, indices_index)    - 1;
+        R_xlen_t index = TYPEOF(indices) == INTSXP ? (R_xlen_t) INTEGER_ELT(indices, indices_index)
+                                                   : (R_xlen_t) REAL_ELT(indices, indices_index);
         if (bitmap_get(bitmap, i)) {
             if (viewport_index == index) {
                 bitmap_set(translated_bitmap, i);

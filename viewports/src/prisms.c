@@ -13,18 +13,22 @@
 #include "helpers.h"
 
 #include "slices.h"
+#include "common.h"
 
 static R_altrep_class_t prism_altrep;
 
-SEXP prism_new(SEXP source, SEXP/*REALSXP*/ indices) {
+SEXP prism_new(SEXP source, SEXP/*INTSXP|REALSXP*/ indices) {
     assert(sizeof(double) >= sizeof(R_xlen_t));
+    assert(TYPEOF(indices) == REALSXP || TYPEOF(indices) == INTSXP);
     assert(source != null);
 
     if (__get_debug_mode()) {
         Rprintf("prism_new\n");
         Rprintf("           SEXP: %p\n", source);
+        R_xlen_t indices_length = XLENGTH(indices);
         for (R_xlen_t i = 0; i < indices_length; i++) {
-            Rprintf("           [%l2i]: %li\n", i, (R_xlen_t) REAL_ELT(indices, i));
+            R_xlen_t value = (R_xlen_t) (TYPEOF(indices) ? REAL_ELT(indices, i) : INTEGER_ELT(indices, i));
+            Rprintf("           [%l2i]: %li\n", i, value);
         }
     }
 
@@ -36,7 +40,7 @@ SEXP prism_new(SEXP source, SEXP/*REALSXP*/ indices) {
     return R_new_altrep(prism_altrep, indices, data);
 }
 
-static inline SEXP/*REALSXP*/ get_indices(SEXP x) {
+static inline SEXP/*INTSXP|REALSXP*/ get_indices(SEXP x) {
     return R_altrep_data1(x);
 }
 
@@ -69,26 +73,26 @@ SEXP prism_duplicate(SEXP x, Rboolean deep) {//TODO
         Rprintf("is_materialized: %i\n", is_materialized(x));
     }
 
-    SEXP/*INTSXP*/ window = get_window(x);
-    SEXP           source = get_source(x);
+    SEXP/*INTSXP|REALSXP*/ indices = get_indices(x);
+    SEXP                   source  = get_source(x);
 
     if (deep) {
-        R_xlen_t start = 0;
-        R_xlen_t size  = 0;
-        read_start_and_size(window, &start, &size);
-        SEXP prism = prism_new(source, start, size);
+        SEXP prism = prism_new(source, duplicate(indices));
         if (is_materialized(x)) {
             SEXP data = get_materialized_data(x);
-            set_materialized_data(prism, duplicate(data));
+            set_materialized_data(x, duplicate(data));
         }
         return prism;
     } else {
-        SEXP/*LISTSXP*/ meta = allocSExp(LISTSXP);
-        SETCAR (meta, source);     // The original vector
-        SEXP data = is_materialized(x) ? get_materialized_data(x) : R_NilValue;
-        SET_TAG(meta, data);       // Starts as R_NilValue, becomes a vector if it the prism is written to
-        SETCDR (meta, R_NilValue); // Nothing here
-        return R_new_altrep(prism_altrep, window, meta);
+        SEXP/*LISTSXP*/ data = allocSExp(LISTSXP);
+        SETCAR (data, source);
+        if (is_materialized(x)) {
+            SET_TAG(data, get_materialized_data(x));
+        } else {
+            SET_TAG(data, R_NilValue);
+        }
+        SETCDR (data, R_NilValue);
+        return R_new_altrep(prism_altrep, indices, data);
     }
 }
 
@@ -111,110 +115,39 @@ static R_xlen_t prism_length(SEXP x) {
     return XLENGTH(get_indices(x));
 }
 
-const void *extract_read_only_data_pointer(SEXP x) {//TODO
-    SEXP/*INTSXP*/ window = get_window(x);
-    SEXP           source = get_source(x);
+//SEXP copy_from_source(SEXP x) {
+//    SEXP/*INTSXP|REALSXP*/  indices = get_indices(x);
+//    SEXP                    source  = get_source(x);
+//    R_xlen_t                length  = XLENGTH(indices);
+//
+//    SEXP materialized = allocVector(TYPEOF(source), length);
+//    R_xlen_t cursor = 0;
+//    switch (TYPEOF(indices)) {
+//        case INTSXP:
+//            for (R_xlen_t i = 0; i < length; i++) {
+//                R_xlen_t source_index = INTEGER_ELT(indices, i - 1);
+//                copy_element(source, source_index, materialized, i);
+//                cursor++;
+//            }
+//            break;
+//
+//        case REALSXP:
+//            for (R_xlen_t i = 0; i < length; i++) {
+//                R_xlen_t source_index = REAL_ELT(indices, i - 1);
+//                copy_element(source, source_index, materialized, i);
+//                cursor++;
+//            }
+//            break;
+//
+//        default:
+//            Rf_error("Prisms can be indexed by integer or numeric vectors but found: %d\n", TYPEOF(indices));
+//    }
+//
+//    assert(cursor == length);
+//    return materialized;
+//}
 
-    R_xlen_t start = 0;
-    R_xlen_t size  = 0;
-    read_start_and_size(window, &start, &size);
-
-    const void *data = DATAPTR_RO(source);
-
-    SEXPTYPE type = TYPEOF(source);
-    switch (type) {
-        case INTSXP:  {
-            const int *ints = (const int *) data;
-            return (const void *) (&ints[start]);
-        }
-        case REALSXP: {
-            const double *doubles = (const double *) data;
-            return (const void *) (&doubles[start]);
-        }
-        case LGLSXP: {
-            const Rboolean *booleans = (const Rboolean *) data;
-            return (const void *) (&booleans[start]);
-        }
-        case RAWSXP: {
-            const Rbyte *bytes = (const Rbyte *) data;
-            return (const void *) (&bytes[start]);
-        }
-        case CPLXSXP: {
-            const Rcomplex *trouble = (const Rcomplex *) data;
-            return (const void *) (&trouble[start]);
-        }
-        case STRSXP:
-        case VECSXP: {
-            const SEXP *sexps = (const SEXP *) data;
-            return (const void *) (&sexps[start]);
-        }
-        default: Rf_error("Illegal source type for a prism: %i.\n", type);
-    }
-}
-
-SEXP copy_from_source(SEXP x) {//TODO
-    SEXP/*INTSXP*/ window = get_window(x);
-    SEXP           source = get_source(x);
-
-    R_xlen_t start = 0;
-    R_xlen_t size  = 0;
-    read_start_and_size(window, &start, &size);
-
-    const void *data = DATAPTR_RO(source);
-    SEXP materialized = allocVector(TYPEOF(source), size);
-
-    SEXPTYPE type = TYPEOF(source);
-    switch (type) {
-        case INTSXP:  {
-            const int *ints = (const int *) data;
-            for (R_xlen_t index = start; index < size; index++) {
-                SET_INTEGER_ELT(materialized, index, ints[index]);
-            }
-            break;
-        }
-        case REALSXP: {
-            const double *doubles = (const double *) data;
-            for (R_xlen_t index = start; index < size; index++) {
-                SET_REAL_ELT(materialized, index, doubles[index]);
-            }
-            break;
-        }
-        case LGLSXP: {
-            const Rboolean *booleans = (const Rboolean *) data;
-            for (R_xlen_t index = start; index < size; index++) {
-                SET_LOGICAL_ELT(materialized, index, booleans[index]);
-            }
-            break;
-        }
-        case RAWSXP: {
-            const Rbyte *bytes = (const Rbyte *) data;
-            for (R_xlen_t index = start; index < size; index++) {
-                SET_RAW_ELT(materialized, index, bytes[index]);
-            }
-            break;
-        }
-        case CPLXSXP: {
-            const Rcomplex *trouble = (const Rcomplex *) data;
-            for (R_xlen_t index = start; index < size; index++) {
-                SET_COMPLEX_ELT(materialized, index, trouble[index]);
-            }
-            break;
-        }
-        case STRSXP:
-        case VECSXP: {
-            const SEXP *pointers = (const SEXP *) data;
-            for (R_xlen_t index = start; index < size; index++) {
-                SET_VECTOR_ELT(materialized, index, pointers[index]);
-            }
-            break;
-        }
-        default: Rf_error("Illegal source type for a prism: %i.\n", type);
-    }
-
-    return materialized;
-}
-
-static void *prism_dataptr(SEXP x, Rboolean writeable) {//TODO
+static void *prism_dataptr(SEXP x, Rboolean writeable) {
     assert(x != NULL);
 
     if (__get_debug_mode()) {
@@ -229,16 +162,14 @@ static void *prism_dataptr(SEXP x, Rboolean writeable) {//TODO
         return (writeable) ? DATAPTR(data) : ((void *) DATAPTR_RO(data));
     }
 
-    if (writeable) {
-        SEXP data = copy_from_source(x);
-        set_materialized_data(x, data);
-        return DATAPTR(data);
-    }
-
-    return (void *) extract_read_only_data_pointer(x);
+    SEXP/*INTSXP|REALSXP*/  indices = get_indices(x);
+    SEXP                    source  = get_source(x);
+    SEXP data = copy_data_at_indices(source, indices);
+    set_materialized_data(x, data);
+    return writeable ? DATAPTR(data) : (void *) DATAPTR_RO(data);
 }
 
-static const void *prism_dataptr_or_null(SEXP x) {//TODO
+static const void *prism_dataptr_or_null(SEXP x) {
     assert(x != NULL);
 
     if (__get_debug_mode()) {
@@ -246,7 +177,27 @@ static const void *prism_dataptr_or_null(SEXP x) {//TODO
         Rprintf("           SEXP: %p\n", x);
     }
 
-    return extract_read_only_data_pointer(x);
+    if (is_materialized(x)) {
+        SEXP data = get_materialized_data(x);
+        return DATAPTR_RO(data);
+    }
+
+    SEXP/*INTSXP|REALSXP*/  indices = get_indices(x);
+    SEXP                    source  = get_source(x);
+    SEXP data = copy_data_at_indices(source, indices);
+    set_materialized_data(x, data);
+    return DATAPTR_RO(data);
+}
+
+static inline R_xlen_t translate_index(SEXP/*INTSXP|REALSXP*/ indices, R_xlen_t index) {
+    SEXPTYPE type = TYPEOF(indices);
+    assert(type == INTSXP || type == REALSXP);
+
+    if (type == REALSXP) {
+        return (R_xlen_t) REAL_ELT   (indices, index - 1);
+    } else {
+        return (R_xlen_t) INTEGER_ELT(indices, index - 1);
+    }
 }
 
 static int prism_integer_element(SEXP x, R_xlen_t i) {
@@ -265,17 +216,16 @@ static int prism_integer_element(SEXP x, R_xlen_t i) {
         return INTEGER_ELT(data, i);
     }
 
-    SEXP/*REALSXP*/ indices = get_indices(x);
-    SEXP/*INTSXP*/  source  = get_source(x);
+    SEXP/*INTSXP|REALSXP*/ indices = get_indices(x);
+    SEXP/*INTSXP*/         source  = get_source(x);
 
-    assert(TYPEOF(source) == INTSXP);
-
-    R_xlen_t projected_index = (R_xlen_t) REAL_ELT(indices, i);
+    R_xlen_t projected_index = translate_index(indices, i);
 
     if (__get_debug_mode()) {
         Rprintf("projected_index: %li\n", projected_index);
     }
 
+    assert(TYPEOF(source) == INTSXP);
     return INTEGER_ELT(source, projected_index);
 }
 
@@ -295,17 +245,16 @@ static double prism_numeric_element(SEXP x, R_xlen_t i) {
         return INTEGER_ELT(data, i);
     }
 
-    SEXP/*REALSXP*/ indices = get_indices(x);
-    SEXP/*REALSXP*/ source  = get_source(x);
+    SEXP/*INTSXP|REALSXP*/ indices = get_indices(x);
+    SEXP/*REALSXP*/        source  = get_source(x);
 
-    assert(TYPEOF(source) == REALSXP);
-
-    R_xlen_t projected_index = (R_xlen_t) REAL_ELT(indices, i);
+    R_xlen_t projected_index = translate_index(indices, i);
 
     if (__get_debug_mode()) {
         Rprintf("projected_index: %li\n", projected_index);
     }
 
+    assert(TYPEOF(source) == REALSXP);
     return REAL_ELT(source, projected_index);
 }
 
@@ -325,17 +274,16 @@ static Rbyte prism_raw_element(SEXP x, R_xlen_t i) {
         return RAW_ELT(data, i);
     }
 
-    SEXP/*REALSXP*/ indices = get_indices(x);
-    SEXP/*RAWSXP*/  source  = get_source(x);
+    SEXP/*INTSXP|REALSXP*/ indices = get_indices(x);
+    SEXP/*RAWSXP*/         source  = get_source(x);
 
-    assert(TYPEOF(source) == RAWSXP);
-
-    R_xlen_t projected_index = (R_xlen_t) REAL_ELT(indices, i);
+    R_xlen_t projected_index = translate_index(indices, i);
 
     if (__get_debug_mode()) {
         Rprintf("projected_index: %li\n", projected_index);
     }
 
+    assert(TYPEOF(source) == RAWSXP);
     return RAW_ELT(source, projected_index);
 }
 
@@ -355,17 +303,16 @@ static Rcomplex prism_complex_element(SEXP x, R_xlen_t i) {
         return COMPLEX_ELT(data, i);
     }
 
-    SEXP/*REALSXP*/ indices = get_indices(x);
-    SEXP/*CPLXSXP*/ source  = get_source(x);
+    SEXP/*INTSXP|REALSXP*/ indices = get_indices(x);
+    SEXP/*CPLXSXP*/        source  = get_source(x);
 
-    assert(TYPEOF(source) == CPLXSXP);
-
-    R_xlen_t projected_index = (R_xlen_t) REAL_ELT(indices, i);
+    R_xlen_t projected_index = translate_index(indices, i);
 
     if (__get_debug_mode()) {
         Rprintf("projected_index: %li\n", projected_index);
     }
 
+    assert(TYPEOF(source) == CPLXSXP);
     return COMPLEX_ELT(source, projected_index);
 }
 
@@ -385,21 +332,20 @@ static int prism_logical_element(SEXP x, R_xlen_t i) {
         return LOGICAL_ELT(data, i);
     }
 
-    SEXP/*REALSXP*/ indices = get_indices(x);
-    SEXP/*LGLSXP*/  source  = get_source(x);
+    SEXP/*INTSXP|REALSXP*/ indices = get_indices(x);
+    SEXP/*LGLSXP*/         source  = get_source(x);
 
-    assert(TYPEOF(source) == LGLSXP);
-
-    R_xlen_t projected_index = (R_xlen_t) REAL_ELT(indices, i);
+    R_xlen_t projected_index = translate_index(indices, i);
 
     if (__get_debug_mode()) {
         Rprintf("projected_index: %li\n", projected_index);
     }
 
+    assert(TYPEOF(source) == LGLSXP);
     return LOGICAL_ELT(source, projected_index);
 }
 
-static R_xlen_t prism_integer_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf) { //TODO
+static R_xlen_t prism_integer_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf) {
     assert(x != R_NilValue);
 
     if (__get_debug_mode()) {
@@ -410,23 +356,20 @@ static R_xlen_t prism_integer_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *bu
         Rprintf("is_materialized: %i\n", is_materialized(x));
     }
 
-    if (is_materialized(x)) {
-        SEXP/*INTSXP*/ data = get_materialized_data(x);
-        assert(TYPEOF(data) == INTSXP);
-        return INTEGER_GET_REGION(data, i, n, buf);
+    SEXP/*INTSXP*/ data;
+    if (!is_materialized(x)) {
+        SEXP/*INTSXP|REALSXP*/ indices = get_indices(x);
+        SEXP                   source  = get_source(x);
+        SEXP data = copy_data_at_indices(source, indices);
+        set_materialized_data(x, data);
+    } else {
+        data = get_materialized_data(x);
     }
-
-    SEXP/*INTSXP*/ window = get_window(x);
-    SEXP/*INTSXP*/ source = get_source(x);
-
-    assert(TYPEOF(source) == INTSXP);
-
-    R_xlen_t projected_index = project_index(window, i);
-
-    return INTEGER_GET_REGION(source, projected_index, n, buf);
+    assert(TYPEOF(data) == INTSXP);
+    return INTEGER_GET_REGION(data, i, n, buf);
 }
 
-static R_xlen_t prism_numeric_get_region(SEXP x, R_xlen_t i, R_xlen_t n, double *buf) {//TODO
+static R_xlen_t prism_numeric_get_region(SEXP x, R_xlen_t i, R_xlen_t n, double *buf) {
     assert(x != R_NilValue);
 
     if (__get_debug_mode()) {
@@ -437,23 +380,20 @@ static R_xlen_t prism_numeric_get_region(SEXP x, R_xlen_t i, R_xlen_t n, double 
         Rprintf("is_materialized: %i\n", is_materialized(x));
     }
 
-    if (is_materialized(x)) {
-        SEXP/*REALSXP*/ data = get_materialized_data(x);
-        assert(TYPEOF(data) == REALSXP);
-        return REAL_GET_REGION(data, i, n, buf);
+    SEXP/*REALSXP*/ data;
+    if (!is_materialized(x)) {
+        SEXP/*INTSXP|REALSXP*/ indices = get_indices(x);
+        SEXP                   source  = get_source(x);
+        SEXP data = copy_data_at_indices(source, indices);
+        set_materialized_data(x, data);
+    } else {
+        data = get_materialized_data(x);
     }
-
-    SEXP/*INTSXP*/ window = get_window(x);
-    SEXP/*REALSXP*/ source = get_source(x);
-
-    assert(TYPEOF(source) == REALSXP);
-
-    R_xlen_t projected_index = project_index(window, i);
-
-    return REAL_GET_REGION(source, projected_index, n, buf);
+    assert(TYPEOF(data) == REALSXP);
+    return REAL_GET_REGION(data, i, n, buf);
 }
 
-static R_xlen_t prism_raw_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rbyte *buf) {//TODO
+static R_xlen_t prism_raw_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rbyte *buf) {
     assert(x != R_NilValue);
 
     if (__get_debug_mode()) {
@@ -464,23 +404,20 @@ static R_xlen_t prism_raw_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rbyte *buf)
         Rprintf("is_materialized: %i\n", is_materialized(x));
     }
 
-    if (is_materialized(x)) {
-        SEXP/*RAWSXP*/ data = get_materialized_data(x);
-        assert(TYPEOF(data) == RAWSXP);
-        return RAW_GET_REGION(data, i, n, buf);
+    SEXP/*RAWSXP*/ data;
+    if (!is_materialized(x)) {
+        SEXP/*INTSXP|REALSXP*/ indices = get_indices(x);
+        SEXP                   source  = get_source(x);
+        SEXP data = copy_data_at_indices(source, indices);
+        set_materialized_data(x, data);
+    } else {
+        data = get_materialized_data(x);
     }
-
-    SEXP/*INTSXP*/ window = get_window(x);
-    SEXP/*RAWSXP*/ source = get_source(x);
-
-    assert(TYPEOF(source) == RAWSXP);
-
-    R_xlen_t projected_index = project_index(window, i);
-
-    return RAW_GET_REGION(source, projected_index, n, buf);
+    assert(TYPEOF(data) == RAWSXP);
+    return RAW_GET_REGION(data, i, n, buf);
 }
 
-static R_xlen_t prism_complex_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rcomplex *buf) {//TODO
+static R_xlen_t prism_complex_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rcomplex *buf) {
     assert(x != R_NilValue);
 
     if (__get_debug_mode()) {
@@ -491,23 +428,20 @@ static R_xlen_t prism_complex_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rcomple
         Rprintf("is_materialized: %i\n", is_materialized(x));
     }
 
-    if (is_materialized(x)) {
-        SEXP/*CPLXSXP*/ data = get_materialized_data(x);
-        assert(TYPEOF(data) == CPLXSXP);
-        return COMPLEX_GET_REGION(data, i, n, buf);
+    SEXP/*CPLXSXP*/ data;
+    if (!is_materialized(x)) {
+        SEXP/*INTSXP|REALSXP*/ indices = get_indices(x);
+        SEXP                   source  = get_source(x);
+        SEXP data = copy_data_at_indices(source, indices);
+        set_materialized_data(x, data);
+    } else {
+        data = get_materialized_data(x);
     }
-
-    SEXP/*INTSXP*/  window = get_window(x);
-    SEXP/*CPLXSXP*/ source = get_source(x);
-
-    assert(TYPEOF(source) == CPLXSXP);
-
-    R_xlen_t projected_index = project_index(window, i);
-
-    return COMPLEX_GET_REGION(source, projected_index, n, buf);
+    assert(TYPEOF(data) == CPLXSXP);
+    return COMPLEX_GET_REGION(data, i, n, buf);
 }
 
-static R_xlen_t prism_logical_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf) {//TODO
+static R_xlen_t prism_logical_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf) {
     assert(x != R_NilValue);
 
     if (__get_debug_mode()) {
@@ -518,93 +452,33 @@ static R_xlen_t prism_logical_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *bu
         Rprintf("is_materialized: %i\n", is_materialized(x));
     }
 
-    if (is_materialized(x)) {
-        SEXP/*LGLSXP*/ data = get_materialized_data(x);
-        assert(TYPEOF(data) == LGLSXP);
-        return LOGICAL_GET_REGION(data, i, n, buf);
+    SEXP/*LGLSXP*/ data;
+    if (!is_materialized(x)) {
+        SEXP/*INTSXP|REALSXP*/ indices = get_indices(x);
+        SEXP                   source  = get_source(x);
+        SEXP data = copy_data_at_indices(source, indices);
+        set_materialized_data(x, data);
+    } else {
+        data = get_materialized_data(x);
     }
-
-    SEXP/*INTSXP*/ window = get_window(x);
-    SEXP/*LGLSXP*/ source = get_source(x);
-
-    assert(TYPEOF(source) == LGLSXP);
-
-    R_xlen_t projected_index = project_index(window, i);
-
-    return LOGICAL_GET_REGION(source, projected_index, n, buf);
+    assert(TYPEOF(data) == LGLSXP);
+    return LOGICAL_GET_REGION(data, i, n, buf);
 }
 
-static inline void copy_element(SEXP source, R_xlen_t source_index, SEXP target, R_xlen_t target_index) {
-    assert(TYPEOF(source) == TYPEOF(target));
-    assert(TYPEOF(source) == INTSXP
-        || TYPEOF(source) == REALSXP
-        || TYPEOF(source) == CPLXSXP
-        || TYPEOF(source) == LGLSXP
-        || TYPEOF(source) == VECSXP
-        || TYPEOF(source) == STRSXP);
-
-    switch(TYPEOF(source)) {
-        case INTSXP:  SET_INTEGER_ELT (target, target_index, INTEGER_ELT (source, source_index)); break;
-        case REALSXP: SET_REAL_ELT    (target, target_index, REAL_ELT    (source, source_index)); break;
-        case LGLSXP:  SET_LOGICAL_ELT (target, target_index, LOGICAL_ELT (source, source_index)); break;
-        case CPLXSXP: SET_COMPLEX_ELT (target, target_index, COMPLEX_ELT (source, source_index)); break;
-        case RAWSXP:  SET_RAW_ELT     (target, target_index, RAW_ELT     (source, source_index)); break;
-        case STRSXP:  SET_VECTOR_ELT  (target, target_index, VECTOR_ELT  (source, source_index)); break;
-        case VECSXP:  SET_VECTOR_ELT  (target, target_index, VECTOR_ELT  (source, source_index)); break;
-        default:      Rf_error("Unsupported vector type: %d\n", TYPEOF(source));
-    }
-}
-
-SEXP copy_data_at_integer_indices(SEXP source, SEXP/*INTSXP*/ indices) {//TODO
-    assert(TYPEOF(indices) == INTSXP);
-
-    R_xlen_t size = XLENGTH(indices);
-    SEXP target = allocVector(TYPEOF(source), size);
-
-    for (R_xlen_t i = 0; i < size; i++) {
-        int index = INTEGER_ELT(indices, i);
-        copy_element(source, (R_xlen_t) index, target, i);
-    }
-
-    return target;
-}
-
-SEXP copy_data_at_numeric_indices(SEXP source, SEXP/*REALSXP*/ indices) {//TODO
-    R_xlen_t size = XLENGTH(indices);
-    SEXP target = allocVector(TYPEOF(source), size);
-
-    for (R_xlen_t i = 0; i < size; i++) {
-        double index = REAL_ELT(indices, i);
-        copy_element(source, (R_xlen_t) index, target, i);
-    }
-
-    return target;
-}
-
-SEXP copy_data_at_indices(SEXP source, SEXP/*INTSXP | REALSXP*/ indices) {//TODO
-    SEXPTYPE type = TYPEOF(indices);
-    assert(type == INTSXP || type == REALSXP);
-
-    switch (type) {
-        case INTSXP:  return copy_data_at_integer_indices(source, indices);
-        case REALSXP: return copy_data_at_numeric_indices(source, indices);
-        default:      Rf_error("Prisms can be indexed by integer or numeric vectors but found: %d\n", type);
-    }
-}
-
-static SEXP prism_extract_subset(SEXP x, SEXP indices, SEXP call) {//TODO
+static SEXP prism_extract_subset(SEXP x, SEXP indices, SEXP call) {
     assert(x != NULL);
+    assert(TYPEOF(indices) == INTSXP || TYPEOF(indices) == REALSXP);
 
     if (__get_debug_mode()) {
-        Rprintf("ufo_extract_subset\n");
+        Rprintf("prism_extract_subset\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("        indices: %p\n", indices);
         Rprintf("           call: %p\n", call);
         Rprintf("is_materialized: %i\n", is_materialized(x));
     }
 
-    SEXP/*INTSXP*/ window = get_window(x);
-    SEXP           source = get_source(x);
+    SEXP/*INTSXP|REALSXP*/ prism_indices = get_indices(x);
+    SEXP                   source        = get_source(x);
 
     // No indices.
     R_xlen_t size = XLENGTH(indices);
@@ -613,17 +487,37 @@ static SEXP prism_extract_subset(SEXP x, SEXP indices, SEXP call) {//TODO
     }
 
     if (is_materialized(x)) {
-        return copy_data_at_indices(source, indices);
+        // TODO maybe instead just return a viewport into the materialized sexp?
+        SEXP materialized_data = get_materialized_data(x);
+        return copy_data_at_indices(materialized_data, indices);
     }
 
-    if (!are_indices_contiguous(indices)) {
-        Rf_error("Non-contiguous prisms are not implemented yet.\n"); // FIXME
+    if (!do_indices_contain_NAs(indices)) {
+        Rf_error("Non-NA prisms are not implemented yet.\n"); // FIXME
     }
 
-    // Contiguous indices.
-    R_xlen_t start = get_first_element_as_length(indices) - 1;
-    R_xlen_t projected_start = project_index(window, start);
-    return prism_new(source, projected_start, size);
+    // Non-NA indices.
+    SEXP translated_indices = allocVector(REALSXP, size);
+
+    switch (TYPEOF(indices)) {
+        case INTSXP:
+            for (R_xlen_t i = 0; i < size; i++) {
+                R_xlen_t index = (R_xlen_t) INTEGER_ELT(indices, i);
+                R_xlen_t translated_index = translate_index(prism_indices, index);
+                SET_REAL_ELT(translated_indices, i, translated_index);
+            }
+            break;
+
+        case REALSXP:
+            for (R_xlen_t i = 0; i < size; i++) {
+                R_xlen_t index = (R_xlen_t) REAL_ELT(indices, i);
+                R_xlen_t translated_index = translate_index(prism_indices, index);
+                SET_REAL_ELT(translated_indices, i, translated_index);
+            }
+            break;
+    }
+
+    return prism_new(source, indices);
 }
 
 // R_set_altstring_Set_elt_method
@@ -664,6 +558,7 @@ void init_prism_altrep_class(DllInfo * dll) {
 
 //SEXP/*NILSXP*/ prism(SEXP, SEXP/*INTSXP|REALSXP*/ start, SEXP/*INTSXP|REALSXP*/ size);
 
+
 SEXP create_prism(SEXP source, SEXP/*INTSXP|REALSXP*/ indices) {
     assert(TYPEOF(indices_sexp) == INTSXP || TYPEOF(indices_sexp) == REALSXP);
 
@@ -672,14 +567,5 @@ SEXP create_prism(SEXP source, SEXP/*INTSXP|REALSXP*/ indices) {
         Rprintf("           SEXP: %p\n", source);
     }
 
-    R_xlen_t *indices = indices_vector_to_array(indices_sexp);
-    if (TYPEOF(indices) == REALSXP) {
-        return prism_new(source, indices));
-    } else {
-        SEXP real_indices = allocVector(REALSXP, XLENGTH(indices));
-        for (R_xlen_t i = 0; i < XLENGTH(indices); i++) {
-            SET_REAL_ELT(real_indices, i, (R_xlen_t) INTEGER_ELT(indices, i));
-        }
-        return prism_new(source, real_indices);
-    }
+    return prism_new(source, indices);
 }

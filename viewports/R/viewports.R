@@ -26,6 +26,12 @@ mosaic <- function(vector, indices_or_mask) {
         .expect_types(indices_or_mask, c("integer", "double", "logical")))
 }
 
+prism <- function(vector, indices) {
+  .Call("create_prism",
+        vector,
+        .expect_types(indices, c("integer", "double")))
+}
+
 .expect_exactly_one <- function(vector, name=substitute(vector)) {
   if (length(vector) > 1) {
     warning(paste0("`", name, "` ",

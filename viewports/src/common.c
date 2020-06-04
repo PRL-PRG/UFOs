@@ -55,7 +55,6 @@ bool are_integer_indices_contiguous(SEXP/*INTSXP*/ indices) {
     assert(TYPEOF(indices) == INTSXP);
 
     R_xlen_t size = XLENGTH(indices);
-
     int previous = NA_INTEGER;
 
     for (int i = 0; i < size; i++) {
@@ -76,7 +75,6 @@ bool are_numeric_indices_contiguous(SEXP/*REALSXP*/ indices) {
     assert(TYPEOF(indices) == REALSXP);
 
     R_xlen_t size = XLENGTH(indices);
-
     double previous = NA_REAL;
 
     for (int i = 0; i < size; i++) {
@@ -100,6 +98,39 @@ bool are_indices_contiguous(SEXP/*INTSXP | REALSXP*/ indices) {
     switch (type) {
         case INTSXP:  return are_integer_indices_contiguous(indices);
         case REALSXP: return are_numeric_indices_contiguous(indices);
+        default:      Rf_error("Slices can be indexed by integer or numeric vectors but found: %d\n", type);
+    }
+}
+
+bool do_integer_indices_contain_NAs(SEXP/*INTSXP*/ indices) {
+    assert(TYPEOF(indices) == INTSXP);
+    R_xlen_t size = XLENGTH(indices);
+    for (int i = 0; i < size; i++) {
+        if (INTEGER_ELT(indices, i) == NA_INTEGER) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool do_numeric_indices_contain_NAs(SEXP/*REALSXP*/ indices) {
+    assert(TYPEOF(indices) == REALSXP);
+    R_xlen_t size = XLENGTH(indices);
+    for (int i = 0; i < size; i++) {
+        if (REAL_ELT(indices, i) == NA_REAL) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool do_indices_contain_NAs(SEXP/*INTSXP | REALSXP*/ indices) {
+    SEXPTYPE type = TYPEOF(indices);
+    assert(type == INTSXP || type == REALSXP);
+
+    switch (type) {
+        case INTSXP:  return do_integer_indices_contain_NAs(indices);
+        case REALSXP: return do_numeric_indices_contain_NAs(indices);
         default:      Rf_error("Slices can be indexed by integer or numeric vectors but found: %d\n", type);
     }
 }
@@ -183,14 +214,14 @@ SEXP copy_data_at_indices(SEXP source, SEXP/*INTSXP | REALSXP*/ indices) {
     switch (type) {
         case INTSXP:  {
             for (R_xlen_t i = 0; i < size; i++) {
-                int index = INTEGER_ELT(indices, i);
+                int index = INTEGER_ELT(indices, i) - 1;
                 copy_element(source, (R_xlen_t) index, target, i);
             }
             break;
         }
         case REALSXP: {
             for (R_xlen_t i = 0; i < size; i++) {
-                double index = REAL_ELT(indices, i);
+                double index = REAL_ELT(indices, i) - 1;
                 copy_element(source, (R_xlen_t) index, target, i);
             }
             break;

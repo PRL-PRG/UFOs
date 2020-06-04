@@ -529,42 +529,42 @@ static R_xlen_t slice_logical_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *bu
 }
 
 
-SEXP copy_data_at_integer_indices(SEXP source, SEXP/*INTSXP*/ indices) {
-    assert(TYPEOF(indices) == INTSXP);
-
-    R_xlen_t size = XLENGTH(indices);
-    SEXP target = allocVector(TYPEOF(source), size);
-
-    for (R_xlen_t i = 0; i < size; i++) {
-        int index = INTEGER_ELT(indices, i);
-        copy_element(source, (R_xlen_t) index, target, i);
-    }
-
-    return target;
-}
-
-SEXP copy_data_at_numeric_indices(SEXP source, SEXP/*REALSXP*/ indices) {
-    R_xlen_t size = XLENGTH(indices);
-    SEXP target = allocVector(TYPEOF(source), size);
-
-    for (R_xlen_t i = 0; i < size; i++) {
-        double index = REAL_ELT(indices, i);
-        copy_element(source, (R_xlen_t) index, target, i);
-    }
-
-    return target;
-}
-
-//SEXP copy_data_at_indices(SEXP source, SEXP/*INTSXP | REALSXP*/ indices) {
-//    SEXPTYPE type = TYPEOF(indices);
-//    assert(type == INTSXP || type == REALSXP);
+//SEXP copy_data_at_integer_indices(SEXP source, SEXP/*INTSXP*/ indices) {
+//    assert(TYPEOF(indices) == INTSXP);
 //
-//    switch (type) {
-//        case INTSXP:  return copy_data_at_integer_indices(source, indices);
-//        case REALSXP: return copy_data_at_numeric_indices(source, indices);
-//        default:      Rf_error("Slices can be indexed by integer or numeric vectors but found: %d\n", type);
+//    R_xlen_t size = XLENGTH(indices);
+//    SEXP target = allocVector(TYPEOF(source), size);
+//
+//    for (R_xlen_t i = 0; i < size; i++) {
+//        int index = INTEGER_ELT(indices, i);
+//        copy_element(source, (R_xlen_t) index, target, i);
 //    }
+//
+//    return target;
 //}
+//
+//SEXP copy_data_at_numeric_indices(SEXP source, SEXP/*REALSXP*/ indices) {
+//    R_xlen_t size = XLENGTH(indices);
+//    SEXP target = allocVector(TYPEOF(source), size);
+//
+//    for (R_xlen_t i = 0; i < size; i++) {
+//        double index = REAL_ELT(indices, i);
+//        copy_element(source, (R_xlen_t) index, target, i);
+//    }
+//
+//    return target;
+//}
+//
+////SEXP copy_data_at_indices(SEXP source, SEXP/*INTSXP | REALSXP*/ indices) {
+////    SEXPTYPE type = TYPEOF(indices);
+////    assert(type == INTSXP || type == REALSXP);
+////
+////    switch (type) {
+////        case INTSXP:  return copy_data_at_integer_indices(source, indices);
+////        case REALSXP: return copy_data_at_numeric_indices(source, indices);
+////        default:      Rf_error("Slices can be indexed by integer or numeric vectors but found: %d\n", type);
+////    }
+////}
 
 
 
