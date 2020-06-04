@@ -20,6 +20,11 @@ slice <- function(vector, start, size) {
         .expect_exactly_one(.expect_types(size,  c("integer", "double"))))
 }
 
+mosaic <- function(vector, indices_or_mask) {
+  .Call("create_mosaic",
+        vector,
+        .expect_types(indices_or_mask, c("integer", "double", "logical")))
+}
 
 .expect_exactly_one <- function(vector, name=substitute(vector)) {
   if (length(vector) > 1) {

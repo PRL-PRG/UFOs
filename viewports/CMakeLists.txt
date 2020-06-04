@@ -21,7 +21,9 @@ add_library(viewports
         src/helpers.h
         src/init.c
         src/slices.c
-        src/slices.h)
+        src/slices.h
+        src/mosaics.c
+        src/mosaics.h)
 
 include_directories(src ${R_INCLUDE_DIR})
 target_link_libraries(viewports ${R_LIBRARIES})

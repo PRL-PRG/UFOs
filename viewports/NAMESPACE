@@ -1,4 +1,5 @@
 useDynLib(viewports, .registration = TRUE, .fixes = "")
 
 export(slice)
+export(mosaic)
 export(viewports_set_debug_mode)
