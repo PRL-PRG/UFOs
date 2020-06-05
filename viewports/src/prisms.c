@@ -22,7 +22,7 @@ SEXP prism_new(SEXP source, SEXP/*INTSXP|REALSXP*/ indices) {
     assert(TYPEOF(indices) == REALSXP || TYPEOF(indices) == INTSXP);
     assert(source != null);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("prism_new\n");
         Rprintf("           SEXP: %p\n", source);
         R_xlen_t indices_length = XLENGTH(indices);
@@ -66,7 +66,7 @@ static inline bool is_materialized(SEXP x) {
 
 SEXP prism_duplicate(SEXP x, Rboolean deep) {//TODO
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("prism_duplicate\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("           deep: %i\n", deep);
@@ -107,7 +107,7 @@ static Rboolean prism_inspect(SEXP x, int pre, int deep, int pvec, void (*inspec
 }
 
 static R_xlen_t prism_length(SEXP x) {
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("prism_length\n");
         Rprintf("           SEXP: %p\n", x);
     }
@@ -150,7 +150,7 @@ static R_xlen_t prism_length(SEXP x) {
 static void *prism_dataptr(SEXP x, Rboolean writeable) {
     assert(x != NULL);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("prism_dataptr\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("      writeable: %i\n", writeable);
@@ -172,7 +172,7 @@ static void *prism_dataptr(SEXP x, Rboolean writeable) {
 static const void *prism_dataptr_or_null(SEXP x) {
     assert(x != NULL);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("prism_dataptr_or_null\n");
         Rprintf("           SEXP: %p\n", x);
     }
@@ -203,7 +203,7 @@ static inline R_xlen_t translate_index(SEXP/*INTSXP|REALSXP*/ indices, R_xlen_t 
 static int prism_integer_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("prism_integer_element\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -221,7 +221,7 @@ static int prism_integer_element(SEXP x, R_xlen_t i) {
 
     R_xlen_t projected_index = translate_index(indices, i);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("projected_index: %li\n", projected_index);
     }
 
@@ -232,7 +232,7 @@ static int prism_integer_element(SEXP x, R_xlen_t i) {
 static double prism_numeric_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("prism_numeric_element\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -250,7 +250,7 @@ static double prism_numeric_element(SEXP x, R_xlen_t i) {
 
     R_xlen_t projected_index = translate_index(indices, i);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("projected_index: %li\n", projected_index);
     }
 
@@ -261,7 +261,7 @@ static double prism_numeric_element(SEXP x, R_xlen_t i) {
 static Rbyte prism_raw_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("prism_raw_element\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -279,7 +279,7 @@ static Rbyte prism_raw_element(SEXP x, R_xlen_t i) {
 
     R_xlen_t projected_index = translate_index(indices, i);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("projected_index: %li\n", projected_index);
     }
 
@@ -290,7 +290,7 @@ static Rbyte prism_raw_element(SEXP x, R_xlen_t i) {
 static Rcomplex prism_complex_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("prism_complex_element\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -308,7 +308,7 @@ static Rcomplex prism_complex_element(SEXP x, R_xlen_t i) {
 
     R_xlen_t projected_index = translate_index(indices, i);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("projected_index: %li\n", projected_index);
     }
 
@@ -319,7 +319,7 @@ static Rcomplex prism_complex_element(SEXP x, R_xlen_t i) {
 static int prism_logical_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("prism_logical_element\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -337,7 +337,7 @@ static int prism_logical_element(SEXP x, R_xlen_t i) {
 
     R_xlen_t projected_index = translate_index(indices, i);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("projected_index: %li\n", projected_index);
     }
 
@@ -348,7 +348,7 @@ static int prism_logical_element(SEXP x, R_xlen_t i) {
 static R_xlen_t prism_integer_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("prism_integer_get_region\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -372,7 +372,7 @@ static R_xlen_t prism_integer_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *bu
 static R_xlen_t prism_numeric_get_region(SEXP x, R_xlen_t i, R_xlen_t n, double *buf) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("prism_numeric_get_region\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -396,7 +396,7 @@ static R_xlen_t prism_numeric_get_region(SEXP x, R_xlen_t i, R_xlen_t n, double 
 static R_xlen_t prism_raw_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rbyte *buf) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("prism_raw_get_region\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -420,7 +420,7 @@ static R_xlen_t prism_raw_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rbyte *buf)
 static R_xlen_t prism_complex_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rcomplex *buf) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("prism_complex_get_region\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -444,7 +444,7 @@ static R_xlen_t prism_complex_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rcomple
 static R_xlen_t prism_logical_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("prism_logical_get_region\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -469,7 +469,7 @@ static SEXP prism_extract_subset(SEXP x, SEXP indices, SEXP call) {
     assert(x != NULL);
     assert(TYPEOF(indices) == INTSXP || TYPEOF(indices) == REALSXP);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("prism_extract_subset\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("        indices: %p\n", indices);
@@ -562,7 +562,7 @@ void init_prism_altrep_class(DllInfo * dll) {
 SEXP create_prism(SEXP source, SEXP/*INTSXP|REALSXP*/ indices) {
     assert(TYPEOF(indices_sexp) == INTSXP || TYPEOF(indices_sexp) == REALSXP);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("create prism\n");
         Rprintf("           SEXP: %p\n", source);
     }

@@ -107,7 +107,7 @@ SEXP/*A*/ mosaic_new(SEXP/*A*/ source, SEXP/*INTSXP*/ bitmap, R_xlen_t size) {
 
     //assert(TYPEOF(indices) == INTSXP);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("mosaic_new\n");
         Rprintf("           SEXP: %p\n", source);
         Rprintf("         bitmap: %p\n",  bitmap);
@@ -136,7 +136,7 @@ SEXP/*A*/ mosaic_new(SEXP/*A*/ source, SEXP/*INTSXP*/ bitmap, R_xlen_t size) {
 //
 //    assert(TYPEOF(source_bitmap) == INTSXP);
 //
-//    if (__get_debug_mode()) {
+//    if (get_debug_mode()) {
 //        Rprintf("mosaic_new_from_bitmap\n");
 //        Rprintf("             SEXP: %p\n", source);
 //        Rprintf("           bitmap: %p\n", source_bitmap);
@@ -195,7 +195,7 @@ static inline R_xlen_t get_length(SEXP x) {
 
 SEXP mosaic_duplicate(SEXP x, Rboolean deep) {
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("mosaic_duplicate\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("           deep: %i\n", deep);
@@ -234,7 +234,7 @@ static Rboolean mosaic_inspect(SEXP x, int pre, int deep, int pvec, void (*inspe
 }
 
 static R_xlen_t mosaic_length(SEXP x) {
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("mosaic_length\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("         length: %p\n", get_length(x));
@@ -264,7 +264,7 @@ SEXP copy_from_source(SEXP x) {
 static void *mosaic_dataptr(SEXP x, Rboolean writeable) {
     assert(x != NULL);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("mosaic_dataptr\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("      writeable: %i\n", writeable);
@@ -284,7 +284,7 @@ static void *mosaic_dataptr(SEXP x, Rboolean writeable) {
 static const void *mosaic_dataptr_or_null(SEXP x) {
     assert(x != NULL);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("mosaic_dataptr_or_null\n");
         Rprintf("           SEXP: %p\n", x);
     }
@@ -304,7 +304,7 @@ static const void *mosaic_dataptr_or_null(SEXP x) {
 //
 //    R_xlen_t projected_index = bitmap_index_of_nth_set_bit(bitmap, index);
 //
-//    if (__get_debug_mode()) {
+//    if (get_debug_mode()) {
 //        Rprintf("    projecting index\n");
 //        Rprintf("         bitmap SEXP: %p\n",  bitmap);
 //        Rprintf("         input index: %li\n", index);
@@ -317,7 +317,7 @@ static const void *mosaic_dataptr_or_null(SEXP x) {
 static int mosaic_integer_element(SEXP x, R_xlen_t i) {  // CONTINUE HERE
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("mosaic_integer_element\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -342,7 +342,7 @@ static int mosaic_integer_element(SEXP x, R_xlen_t i) {  // CONTINUE HERE
 static double mosaic_numeric_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("mosaic_numeric_element\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -367,7 +367,7 @@ static double mosaic_numeric_element(SEXP x, R_xlen_t i) {
 static Rbyte mosaic_raw_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("mosaic_raw_element\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -392,7 +392,7 @@ static Rbyte mosaic_raw_element(SEXP x, R_xlen_t i) {
 static Rcomplex mosaic_complex_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("mosaic_complex_element\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -417,7 +417,7 @@ static Rcomplex mosaic_complex_element(SEXP x, R_xlen_t i) {
 static int mosaic_logical_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("mosaic_logical_element\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -442,7 +442,7 @@ static int mosaic_logical_element(SEXP x, R_xlen_t i) {
 static R_xlen_t mosaic_integer_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("mosaic_integer_get_region\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -464,7 +464,7 @@ static R_xlen_t mosaic_integer_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *b
 static R_xlen_t mosaic_numeric_get_region(SEXP x, R_xlen_t i, R_xlen_t n, double *buf) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("mosaic_numeric_get_region\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -486,7 +486,7 @@ static R_xlen_t mosaic_numeric_get_region(SEXP x, R_xlen_t i, R_xlen_t n, double
 static R_xlen_t mosaic_raw_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rbyte *buf) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("mosaic_raw_get_region\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -508,7 +508,7 @@ static R_xlen_t mosaic_raw_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rbyte *buf
 static R_xlen_t mosaic_complex_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rcomplex *buf) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("mosaic_complex_get_region\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -530,7 +530,7 @@ static R_xlen_t mosaic_complex_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rcompl
 static R_xlen_t mosaic_logical_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("mosaic_logical_get_region\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -555,7 +555,7 @@ static SEXP mosaic_extract_subset(SEXP x, SEXP indices, SEXP call) {
     assert(x != NULL);
     assert(TYPEOF(indices) == INTSXP || TYPEOF(indices) == REALSXP);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("mosaic_extract_subset\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("        indices: %p\n", indices);
@@ -652,7 +652,7 @@ SEXP/*A*/ create_mosaic(SEXP/*A*/ source, SEXP/*INTSXP|REALSXP|LGLSXP*/ indices)
            || TYPEOF(indices) == REALSXP
            || (TYPEOF(indices) == LGLSXP && (XTRUELENGTH(indices) == XLENGTH(indices))));
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("mosaic_new\n");
         Rprintf("           SEXP: %p\n", source);
         Rprintf("        indices: %p\n", indices);

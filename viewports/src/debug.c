@@ -8,6 +8,6 @@ SEXP/*NILSXP*/ set_debug_mode(SEXP/*LGLSXP*/ debug) {
     return R_NilValue;
 }
 
-int __get_debug_mode() {
+int get_debug_mode() {
     return __debug_mode;
 }

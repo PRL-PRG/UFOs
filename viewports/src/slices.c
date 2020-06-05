@@ -49,7 +49,7 @@ SEXP slice_new(SEXP source, R_xlen_t start, R_xlen_t size) {
 
                    // FIXME check vector size vs start and end
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("slice_new\n");
         Rprintf("           SEXP: %p\n", source);
         Rprintf("          start: %li\n", start);
@@ -103,7 +103,7 @@ static inline bool is_materialized(SEXP x) {
 
 SEXP slice_duplicate(SEXP x, Rboolean deep) {
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("slice_duplicate\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("           deep: %i\n", deep);
@@ -144,7 +144,7 @@ static Rboolean slice_inspect(SEXP x, int pre, int deep, int pvec, void (*inspec
 }
 
 static R_xlen_t slice_length(SEXP x) {
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("slice_length\n");
         Rprintf("           SEXP: %p\n", x);
     }
@@ -202,7 +202,7 @@ const void *extract_read_only_data_pointer(SEXP x) {
 static void *slice_dataptr(SEXP x, Rboolean writeable) {
     assert(x != NULL);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("slice_dataptr\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("      writeable: %i\n", writeable);
@@ -233,7 +233,7 @@ static void *slice_dataptr(SEXP x, Rboolean writeable) {
 static const void *slice_dataptr_or_null(SEXP x) {
     assert(x != NULL);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("slice_dataptr_or_null\n");
         Rprintf("           SEXP: %p\n", x);
     }
@@ -251,7 +251,7 @@ R_xlen_t project_index(SEXP/*INTSXP*/ window, R_xlen_t index) {
     assert(index < size);
     R_xlen_t projected_index = start + index;
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("    projecting index\n");
         Rprintf("         window SEXP: %p\n",  window);
         Rprintf("               start: %li\n", start);
@@ -266,7 +266,7 @@ R_xlen_t project_index(SEXP/*INTSXP*/ window, R_xlen_t index) {
 static int slice_integer_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("slice_integer_element\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -292,7 +292,7 @@ static int slice_integer_element(SEXP x, R_xlen_t i) {
 static double slice_numeric_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("slice_numeric_element\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -318,7 +318,7 @@ static double slice_numeric_element(SEXP x, R_xlen_t i) {
 static Rbyte slice_raw_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("slice_raw_element\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -344,7 +344,7 @@ static Rbyte slice_raw_element(SEXP x, R_xlen_t i) {
 static Rcomplex slice_complex_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("slice_complex_element\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -370,7 +370,7 @@ static Rcomplex slice_complex_element(SEXP x, R_xlen_t i) {
 static int slice_logical_element(SEXP x, R_xlen_t i) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("slice_logical_element\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -396,7 +396,7 @@ static int slice_logical_element(SEXP x, R_xlen_t i) {
 static R_xlen_t slice_integer_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("slice_integer_get_region\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -423,7 +423,7 @@ static R_xlen_t slice_integer_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *bu
 static R_xlen_t slice_numeric_get_region(SEXP x, R_xlen_t i, R_xlen_t n, double *buf) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("slice_numeric_get_region\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -450,7 +450,7 @@ static R_xlen_t slice_numeric_get_region(SEXP x, R_xlen_t i, R_xlen_t n, double 
 static R_xlen_t slice_raw_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rbyte *buf) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("slice_raw_get_region\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -477,7 +477,7 @@ static R_xlen_t slice_raw_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rbyte *buf)
 static R_xlen_t slice_complex_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rcomplex *buf) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("slice_complex_get_region\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -504,7 +504,7 @@ static R_xlen_t slice_complex_get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rcomple
 static R_xlen_t slice_logical_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf) {
     assert(x != R_NilValue);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("slice_logical_get_region\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("          index: %li\n", i);
@@ -571,7 +571,7 @@ static R_xlen_t slice_logical_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *bu
 static SEXP slice_extract_subset(SEXP x, SEXP indices, SEXP call) {
     assert(x != NULL);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("slice_extract_subset\n");
         Rprintf("           SEXP: %p\n", x);
         Rprintf("        indices: %p\n", indices);
@@ -649,7 +649,7 @@ SEXP create_slice(SEXP source, SEXP/*INTSXP|REALSXP*/ start_sexp, SEXP/*INTSXP|R
     R_xlen_t start = get_first_element_as_length(start_sexp) - 1;
     R_xlen_t size  = get_first_element_as_length(size_sexp);
 
-    if (__get_debug_mode()) {
+    if (get_debug_mode()) {
         Rprintf("create slice\n");
         Rprintf("           SEXP: %p\n", source);
         Rprintf("          start: %li\n", start);
