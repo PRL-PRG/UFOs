@@ -13,8 +13,8 @@ Maintainer: Konrad Siek <siekkonr@fit.cvut.cz>
 License: GPL-2 | GPL-3
 Encoding: UTF-8
 LazyData: true
-Depends: ufos
-LinkingTo: ufos
+Depends: ufos, viewports
+LinkingTo: ufos, viewports
 NeedsCompilation: yes
 Suggests: 
     knitr,

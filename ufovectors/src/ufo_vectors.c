@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#define USE_RINTERNALS
+#include <R.h>
+#include <Rinternals.h>
+
 #include "../include/ufos.h"
 #include "ufo_vectors.h"
 #include "ufo_metadata.h"

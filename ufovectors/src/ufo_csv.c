@@ -7,6 +7,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define USE_RINTERNALS
+#include <R.h>
+#include <Rinternals.h>
+
 #include "../include/ufos.h"
 #include "helpers.h"
 #include "debug.h"
