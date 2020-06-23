@@ -42,7 +42,6 @@
     vector
 }
 
-
 ufo_integer_bin <- function(path, min_load_count = 0) {
   .Call("ufo_vectors_intsxp_bin",
         path.expand(.check_path(.expect_exactly_one(path))),
@@ -165,6 +164,42 @@ ufo_csv <- function(path, min_load_count = 0, check_names=T, header=T, record_ro
   df
 }
 # todo row.names
+
+ufo_integer <- function(size, min_load_count = 0) {
+  .Call("ufo_intsxp_empty",
+        as.numeric(size),
+        as.integer(.expect_exactly_one(min_load_count)))
+}
+
+ufo_numeric <- function(size, min_load_count = 0) {
+  .Call("ufo_realsxp_empty",
+        as.numeric(size),
+        as.integer(.expect_exactly_one(min_load_count)))
+}
+
+ufo_complex <- function(size, min_load_count = 0) {
+  .Call("ufo_cplxsxp_empty",
+        as.numeric(size),
+        as.integer(.expect_exactly_one(min_load_count)))
+}
+
+ufo_logical <- function(size, min_load_count = 0) {
+  .Call("ufo_lglsxp_empty",
+        as.numeric(size),
+        as.integer(.expect_exactly_one(min_load_count)))
+}
+
+ufo_raw <- function(size, min_load_count = 0) {
+  .Call("ufo_rawsxp_empty",
+        as.numeric(size),
+        as.integer(.expect_exactly_one(min_load_count)))
+}
+
+ufo_character <- function(size, min_load_count = 0) {
+  .Call("ufo_strsxp_empty",
+        as.numeric(size),
+        as.integer(.expect_exactly_one(min_load_count)))
+}
 
 ufo_set_debug_mode <- function(debug=TRUE) {
   invisible(.Call("ufo_vectors_set_debug_mode", .expect_exactly_one(.expect_type(debug, "logical"))))
