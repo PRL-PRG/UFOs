@@ -30,8 +30,8 @@ test_that("empty raw vector", {
 	expect_equal(ufo, ordinary);
 })
 
-test_that("empty character vector", {
-	ufo <- ufo_character(1000000);
-	ordinary <- character(1000000);
-	expect_equal(ufo, ordinary);
-})
+#test_that("empty character vector", {
+	#ufo <- ufo_character(1000000);
+	#ordinary <- character(1000000);
+	#expect_equal(ufo, ordinary);
+#})

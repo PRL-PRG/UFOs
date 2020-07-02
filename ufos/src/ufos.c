@@ -93,13 +93,11 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
     int status = ufCreateObject(__ufo_system, cfg, &object);
     __validate_status_or_die(status);
 
-    //fprintf(stderr, "header ptr %p\n", ufGetHeaderPointer(object));
-    //fprintf(stderr, "value ptr  %p\n", ufGetValuePointer(object));
 
-    return ufGetHeaderPointer(object); // FIXME
+    return ufGetHeaderPointer(object);
 }
 
-void __ufo_free(R_allocator_t *allocator, void* ptr) {
+void __ufo_free(R_allocator_t *allocator, void *ptr) {
     ufObject_t* object = ufLookupObjectByMemberAddress(__ufo_system, ptr);
     if (object == NULL) {
         Rf_error("Tried freeing a UFO, "

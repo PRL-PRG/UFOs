@@ -91,8 +91,7 @@ ufo_source_t* __make_source_or_die(ufo_vector_type_t type, const char *path, int
 SEXP __make_vector(ufo_vector_type_t type, SEXP sexp, SEXP/*INTSXP*/ min_load_count_sexp) {
     const char *path = __extract_path_or_die(sexp);
     int32_t min_load_count = __extract_int_or_die(min_load_count_sexp);
-    ufo_source_t *source = __make_source_or_die(type, path,                                        NULL, 0,
-                                                min_load_count);
+    ufo_source_t *source = __make_source_or_die(type, path, NULL, 0, min_load_count);
     ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
     return ufo_new(source);
 }

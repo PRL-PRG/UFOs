@@ -423,7 +423,7 @@ static int freeUfo(ufInstance* i, ufAsyncMsg* msg){
   oroboros_for_each(i->chunkRecord, mark, NULL);
 
   munmap(ufo->writebackMmapBase, size + ufo->writebackMmapBitmapLength);
-  close(ufo->writebackMmapFd); // temnp file is destroyed when the last handle to it is closed
+  close(ufo->writebackMmapFd); // temp file is destroyed when the last handle to it is closed
 
   return 0;
 
@@ -474,7 +474,7 @@ static int readHandleMsg(ufInstance* i, bool* selfFreeP){
 #define MAX_EVENTS 2 // We only register 2 handles. 2 is literally the max for us
 
 static int ePollLoop(ufInstance* i, struct epoll_event* events){
-  int interruptCt = 0, nRdy;
+  int nRdy;
   do{
     nRdy = epoll_wait(i->epollFd, events, MAX_EVENTS, 200);
     if(nRdy >= 0)
@@ -485,11 +485,6 @@ static int ePollLoop(ufInstance* i, struct epoll_event* events){
     }
 
     errno = 0;
-    interruptCt++;
-    if(interruptCt >= 3){
-      perror("Interrupted 3 times in a row in epoll");
-      return -1;
-    }
   }while(true);
 }
 
@@ -783,6 +778,7 @@ int ufCreateObject(ufInstance_t instance, ufObjectConfig_t objectConfig, ufObjec
 
   const uint64_t toAllocate = conf->headerSzWithPadding + ceilDiv(conf->stride*conf->elementCt, pageSize) * pageSize;
   o->trueSize = toAllocate;
+  printf("XXXX ufCreateObject                  o=%p o->trueSize=%li\n", o, o->trueSize);
 
   // Assign an ID to the object
   o->id = i->nextID++;
@@ -841,6 +837,8 @@ ufObject_t ufLookupObjectByMemberAddress(ufInstance_t instance, void* ptr){
 int ufDestroyObject(ufObject_t object_p){
   ufObject*   o = asUfo(object_p);
   ufInstance* i = o->instance;
+
+  printf("XXXX ufDestroyObject                  o=%p o->trueSize=%li\n", o, o->trueSize);
 
   if(NULL != i){
     int res = -1, returnVal = -1, sendErr = 0;

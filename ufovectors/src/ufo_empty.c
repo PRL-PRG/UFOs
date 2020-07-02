@@ -19,17 +19,15 @@ typedef struct {
 } data_t;
 
 int __populate_empty(uint64_t start, uint64_t end, ufPopulateCallout cf, ufUserData user_data, char* target) {
-	data_t *data = (data_t*) user_data;
+	ufo_vector_type_t type = (ufo_vector_type_t) user_data;
 
 	if (__get_debug_mode()) {
 	    REprintf("__populate\n");
-	    REprintf("    vector type: %d\n", data->vector_type);
-	    REprintf("    vector size: %li\n", data->vector_size);
-	    REprintf("   element size: %li\n", data->element_size);
+	    REprintf("    vector type: %d\n", type);
 	}
 
 	size_t size = end - start;
-	switch (data->vector_type) {
+	switch (type) {
 	case UFO_STR:
 	/* case UFO_VEC:*/ {
     		SEXP *sexp_vector = (SEXP *) target;
@@ -86,16 +84,16 @@ int __populate_empty(uint64_t start, uint64_t end, ufPopulateCallout cf, ufUserD
 }
 
 void __destroy_empty(ufUserData *user_data) {
-    data_t *data = (data_t*) user_data;
+    //data_t *data = (data_t*) user_data; XXX
 
     if (__get_debug_mode()) {
         REprintf("__destroy\n");
-        REprintf("    vector type: %d\n", data->vector_type);
-        REprintf("    vector size: %li\n", data->vector_size);
-        REprintf("   element size: %li\n", data->element_size);
+        //REprintf("    vector type: %d\n", data->vector_type);
+        //REprintf("    vector size: %li\n", data->vector_size);
+        //REprintf("   element size: %li\n", data->element_size);
     }
 
-    free(data);
+    //free(data); XXX
 }
 
 SEXP __make_empty(ufo_vector_type_t type, SEXP/*REALSXP*/ size_sexp, SEXP/*INTSXP*/ min_load_count_sexp) {
@@ -112,12 +110,12 @@ SEXP __make_empty(ufo_vector_type_t type, SEXP/*REALSXP*/ size_sexp, SEXP/*INTSX
     source->dimensions_length = 0;
     source->min_load_count = __select_min_load_count(min_load_count, source->element_size);
 
-    data_t *data = (data_t*) malloc(sizeof(data_t));
-    data->vector_type = source->vector_type;
-    data->vector_size = source->vector_size;
-    data->element_size = source->element_size;
+//    data_t *data = (data_t*) malloc(sizeof(data_t));
+//    data->vector_type = source->vector_type;
+//    data->vector_size = source->vector_size;
+//    data->element_size = source->element_size;
 
-    source->data = (ufUserData*) data;
+    source->data = (ufUserData*) type;
 
     ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
     return ufo_new(source);

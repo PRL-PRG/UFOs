@@ -288,7 +288,7 @@ SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp, SEXP/
         data->initial_buffer_size = initial_buffer_size;
 
         ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
-        SEXP/*UFO*/ vector =  PROTECT(ufo_new(source));
+        SEXP/*UFO*/ vector = PROTECT(ufo_new(source));
         SET_VECTOR_ELT(data_frame, column, vector);
 
         if (__get_debug_mode()) {
