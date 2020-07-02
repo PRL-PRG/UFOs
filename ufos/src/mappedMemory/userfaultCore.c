@@ -25,6 +25,7 @@
 #include "../unstdLib/errors.h"
 
 #include "userFaultCoreInternal.h"
+#include "oroboros.h"
 
 /* System init and initial worker thread */
 
@@ -38,6 +39,13 @@ static size_t get_page_size(){
   }
   assert(ret > 0);
   return ret;
+}
+
+int check_totals (ufInstance* i) {
+  uint64_t total = 0;
+  void sum(size_t i, oroboros_item_t *item, void* user_data) { total += item->size; }
+  oroboros_for_each(i->chunkRecord, sum, NULL);
+  return i->usedMemory == total;
 }
 
 static int readMsgSlowPath(const int fd, const int sz, char* m, int readBytes){
@@ -163,58 +171,102 @@ static int readHandleUfEvent(ufInstance* i){
       return 0; // File handle closed? We shouldn't see this
   }
 
-  if(msg.event & UFFD_EVENT_PAGEFAULT){
-    const uint64_t faultAtAddr = msg.arg.pagefault.address;
-    assert(0 == (faultAtAddr % pageSize));
-
-    entry e;
-    tryPerrInt(res, listFind(i->objects, &e, (void*)faultAtAddr), "no known object for fault", error);
-    ufObject* ufo = asUfo(e.valuePtr);
-
-    const uint64_t bodyStart = (uint64_t) ufo->start + ufo->config.headerSzWithPadding;
-    const uint64_t faultRelBody = faultAtAddr - bodyStart; // Translate the fault address to an address relative to the body of the object
-    const uint64_t bytesAtOnce = ufo->config.objectsAtOnce * ufo->config.stride;
-
-    const uint64_t faultAtLoadBoundaryRelBody  = (faultRelBody / bytesAtOnce) * bytesAtOnce; // Round down to the next loading boundary
-    assert(0 == faultAtLoadBoundaryRelBody % bytesAtOnce);
-    assert(0 == faultAtLoadBoundaryRelBody % ufo->config.stride);
-    const uint64_t faultAtLoadBoundaryAbsolute = faultAtLoadBoundaryRelBody + bodyStart;
-
-    const uint64_t idx = faultAtLoadBoundaryRelBody / ufo->config.stride;
-
-    uint64_t actualFillCt = ufo->config.objectsAtOnce;
-    if(idx + actualFillCt > ufo->config.elementCt)
-      actualFillCt = ufo->config.elementCt - idx;
-
-    const uint64_t fillSizeBytes = ceilDiv(actualFillCt * ufo->config.stride, pageSize) * pageSize;
-
-    if(__builtin_expect(i->bufferSize < fillSizeBytes, 0)){
-      tryPerrNull(i->buffer, realloc(i->buffer, fillSizeBytes), "cannot realloc buffer", error);
-      i->bufferSize = fillSizeBytes;
-    }
-
-    int callout(ufPopulateCalloutMsg* msg){
-      switch(msg->cmd){
-        case ufResolveRangeCmd:
-          return 0; // Not yet implemented, but this is advisory only so no error
-        case ufExpandRange:
-          return ufWarnNoChange; // Not yet implemented, but callers have to deal with this anyway, even spuriously
-        default:
-          return ufBadArgs;
-      }
-      __builtin_unreachable();
-    }
-    //uint64_t startValueIdx, uint64_t endValueIdx, ufPopulateCallout callout, ufUserData userData, char* target
-    tryPerrInt(res,
-        ufo->config.populateFunction(idx, idx + actualFillCt, callout, ufo->config.userConfig, i->buffer),
-        "populate error", error);
-
-    struct uffdio_copy copy = (struct uffdio_copy){.src = (uint64_t) i->buffer, .dst = faultAtLoadBoundaryAbsolute, .len = fillSizeBytes, .mode = 0};
-    tryPerrNegOne(res, ufCopy(i, &copy), "error copying", error);
-  }else{
+  if(!(msg.event & UFFD_EVENT_PAGEFAULT)) {
     perror("Unknown userfault event");
     assert(false);
+    goto error;
   }
+
+  const uint64_t faultAtAddr = msg.arg.pagefault.address;
+  assert(0 == (faultAtAddr % pageSize));
+
+  entry e;
+  tryPerrInt(res, listFind(i->objects, &e, (void*)faultAtAddr), "no known object for fault", error);
+  ufObject* ufo = asUfo(e.valuePtr);
+
+  const uint64_t bodyStart = (uint64_t) ufo->start + ufo->config.headerSzWithPadding;
+  const uint64_t faultRelBody = faultAtAddr - bodyStart; // Translate the fault address to an address relative to the body of the object
+  const uint64_t bytesAtOnce = ufo->config.objectsAtOnce * ufo->config.stride;
+
+  const uint64_t faultAtLoadBoundaryRelBody  = (faultRelBody / bytesAtOnce) * bytesAtOnce; // Round down to the next loading boundary
+  assert(0 == faultAtLoadBoundaryRelBody % bytesAtOnce);
+  assert(0 == faultAtLoadBoundaryRelBody % ufo->config.stride);
+  const uint64_t faultAtLoadBoundaryAbsolute = faultAtLoadBoundaryRelBody + bodyStart;
+
+  const uint64_t idx = faultAtLoadBoundaryRelBody / ufo->config.stride;
+
+  uint64_t actualFillCt = ufo->config.objectsAtOnce;
+  if(idx + actualFillCt > ufo->config.elementCt)
+    actualFillCt = ufo->config.elementCt - idx;
+
+  const uint64_t fillSizeBytes = ceilDiv(actualFillCt * ufo->config.stride, pageSize) * pageSize;
+  if (fillSizeBytes > i->highWaterMarkBytes) {
+    perror("Cannot load a chunk whose size is greater than the total number of memory dedicated "
+           "to storing chunk data (high water mark).");
+    goto error;
+  }
+
+  if(__builtin_expect(i->bufferSize < fillSizeBytes, 0)){
+    tryPerrNull(i->buffer, realloc(i->buffer, fillSizeBytes), "cannot realloc buffer", error);
+    i->bufferSize = fillSizeBytes;
+  }
+
+  if (i->usedMemory + fillSizeBytes > i->highWaterMarkBytes) {
+    while (i->usedMemory + fillSizeBytes > i->lowWaterMarkBytes) {
+      int popResult;
+      oroboros_item_t chunkMetadata;
+
+      //tryPerrInt(popResult, oroboros_pop(i->chunkRecord, &chunkMetadata),
+      //           "Reclaiming all the elements from ring buffer did not free enough memory "
+      //           "to allocate incoming chunk without breaking the high water mark memory usage threshold", error);
+
+      popResult = oroboros_pop(i->chunkRecord, &chunkMetadata);
+      if(popResult!=0) {
+        printf("eeeee\n");
+        perror("Reclaiming all the elements from ring buffer did not free enough memory "
+               "to allocate incoming chunk without breaking the high water mark memory usage threshold");
+        goto error;
+      }
+
+      if (chunkMetadata.size > 0) {
+        i->usedMemory -= chunkMetadata.size;
+        assert(check_totals(i));
+        madvise(chunkMetadata.address, chunkMetadata.size, MADV_DONTNEED); // also possible: MADV_FREE
+      }
+      // TODO when writing is a thing, make sure to guard against stray writes here
+    }
+  }
+
+  int callout(ufPopulateCalloutMsg* msg){
+    switch(msg->cmd){
+      case ufResolveRangeCmd:
+        return 0; // Not yet implemented, but this is advisory only so no error
+      case ufExpandRange:
+        return ufWarnNoChange; // Not yet implemented, but callers have to deal with this anyway, even spuriously
+      default:
+        return ufBadArgs;
+    }
+    __builtin_unreachable();
+  }
+  //uint64_t startValueIdx, uint64_t endValueIdx, ufPopulateCallout callout, ufUserData userData, char* target
+  tryPerrInt(res,
+      ufo->config.populateFunction(idx, idx + actualFillCt, callout, ufo->config.userConfig, i->buffer),
+      "populate error", error);
+
+  struct uffdio_copy copy = (struct uffdio_copy){.src = (uint64_t) i->buffer, .dst = faultAtLoadBoundaryAbsolute, .len = fillSizeBytes, .mode = 0};
+  tryPerrNegOne(res, ufCopy(i, &copy), "error copying", error);
+
+  oroboros_item_t chunkMetadata = {
+          .size = fillSizeBytes,
+          .address = (void *) faultAtLoadBoundaryAbsolute,
+          .owner_id = ufo->id,
+  };
+  i->usedMemory += chunkMetadata.size;
+
+  tryPerrInt(res, oroboros_push(i->chunkRecord, chunkMetadata, true),
+             "Could not push metadata onto the ring buffer. The ring buffer cannot resize.", error);  // FIXME consider adding an upper limit to size
+
+  assert(check_totals(i));
 
   return 0;
 
@@ -229,6 +281,12 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
   const uint64_t size = ufo->trueSize;
   assert(size > 0);
 
+  const uint64_t fillSizeBytes = ceilDiv(ufo->config.objectsAtOnce * ufo->config.stride, pageSize) * pageSize;
+  if (fillSizeBytes > i->highWaterMarkBytes) {
+    perror("Cannot allocate an object whose chunk size is greater than the total number of memory dedicated "
+           "to storing chunk data (high water mark).");
+    goto error;
+  }
 
   // allocate a memory region to be managed by userfaultfd
   tryPerrNull(ufo->start, mmap(NULL, ufo->trueSize, PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0), "error allocating ufo memory", callerErr);
@@ -286,6 +344,20 @@ static int freeUfo(ufInstance* i, ufAsyncMsg* msg){
   munmap(ufo->start, size);
   *msg->return_p = 0; // Success
   tryPerrInt(res, sem_post(msg->completionLock_p), "error unlocking waiter for free", error);
+
+  void mark (size_t index, oroboros_item_t *item, void *data) {
+    if (item->owner_id == ufo->id) {
+      //item->garbage_collected = true;
+
+      i->usedMemory -= item->size;
+      item->size = 0;
+
+      assert(check_totals(i));
+      // We don't actually reclaim here, because it's done for the whole object.
+    }
+  }
+  oroboros_for_each(i->chunkRecord, mark, NULL);
+
   return 0;
 
   callerErr:
@@ -417,6 +489,24 @@ static int initUfFileDescriptor(ufInstance* ins){
   return res;
 }
 
+int ufSetMemoryLimits(ufInstance_t instance, size_t highWaterMarkBytes, size_t lowWaterMarkBytes) {
+  ufInstance* ins =  asUfInstance(instance);
+
+  if (!(ins->highWaterMarkBytes == 0 && ins->lowWaterMarkBytes == 0)) {
+    perror("Memory limits can only be set once");
+    return -1;
+  }
+
+  if (!(highWaterMarkBytes > lowWaterMarkBytes)) {
+    perror("High water mark must be greater than low water mark.");
+    return -2;
+  }
+
+  ins->highWaterMarkBytes = highWaterMarkBytes;
+  ins->lowWaterMarkBytes = lowWaterMarkBytes;
+  return 0;
+}
+
 int ufInit(ufInstance_t instance){
   ufInstance* ins =  asUfInstance(instance);
   if(0 == pageSize)
@@ -451,6 +541,9 @@ int ufInit(ufInstance_t instance){
   //Everything in place? Start the handler thread
   tryPerrInt(res, pthread_create(&ins->userfaultThread, NULL, handler, ins), "error starting thread", errThread);
 
+  // Initially, we're not using any memory, because no chunks have been populated
+  ins->usedMemory = 0;
+
   return 0; //done and all good
 
   errThread:
@@ -478,6 +571,8 @@ ufInstance_t ufMakeInstance(){
       return NULL;
   }
   i->objects = newList();
+  i->chunkRecord = oroboros_init(1024);
+
   return i;
 }
 
@@ -567,6 +662,9 @@ int ufCreateObject(ufInstance_t instance, ufObjectConfig_t objectConfig, ufObjec
 
   const uint64_t toAllocate = conf->headerSzWithPadding + ceilDiv(conf->stride*conf->elementCt, pageSize) * pageSize;
   o->trueSize = toAllocate;
+
+  // Assign an ID to the object
+  o->id = i->nextID++;
 
   // Init the allocation vars and message
   sem_t completionLock;
