@@ -335,7 +335,8 @@ static int readHandleMsg(ufInstance* i, bool* selfFreeP){
 #define MAX_EVENTS 2 // We only register 2 handles. 2 is literally the max for us
 
 static int ePollLoop(ufInstance* i, struct epoll_event* events){
-  int interruptCt = 0, nRdy;
+//  int interruptCt = 0,
+  int nRdy;
   do{
     nRdy = epoll_wait(i->epollFd, events, MAX_EVENTS, 200);
     if(nRdy >= 0)
@@ -346,11 +347,11 @@ static int ePollLoop(ufInstance* i, struct epoll_event* events){
     }
 
     errno = 0;
-    interruptCt++;
-    if(interruptCt >= 3){
-      perror("Interrupted 3 times in a row in epoll");
-      return -1;
-    }
+//    interruptCt++;
+//    if(interruptCt >= 3){
+//      perror("Interrupted 3 times in a row in epoll");
+//      return -1;
+//    }
   }while(true);
 }
 
@@ -611,7 +612,14 @@ ufObject_t ufLookupObjectByMemberAddress(ufInstance_t instance, void* ptr){
   res = listFind(i->objects, &e, ptr);
   if(0 != res)
     return NULL;
-  return asUfo(e.valuePtr);
+
+  ufObject* ufo = asUfo(e.valuePtr);
+
+  const uint64_t ptrI = (uint64_t) ptr;
+  assert(ptrI >= ufo->startI);
+  assert(ptrI < ufo->startI + ufo->trueSize);
+
+  return ufo;
 }
 
 int ufDestroyObject(ufObject_t object_p){
