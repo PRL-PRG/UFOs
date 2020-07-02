@@ -38,6 +38,7 @@ int main(int argc, char **argv) {
   srand(13);
 
   ufInstance_t ufI = ufMakeInstance();
+  ufSetMemoryLimits(ufI, 100*1024*1024, 50*1024*1024);
   tryPerrInt(res, ufInit(ufI), "Err Init", error);
 
 //  uint64_t* bitmap = calloc(1024*1024*1024, 8);
@@ -62,12 +63,20 @@ int main(int argc, char **argv) {
 
     printf("%lu\n", (uint64_t)ct);
 
+    const uint64_t persianFlawIdx = rand() % ct;
+    ptr[persianFlawIdx] = persianFlawIdx;
+
     while((random() & 0xfff) != 0){
       uint64_t i = rand() % ct;
       assert(i < ct);
       assert(  (((uint64_t) &ptr[i]) - ((uint64_t)ptr)) < sz );
-      uint64_t x = ptr[i];
-      assert(~i == x);
+
+      if(persianFlawIdx == i){
+        assert(ptr[i] == persianFlawIdx);
+      }else{
+        uint64_t x = ptr[i];
+        assert(~i == x);
+      }
     }
 
     tryPerrInt(res, ufDestroyObject(o), "Err destroying obj", error1);

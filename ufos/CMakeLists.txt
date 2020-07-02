@@ -46,7 +46,7 @@ target_link_libraries(ufoTest ${CMAKE_THREAD_LIBS_INIT})
 
 
 add_executable(oroborosTest src/mappedMemory/oroboros.c src/mappedMemory/oroboros.h src/mappedMemory/oroborosTest.c)
-#target_link_libraries(oroborosTest ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(oroborosTest ${CMAKE_THREAD_LIBS_INIT})
 
 add_executable(strideTest ${CORE_SRC} src/mappedMemory/stride.c)
 target_link_libraries(strideTest ${CMAKE_THREAD_LIBS_INIT})

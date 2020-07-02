@@ -1,66 +1,65 @@
-#include "ufo_file_manipulation.h"
+#include "io.h"
 
 #define USE_RINTERNALS
 #include <R.h>
 #include <Rinternals.h>
 
-#include "ufo_metadata.h"
-#include "debug.h"
+#include "../ufo_metadata.h"
+#include "../debug.h"
 
 int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
                      ufUserData user_data, char* target) {
 
-    ufo_file_source_data_t* data = (ufo_file_source_data_t*) user_data;
-    //size_t size_of_memory_fragment = end - start + 1;
+    ufo_file_source_data_t* cfg = (ufo_file_source_data_t*) user_data;
 
     if (__get_debug_mode()) {
         REprintf("__load_from_file\n");
         REprintf("    start index: %li\n", start);
         REprintf("      end index: %li\n", end);
         REprintf("  target memory: %p\n", (void *) target);
-        REprintf("    source file: %s\n", data->path);
-        REprintf("    vector type: %d\n", data->vector_type);
-        REprintf("    vector size: %li\n", data->vector_size);
-        REprintf("   element size: %li\n", data->element_size);
+        REprintf("    source file: %s\n", cfg->path);
+        REprintf("    vector type: %d\n", cfg->vector_type);
+        REprintf("    vector size: %li\n", cfg->vector_size);
+        REprintf("   element size: %li\n", cfg->element_size);
     }
 
-    int initial_seek_status = fseek(data->file_handle, 0L, SEEK_END);
+    int initial_seek_status = fseek(cfg->file_handle, 0L, SEEK_END);
     if (initial_seek_status < 0) {
         // Could not seek in from file.
-        fprintf(stderr, "Could not seek to the end of file.\n"); //TODO use proper channels
+        fprintf(stderr, "Could not seek to the end of file.\n");
         return 1;
     }
 
-    long file_size_in_bytes = ftell(data->file_handle);
+    long file_size_in_bytes = ftell(cfg->file_handle);
     //fprintf(stderr, "file_size=%li\n", file_size_in_bytes);
 
-    long start_reading_from = data->element_size * start;
+    long start_reading_from = cfg->element_size * start;
     //fprintf(stderr, "start_reading_from=%li\n", start_reading_from);
     if (start_reading_from > file_size_in_bytes) {
         // Start index out of bounds of the file.
-        fprintf(stderr, "Start index out of bounds of the file.\n"); //TODO use proper channels
+        fprintf(stderr, "Start index out of bounds of the file.\n");
         return 42;
     }
 
-    long end_reading_at = data->element_size * end;
+    long end_reading_at = cfg->element_size * end;
     //fprintf(stderr, "end_reading_at=%li\n", end_reading_at);
     if (end_reading_at > file_size_in_bytes) {
         // End index out of bounds of the file.
-        fprintf(stderr, "End index out of bounds of the file.\n"); //TODO use proper channels
+        fprintf(stderr, "End index out of bounds of the file.\n");
         return 43;
     }
 
-    int rewind_seek_status = fseek(data->file_handle, start_reading_from, SEEK_SET);
+    int rewind_seek_status = fseek(cfg->file_handle, start_reading_from, SEEK_SET);
     if (rewind_seek_status < 0) {
         // Could not seek in the file to position at start index.
-        fprintf(stderr, "Could not seek in the file to position at start index.\n"); //TODO use proper channels
+        fprintf(stderr, "Could not seek in the file to position at start index.\n");
         return 2;
     }
 
-    size_t read_status = fread(target, data->element_size, end - start, data->file_handle);
+    size_t read_status = fread(target, cfg->element_size, end - start, cfg->file_handle);
     if (read_status < end - start || read_status == 0) {
         // Read failed.
-        fprintf(stderr, "Read failed. Read %li out of %li elements.\n", read_status, end - start); //TODO use proper channels
+        fprintf(stderr, "Read failed. Read %li out of %li elements.\n", read_status, end - start);
         return 44;
     }
 

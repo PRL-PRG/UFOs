@@ -78,8 +78,7 @@ int __load_from_file(int debug, uint64_t start, uint64_t end, altrep_ufo_config_
     }
     if (read_status < end - start || read_status == 0) {
         // Read failed.
-        fprintf(stderr, "Read failed. Read %li out of %li elements.\n",
-                read_status, end - start);
+        fprintf(stderr, "Read failed. Read %li out of %li elements.\n", read_status, end - start);
         return 44;
     }
 

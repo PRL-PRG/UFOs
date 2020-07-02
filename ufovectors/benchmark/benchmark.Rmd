@@ -1,0 +1,171 @@
+---
+title: "Benchmarks"
+author: "K. Siek"
+date: "March 6, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```R
+devtools::install_github("olafmersmann/microbenchmarkCore")
+devtools::install_github("olafmersmann/microbenchmark")
+```
+
+```{r}
+library(ufoseq)
+library(ufovectors)
+library(ufoaltrep)
+library(microbenchmark)
+library(ggplot2)
+```
+
+```R
+setwd("~/Workspace/ufo_workspace/UFOs/ufovectors/benchmark")
+ufo_set_debug_mode(F)
+options(scipen=999) # effectively turns off scientific notation
+```
+
+## File-backed matrices
+
+Two nigh-identical implementations of file-backed vectors. One done with UFOs, one done with vectors.
+
+### Sum: 32 million 1s
+
+```{r fb-sum32mln1, cache=T}
+path <- "32M1s.bin"
+min_load_count = 1024 * 1024 / 4
+expected_value = 32000000
+
+result <- microbenchmark(
+  "UFO" = { 
+    sum(ufo_integer_bin(path, min_load_count))
+  },
+  "ALTREP" = {
+    sum(altrep_ufo_integer_bin(path))
+  },
+  check = function(values) {
+    # turns out 32 mln 1s is 32mln
+    all(sapply(values[first_row], function(result) result == expected_value))
+  },
+  times = 50L
+)
+
+autoplot(result)
+```
+
+### Sum: 32 million random integers
+
+```{r fb-sum32mlnrand, cache=T}
+path <- "32Mints.bin"
+min_load_count = 1024 * 1024 / 4
+
+actually_check = T
+expected_value = first_row5985145033203 # for this particular file, but not if its regenerated
+
+result <- microbenchmark(
+  "UFO" = {
+    sum(ufo_integer_bin(path, min_load_count))
+  },
+  "ALTREP" = {
+    sum(altrep_ufo_integer_bin(path))
+  },
+  check = function(values) {
+    if (actually_check) {
+      all(sapply(values[first_row], function(result) result == expected_value))
+    } else
+      TRUE
+  },
+  times = 50L
+)
+
+autoplot(result)
+```
+
+### For loop: 32 million random integers
+
+```{r fb-for32mlnrand, cache=T}
+path <- "32Mints.bin"
+min_load_count = 1024 * 1024 / 4
+
+some_function <- function(x) x
+
+result <- microbenchmark(
+  "UFO" = {
+    for (e in ufo_integer_bin(path, min_load_count)) some_function(e)
+  },
+  "ALTREP" = {
+    for (e in altrep_ufo_integer_bin(path)) some_function(e)
+  },
+  times = 10L
+)
+
+autoplot(result)
+```
+
+ALTREP is really slow because:
+- it has to do dispatch on each element
+- it has to read from disk on each element
+
+TODO: add an ALTREP implementation that buffers elements.
+
+## Sequences
+
+Here I'm comparing 
+
+- our implementation of sequences, vs.
+- `seq.int` which just returns an ordinary R vector, vs. 
+- a compact vector (result of `n:m`), which, *I believe*, is implemented with ALTREP
+
+## Sum: 32 mln int sequence
+
+```{r seq-sum32mln, cache=T}
+size = 32000000
+
+result <- microbenchmark(
+  "ufoseq" = {
+    sum(ufo_seq(1, size, 1))
+  },
+  "seq.int" = {
+    sum(seq.int(1, size, 1))
+  },
+  "compact vector" = {
+    sum(1:size)
+  },
+  times = 50L
+)
+
+autoplot(result)
+```
+
+They implement their own sum, which doesn't go through all the elements, instead it just calculates the sum from the boundaries of the sequence:
+
+```C
+(size / 2.0) * (n1 + n1 + inc * (size - 1))
+```
+
+
+
+## For loop: 32 mln int sequence
+
+```{r fseq-for32mln, cache=T}
+size = 32000000
+some_function <- function(x) x
+
+result <- microbenchmark(
+  "ufoseq" = {
+    for (e in ufo_seq(1, size, 1)) some_function(e)
+  },
+  "seq.int" = {
+    for (e in seq.int(1, size, 1)) some_function(e)
+  },
+  "compact vector" = {
+    for (e in 1:size) some_function(e)
+  },
+  times = 10L
+)
+
+autoplot(result)
+```

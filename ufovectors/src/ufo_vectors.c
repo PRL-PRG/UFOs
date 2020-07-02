@@ -2,12 +2,16 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#define USE_RINTERNALS
+#include <R.h>
+#include <Rinternals.h>
+
 #include "../include/ufos.h"
 #include "ufo_vectors.h"
 #include "ufo_metadata.h"
 #include "helpers.h"
 #include "debug.h"
-#include "ufo_file_manipulation.h"
+#include "bin/io.h"
 
 #include "../include/mappedMemory/userfaultCore.h"
 
@@ -35,13 +39,13 @@ size_t __get_ufo_element_size(ufo_vector_type_t vector_type) {
             return sizeof(Rcomplex);
         case UFO_RAW:
             return sizeof(Rbyte);
+        case UFO_STR:
+            return sizeof(SEXP/*STRSXP*/);
         default:
             Rf_error("Unrecognized vector type: %d\n", vector_type);
     }
-}
 
-void __check_file_path_or_die(const char * path) {
-
+    return 0;
 }
 
 void __destroy(ufUserData *user_data) {
@@ -58,14 +62,7 @@ void __destroy(ufUserData *user_data) {
     free(data);
 }
 
-int32_t __1MB_of_elements(size_t element_size) {
-    assert (element_size < 1 << 24);
-    assert (element_size > 0);
-    return (1024 * 1024) / ((int32_t) element_size);
-}
-
 ufo_source_t* __make_source_or_die(ufo_vector_type_t type, const char *path, int *dimensions, size_t dimensions_length, int32_t min_load_count) {
-    __check_file_path_or_die(path);
 
     ufo_file_source_data_t *data = (ufo_file_source_data_t*) malloc(sizeof(ufo_file_source_data_t));
 
@@ -78,9 +75,7 @@ ufo_source_t* __make_source_or_die(ufo_vector_type_t type, const char *path, int
     source->vector_size = __get_vector_length_from_file_or_die(path, source->element_size);
     source->dimensions = dimensions;
     source->dimensions_length = dimensions_length;
-    source->min_load_count =
-            min_load_count > 0 ? min_load_count
-                               : __1MB_of_elements(source->element_size);
+    source->min_load_count = __select_min_load_count(min_load_count, source->element_size);
 
     data->path = path;
     data->vector_type = source->vector_type;
@@ -96,8 +91,7 @@ ufo_source_t* __make_source_or_die(ufo_vector_type_t type, const char *path, int
 SEXP __make_vector(ufo_vector_type_t type, SEXP sexp, SEXP/*INTSXP*/ min_load_count_sexp) {
     const char *path = __extract_path_or_die(sexp);
     int32_t min_load_count = __extract_int_or_die(min_load_count_sexp);
-    ufo_source_t *source = __make_source_or_die(type, path,
-                                                NULL, 0,
+    ufo_source_t *source = __make_source_or_die(type, path,                                        NULL, 0,
                                                 min_load_count);
     ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
     return ufo_new(source);
@@ -136,9 +130,7 @@ SEXP __make_matrix(ufo_vector_type_t type, SEXP/*STRSXP*/ path_sexp, SEXP/*INTSX
     int *dimensions = (int *) malloc(sizeof(int) * 2);
     dimensions[0] = __extract_int_or_die(rows);
     dimensions[1] = __extract_int_or_die(cols);
-    ufo_source_t *source = __make_source_or_die(type, path,
-                                                dimensions, 2,
-                                                min_load_count);
+    ufo_source_t *source = __make_source_or_die(type, path, dimensions, 2, min_load_count);
     ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new_multidim");
 
     return ufo_new(source);
@@ -163,3 +155,5 @@ SEXP ufo_matrix_lglsxp_bin(SEXP/*STRSXP*/ path, SEXP/*INTSXP*/ rows, SEXP/*INTSX
 SEXP ufo_matrix_rawsxp_bin(SEXP/*STRSXP*/ path, SEXP/*INTSXP*/ rows, SEXP/*INTSXP*/ cols, SEXP/*INTSXP*/ min_load_count) {
     return __make_matrix(UFO_RAW, path, rows, cols, min_load_count);
 }
+
+

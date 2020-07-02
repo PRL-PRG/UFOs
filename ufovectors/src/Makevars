@@ -1,3 +1,3 @@
-#PKG_CPPFLAGS = -pthread
-#PKG_LIBS = -pthread
-CFLAGS = -fpic -g -O2 -Wall -Werror
+PKG_CFLAGS = -DUSE_R_STUFF
+SOURCES_C = init.c ufo_vectors.c ufo_empty.c helpers.c debug.c csv/token.c csv/tokenizer.c csv/reader.c bin/io.c ufo_csv.c csv/string_vector.c csv/string_set.c evil/bad_strings.c
+OBJECTS = $(SOURCES_C:.c=.o)

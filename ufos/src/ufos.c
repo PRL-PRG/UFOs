@@ -37,15 +37,15 @@ SEXP ufo_initialize() {
         if (__ufo_system == NULL) {
             Rf_error("Error initializing the UFO framework (null instance)");
         }
-        int result = ufInit(__ufo_system);
-        if (result != 0) {
-            Rf_error("Error initializing the UFO framework (%i)", result);
-        }
         size_t high = 200 * 1024 * 1024; // * 1024; for testing: 200MB
         size_t low = 100 * 1024 * 1024;  // * 1024; for testing: 100MB
-        result = ufSetMemoryLimits(__ufo_system, high, low);
+        int result = ufSetMemoryLimits(__ufo_system, high, low);
         if (result != 0) {
             Rf_error("Error setting memory limits for the UFO framework (%i)", result);
+        }
+        result = ufInit(__ufo_system);
+        if (result != 0) {
+            Rf_error("Error initializing the UFO framework (%i)", result);
         }
     }
     return R_NilValue;
@@ -61,20 +61,14 @@ void __validate_status_or_die (int status) {
 
 uint32_t __get_stride_from_type_or_die(ufo_vector_type_t type) {
     switch(type) {
-        case UFO_CHAR:
-            return strideOf(Rbyte);
-        case UFO_LGL:
-            return strideOf(Rboolean);
-        case UFO_INT:
-            return strideOf(int);
-        case UFO_REAL:
-            return strideOf(double);
-        case UFO_CPLX:
-            return strideOf(Rcomplex);
-        case UFO_RAW:
-            return strideOf(Rbyte);
-        default:
-            Rf_error("Cannot derive stride for vector type: %d\n", type);
+        case UFO_CHAR: return strideOf(Rbyte);
+        case UFO_LGL:  return strideOf(Rboolean);
+        case UFO_INT:  return strideOf(int);
+        case UFO_REAL: return strideOf(double);
+        case UFO_CPLX: return strideOf(Rcomplex);
+        case UFO_RAW:  return strideOf(Rbyte);
+        case UFO_STR:  return strideOf(SEXP);
+        default:       Rf_error("Cannot derive stride for vector type: %d\n", type);
     }
 }
 
@@ -122,20 +116,15 @@ void __ufo_free(R_allocator_t *allocator, void* ptr) {
 
 SEXPTYPE ufo_type_to_vector_type (ufo_vector_type_t ufo_type) {
     switch (ufo_type) {
-        case UFO_CHAR:
-            return CHARSXP;
-        case UFO_LGL:
-            return LGLSXP;
-        case UFO_INT:
-            return INTSXP;
-        case UFO_REAL:
-            return REALSXP;
-        case UFO_CPLX:
-            return CPLXSXP;
-        case UFO_RAW:
-            return RAWSXP;
-        default:
-            return -1;
+        case UFO_CHAR: return CHARSXP;
+        case UFO_LGL:  return LGLSXP;
+        case UFO_INT:  return INTSXP;
+        case UFO_REAL: return REALSXP;
+        case UFO_CPLX: return CPLXSXP;
+        case UFO_RAW:  return RAWSXP;
+        case UFO_STR:  return STRSXP;
+        default:       printf("Cannot convert ufo_type_t=%i to SEXPTYPE", ufo_type);
+                       return -1;
     }
 }
 
@@ -192,7 +181,11 @@ SEXP ufo_new(ufo_source_t* source) {
     R_allocator_t* allocator = __ufo_new_allocator(source);
 
     // Create a new vector of the appropriate type using the allocator.
+#ifdef USE_R_HACKS
+    SEXP ufo = PROTECT(allocVectorIII(type, source->vector_size, allocator, 1));
+#else
     SEXP ufo = PROTECT(allocVector3(type, source->vector_size, allocator));
+#endif
 
     // Workaround for scalar vectors ignoring custom allocator:
     // Pre-load the data in, at least it'll work as read-only.
