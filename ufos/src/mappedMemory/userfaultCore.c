@@ -778,7 +778,6 @@ int ufCreateObject(ufInstance_t instance, ufObjectConfig_t objectConfig, ufObjec
 
   const uint64_t toAllocate = conf->headerSzWithPadding + ceilDiv(conf->stride*conf->elementCt, pageSize) * pageSize;
   o->trueSize = toAllocate;
-  printf("XXXX ufCreateObject                  o=%p o->trueSize=%li\n", o, o->trueSize);
 
   // Assign an ID to the object
   o->id = i->nextID++;
@@ -831,14 +830,19 @@ ufObject_t ufLookupObjectByMemberAddress(ufInstance_t instance, void* ptr){
   res = listFind(i->objects, &e, ptr);
   if(0 != res)
     return NULL;
-  return asUfo(e.valuePtr);
+
+  ufObject* ufo = asUfo(e.valuePtr);
+
+  const uint64_t ptrI = (uint64_t) ptr;
+  assert(ptrI >= ufo->startI);
+  assert(ptrI < ufo->startI + ufo->trueSize);
+
+  return ufo;
 }
 
 int ufDestroyObject(ufObject_t object_p){
   ufObject*   o = asUfo(object_p);
   ufInstance* i = o->instance;
-
-  printf("XXXX ufDestroyObject                  o=%p o->trueSize=%li\n", o, o->trueSize);
 
   if(NULL != i){
     int res = -1, returnVal = -1, sendErr = 0;
