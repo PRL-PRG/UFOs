@@ -1,6 +1,6 @@
 #mkInclude = sparseList.h ../unstdLib/*.h
 #CC=gcc
-UFO_KEY = -D__UFOs_CoreDev__
+UFO_KEY = -D__UFOs_CoreDev__ -DMAKE_SURE
 PKG_LIBS = -pthread
 OBJ = sparseList.o userfaultCore.o userfaultGettersSetters.o oroboros.o
 #CFLAGS = -fpic -g -O2 -Wall -Werror

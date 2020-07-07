@@ -8,7 +8,7 @@
 #include "R_ext.h"
 #include "mappedMemory/userfaultCore.h"
 
-#include <assert.h>
+#include "make_sure.h"
 
 ufInstance_t __ufo_system;
 int __framework_initialized = 0;
@@ -78,8 +78,7 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
     size_t sexp_header_size = sizeof(SEXPREC_ALIGN);
     size_t sexp_metadata_size = sizeof(R_allocator_t);
 
-    assert((size - sexp_header_size - sexp_metadata_size)
-           == (source->vector_size *  sizeof(int)));
+    make_sure((size - sexp_header_size - sexp_metadata_size) == (source->vector_size *  source->element_size), Rf_error, "Sizes don't match at ufo_alloc.");
 
     ufObjectConfig_t cfg = makeObjectConfig0(sexp_header_size + sexp_metadata_size,
                                              source->vector_size,

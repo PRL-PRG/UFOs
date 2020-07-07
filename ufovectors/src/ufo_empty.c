@@ -12,6 +12,8 @@
 
 #include "../include/mappedMemory/userfaultCore.h"
 
+#include "make_sure.h"
+
 typedef struct {
     ufo_vector_type_t   vector_type;
     size_t              element_size; /* in bytes */
@@ -101,6 +103,10 @@ SEXP __make_empty(ufo_vector_type_t type, SEXP/*REALSXP*/ size_sexp, SEXP/*INTSX
     R_xlen_t size = __extract_R_xlen_t_or_die(size_sexp);
 
     ufo_source_t* source = (ufo_source_t*) malloc(sizeof(ufo_source_t));
+    if(source == NULL) {
+    	Rf_error("Cannot allocate ufo_source_t");
+    }
+
     source->population_function = &__populate_empty;
     source->destructor_function = &__destroy_empty;
     source->vector_type = type;
@@ -115,6 +121,7 @@ SEXP __make_empty(ufo_vector_type_t type, SEXP/*REALSXP*/ size_sexp, SEXP/*INTSX
 //    data->vector_size = source->vector_size;
 //    data->element_size = source->element_size;
 
+    make_sure(sizeof(ufo_vector_type_t) <= sizeof(ufUserData*), Rf_error, "Cannot fit vector type information into ufUserData pointer.");
     source->data = (ufUserData*) type;
 
     ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
