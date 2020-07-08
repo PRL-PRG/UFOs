@@ -15,3 +15,8 @@
 .onUnload <- function(libname, pkgname) {
   .jeff_goldbloom()
 }
+
+# Checks whether a vector is a UFO.
+is_ufo <- function(x) {
+	.Call("is_ufo", x)
+}

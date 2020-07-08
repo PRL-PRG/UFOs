@@ -217,3 +217,14 @@ SEXP ufo_new_multidim(ufo_source_t* source) {
     UNPROTECT(1);
     return ufo;
 }
+
+SEXP is_ufo(SEXP x) {
+	SEXP/*LGLSXP*/ response = PROTECT(allocVector(LGLSXP, 1));
+	if(ufIsObject(__ufo_system, x)) {
+		SET_LOGICAL_ELT(response, 0, 1);
+	} else {
+		SET_LOGICAL_ELT(response, 0, 0);
+	}
+	UNPROTECT(1);
+	return response;
+}

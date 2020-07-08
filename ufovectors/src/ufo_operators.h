@@ -1,6 +1,8 @@
 #pragma once
 
+#define USE_RINTERNALS
 #include <R.h>
+#include <Rinternals.h>
 
 SEXP ufo_add (SEXP x, SEXP y);
 SEXP ufo_sub (SEXP x, SEXP y);

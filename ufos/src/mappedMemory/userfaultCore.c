@@ -831,6 +831,13 @@ int ufCreateObject(ufInstance_t instance, ufObjectConfig_t objectConfig, ufObjec
   return res;
 }
 
+int ufIsObject(ufInstance_t instance, void* ptr){
+  ufInstance* i = asUfInstance(instance);
+  entry e;
+  int res = listFind(i->objects, &e, ptr);
+  return 0 == res;
+}
+
 ufObject_t ufLookupObjectByMemberAddress(ufInstance_t instance, void* ptr){
   ufInstance* i = asUfInstance(instance);
 

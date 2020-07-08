@@ -1,8 +1,4 @@
-#include <ufo_operators.h>
-
-#define USE_RINTERNALS
-#include <R.h>
-#include <Rinternals.h>
+#include "ufo_operators.h"
 
 SEXP ufo_add (SEXP x, SEXP y) {
 	return R_NilValue;

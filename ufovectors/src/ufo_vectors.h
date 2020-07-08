@@ -2,6 +2,8 @@
 
 #include "Rinternals.h"
 
+SEXP is_ufo(SEXP);
+
 SEXP/*INTSXP*/ ufo_vectors_intsxp_bin(SEXP/*STRSXP*/ path, SEXP/*INTSXP*/ min_load_count);
 SEXP/*REALSXP*/ ufo_vectors_realsxp_bin(SEXP/*STRSXP*/ path, SEXP/*INTSXP*/ min_load_count);
 SEXP/*CPLXSXP*/ ufo_vectors_cplxsxp_bin(SEXP/*STRSXP*/ path, SEXP/*INTSXP*/ min_load_count);
