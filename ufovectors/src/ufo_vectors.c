@@ -13,6 +13,8 @@
 #include "debug.h"
 #include "bin/io.h"
 
+#include "make_sure.h"
+
 #include "../include/mappedMemory/userfaultCore.h"
 
 int ufo_initialized = 0;
@@ -65,8 +67,15 @@ void __destroy(ufUserData *user_data) {
 ufo_source_t* __make_source_or_die(ufo_vector_type_t type, const char *path, int *dimensions, size_t dimensions_length, int32_t min_load_count) {
 
     ufo_file_source_data_t *data = (ufo_file_source_data_t*) malloc(sizeof(ufo_file_source_data_t));
+    if(data == NULL) {
+    	Rf_error("Cannot allocate ufo_file_source_t");
+    }
 
     ufo_source_t* source = (ufo_source_t*) malloc(sizeof(ufo_source_t));
+    if(source == NULL) {
+    	Rf_error("Cannot allocate ufo_source_t");
+    }
+
     source->population_function = &__load_from_file;
     source->destructor_function = &__destroy;
     source->data = (ufUserData*) data;
