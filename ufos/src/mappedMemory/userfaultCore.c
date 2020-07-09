@@ -108,9 +108,12 @@ static void handlerShutdown(ufInstance* i, bool selfFree){
   //Nuke all the objects
   void nullObject(entry* e){
     ufObject* ufo = asUfo(e->valuePtr);
-    if(NULL != ufo)
+    if(NULL != ufo) {
+      printf("unmapping (on handlerShutdown) \n");
+      printf("		ufo->start %p\n", ufo->start);
+      printf("		ufo->trueSize %li\n", ufo->trueSize);
       munmap(ufo->start, ufo->trueSize);
-    else
+    } else
       assert(false);
   }
   listWalk(i->objects, nullObject);
@@ -351,6 +354,9 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
   // allocate a memory region to be managed by userfaultfd
   /* With writeback files we can allow writes! */
   tryPerr(ufo->start, ufo->start == (void*)-1, mmap(NULL, ufo->trueSize, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0), "error allocating ufo memory", callerErr);
+  printf("mapping \n");
+    printf("		ufo->start %p\n", ufo->start);
+    printf("		size       %li\n", size);
 
   /* With writeback files the whole mapping is already writeable */
   //  tryPerrInt(res, mprotect(ufo->start, ufo->config.headerSzWithPadding, PROT_READ|PROT_WRITE), "error changing header write protections", mprotectErr); // make the header writeable
@@ -453,8 +459,9 @@ static int freeUfo(ufInstance* i, ufAsyncMsg* msg){
   tryPerrInt(res, ioctl(i->ufFd, UFFDIO_UNREGISTER, &ufM), "error unregistering ufo with UF", callerErr);
 
   tryPerrInt(res, listRemove(i->objects, ufo.start), "unknown UFO", callerErr);
+  
+  tryPerrInt(res, munmap(ufo.start, size), "error munmapping ufo", error);
 
-  munmap(ufo.start, size);
   *msg->return_p = 0; // Success
   tryPerrInt(res, sem_post(msg->completionLock_p), "error unlocking waiter for free", error);
 
