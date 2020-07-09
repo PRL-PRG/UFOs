@@ -339,7 +339,6 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
   assert(ufAllocateMsg == msg->msgType);
   int res;
   ufObject* ufo = asUfo(msg->theUfo);
-  const uint64_t size = ufo->trueSize;
 
   const uint64_t fillSizeBytes = ceilDiv(ufo->config.objectsAtOnce * ufo->config.stride, pageSize) * pageSize;
   if (fillSizeBytes > i->highWaterMarkBytes) {
@@ -374,8 +373,6 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
   }
 
   *msg->return_p = 0;
-
-  assert(size == ufo->trueSize);
 
   tryPerrInt(res, sem_post(msg->completionLock_p), "error unlocking waiter", error);
 
@@ -417,7 +414,8 @@ static int resetUfo(ufInstance* i, ufAsyncMsg* msg){
   void markFree(size_t idx, oroboros_item_t* e, void* usr){
     if(e->ufo == ufo){
       i->usedMemory -= e->size;
-      e->size = 0;
+      // clear the structure entirely, also marks it as claimed by setting size to 0
+      memset(e, 0, sizeof(oroboros_item_t));
 
       assert(check_totals(i));
     }
@@ -437,14 +435,37 @@ static int resetUfo(ufInstance* i, ufAsyncMsg* msg){
   return res;
 }
 
+static bool nonOverlapping(ufInstance* i, ufObject* ufo){
+  bool isOverlapping = false;
+
+  const uint64_t uS = ufo->startI, uE = uS + ufo->trueSize;
+
+  void cb(entry* etr){
+    const uint64_t s = (uint64_t)etr->ptr, e = s + etr->length;
+
+    isOverlapping |= s >= uS && s < uE;
+    isOverlapping |= e >= uS && e < uE;
+
+    isOverlapping |= uS >= s && uS < e;
+    isOverlapping |= uE >= s && uE < e;
+  }
+
+  listWalk(i->objects, cb);
+
+  return isOverlapping;
+}
+
 static int freeUfo(ufInstance* i, ufAsyncMsg* msg){
   assert(ufFreeMsg == msg->msgType);
   int res;
 
+  ufObject* ufoRawPtr = msg->theUfo;
+  assert(nonOverlapping(i, ufoRawPtr));
+
   // Make a copy of the UFO object so we can release the waiting thread as quickly as possible
-  const void* ufoRawPtr = msg->theUfo;
   ufObject ufo;
   memcpy(&ufo, ufoRawPtr, sizeof(ufObject));
+
 
   struct uffdio_register ufM;
 
@@ -816,8 +837,8 @@ int ufCreateObject(ufInstance_t instance, ufObjectConfig_t objectConfig, ufObjec
   memcpy(&o->config, conf, sizeof(ufObjectConfig)); // objects contain a copy of the config so the original config can be reused
   o->instance = i;
 
-  const uint64_t theUfo = conf->headerSzWithPadding + ceilDiv(conf->stride*conf->elementCt, pageSize) * pageSize;
-  o->trueSize = theUfo;
+  const uint64_t toAllocate = conf->headerSzWithPadding + ceilDiv(conf->stride*conf->elementCt, pageSize) * pageSize;
+  o->trueSize = toAllocate;
 
   // Assign an ID to the object
   o->id = i->nextID++;
