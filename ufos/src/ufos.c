@@ -97,7 +97,7 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
 }
 
 void __ufo_free(R_allocator_t *allocator, void *ptr) {
-    ufObject_t* object = ufLookupObjectByMemberAddress(__ufo_system, ptr);
+    ufObject_t object = ufLookupObjectByMemberAddress(__ufo_system, ptr);
     if (object == NULL) {
         Rf_error("Tried freeing a UFO, "
                  "but the provided address is not a UFO header address.");
