@@ -823,9 +823,11 @@ static int createWriebackFile(ufInstance* instance, ufObject* o){
   tryPerr(writebackMmapPtr, writebackMmapPtr == (void*)-1,
     mmap(NULL, writebackSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "could not mmap writeback", errMMap);
 
+
   o->writebackMmapFd = fd;
   o->writebackMmapBase = writebackMmapPtr;
   o->writebackMmapBitmapLength = bitmapSize;
+  printf("   wb: %p (%li) \n", o->writebackMmapBase, ufoWritebackTotalSize(o));
 //  o->writebackFileName = filename;
 
   return 0;
