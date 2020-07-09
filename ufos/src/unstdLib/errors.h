@@ -1,6 +1,8 @@
 #define tryPerr(res, errPred, f, errMsg, gotoE) ({    \
   res = f;                               \
   if(errPred){                           \
+    if(0 == errno)                       \
+      errno = ENOANO;                    \
     perror(errMsg);                      \
     goto gotoE;                          \
   }                                      \
