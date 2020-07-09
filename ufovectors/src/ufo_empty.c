@@ -21,7 +21,7 @@ typedef struct {
 } data_t;
 
 int __populate_empty(uint64_t start, uint64_t end, ufPopulateCallout cf, ufUserData user_data, char* target) {
-	ufo_vector_type_t type = (ufo_vector_type_t) user_data;
+	ufo_vector_type_t type = *((ufo_vector_type_t*) user_data);
 
 	if (__get_debug_mode()) {
 	    REprintf("__populate\n");
@@ -82,6 +82,7 @@ int __populate_empty(uint64_t start, uint64_t end, ufPopulateCallout cf, ufUserD
     	}
 	}
 
+	REprintf("\n\n\nCRASH AND BURN TIME, UNKNOWN TYPE %d\n\n\n", type);
 	return 1;
 }
 
