@@ -88,14 +88,14 @@ typedef struct {
 typedef enum {
   ufShutdownMsg,
   ufAllocateMsg,
+  ufResetMsg,
   ufFreeMsg
 } ufMessageType;
 
 typedef struct {
   ufMessageType msgType;
   union{
-    ufObject* toAllocate;
-    ufObject* toFree;
+    ufObject* theUfo;
     bool      selfFree;
   };
   sem_t*    completionLock_p;

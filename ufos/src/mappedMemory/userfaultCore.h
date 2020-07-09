@@ -163,6 +163,13 @@ int ufCreateObject(ufInstance_t instance, ufObjectConfig_t objectConfig, ufObjec
 
 /*
  * returns 0 on success
+ * Resets the UFO's body. This drops all changes and forces all pages to be (lazily) reloaded by the user provided function
+ * as they are requested. This does NOT change the header
+ */
+int ufResetObject(ufObject_t object_p);
+
+/*
+ * returns 0 on success
  * Destroys the object and all resources associated with it
  * TODO: What guarntees do we want or need upon this returning?
  */
