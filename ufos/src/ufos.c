@@ -162,7 +162,7 @@ int __callout_stub(ufPopulateCalloutMsg* msg){
     __builtin_unreachable();
 }
 
-void __prepopulate_scala(SEXP scalar, ufo_source_t* source) {
+void __prepopulate_scalar(SEXP scalar, ufo_source_t* source) {
     source->population_function(0, source->vector_size, __callout_stub,
                                 source->data, DATAPTR(scalar));
 }
@@ -187,7 +187,7 @@ SEXP ufo_new(ufo_source_t* source) {
     // Workaround for scalar vectors ignoring custom allocator:
     // Pre-load the data in, at least it'll work as read-only.
     if (__vector_will_be_scalarized(type, source->vector_size)) {
-        __prepopulate_scala(ufo, source);
+        __prepopulate_scalar(ufo, source);
     }
 
     UNPROTECT(1);
@@ -211,7 +211,7 @@ SEXP ufo_new_multidim(ufo_source_t* source) {
     // Workaround for scalar vectors ignoring custom allocator:
     // Pre-load the data in, at least it'll work as read-only.
     if (__vector_will_be_scalarized(type, source->vector_size)) {
-        __prepopulate_scala(ufo, source);
+        __prepopulate_scalar(ufo, source);
     }
 
     UNPROTECT(1);
