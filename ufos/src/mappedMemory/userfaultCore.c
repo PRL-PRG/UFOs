@@ -474,6 +474,9 @@ static int freeUfo(ufInstance* i, ufAsyncMsg* msg){
   ufObject ufo;
   memcpy(&ufo, ufoRawPtr, sizeof(ufObject));
 
+  printf("freeing \n");
+    printf("    ufo->start %p\n", ufo.start);
+    printf("    size       %li\n", ufo.trueSize);
 
   struct uffdio_register ufM;
 
