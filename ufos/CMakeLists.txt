@@ -4,8 +4,7 @@ project(ufos)
 SET(EX_PLATFORM 64)
 SET(EX_PLATFORM_NAME "x64")
 
-add_definitions(-Wall -g -D__UFOs_CoreDev__)
-                #-Wall -g
+add_definitions(-Wall -g -D__UFOs_CoreDev__ -DMAKE_SURE)
 
 set(CMAKE_CXX_STANDARD 11)
 
@@ -35,25 +34,28 @@ find_package(R REQUIRED)
 message("R libraries: ${R_LIBRARIES}")
 message("R include dirs: ${R_INCLUDE_DIR}")
 
-find_package (Threads)
+find_package(Threads REQUIRED)
+find_package(OpenSSL REQUIRED)
+set(OPENSSL_TARGET OpenSSL::Crypto)
+message("R OpenSSL: ${OPENSSL_TARGET}")
 
 add_library(ufos SHARED ${CORE_SRC} ${R_SRC} ${UNSTDLIB_SRC})
 include_directories(ufos ${R_INCLUDE_DIR})
-target_link_libraries(ufos ${R_LIBRARIES})
+target_link_libraries(ufos ${R_LIBRARIES} ${OPENSSL_TARGET})
 
 add_executable(ufoTest ${CORE_SRC} ${UNSTDLIB_SRC} src/mappedMemory/ufoTest.c)
-target_link_libraries(ufoTest ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(ufoTest ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_TARGET})
 
 
-add_executable(oroborosTest src/mappedMemory/oroboros.c src/mappedMemory/oroboros.h src/mappedMemory/oroborosTest.c)
-target_link_libraries(oroborosTest ${CMAKE_THREAD_LIBS_INIT})
+#add_executable(oroborosTest src/mappedMemory/oroboros.c src/mappedMemory/oroboros.h src/mappedMemory/oroborosTest.c)
+#target_link_libraries(oroborosTest ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_TARGET})
 
 add_executable(strideTest ${CORE_SRC} src/mappedMemory/stride.c)
-target_link_libraries(strideTest ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(strideTest ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_TARGET})
 
 add_executable(sparseListTest ${CORE_SRC} src/mappedMemory/sparseListTest.c)
-target_link_libraries(sparseListTest ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(sparseListTest ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_TARGET})
 
 add_executable(userfaultSpeed ${CORE_SRC} src/mappedMemory/userfaultSpeed.c)
-target_link_libraries(userfaultSpeed ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(userfaultSpeed ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_TARGET})
 
