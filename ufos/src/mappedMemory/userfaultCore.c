@@ -338,6 +338,26 @@ static int readHandleUfEvent(ufInstance* i){
   return -1;
 }
 
+static bool nonOverlapping(ufInstance* i, ufObject* ufo){
+  bool isOverlapping = false;
+
+  const uint64_t uS = ufo->startI, uE = uS + ufo->trueSize;
+
+  void cb(entry* etr){
+    const uint64_t s = (uint64_t)etr->ptr, e = s + etr->length;
+
+    isOverlapping |= s >= uS && s < uE;
+    isOverlapping |= e >= uS && e < uE;
+
+    isOverlapping |= uS >= s && uS < e;
+    isOverlapping |= uE >= s && uE < e;
+  }
+
+  listWalk(i->objects, cb);
+
+  return isOverlapping;
+}
+
 static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
   assert(ufAllocateMsg == msg->msgType);
   int res;
@@ -354,8 +374,8 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
   /* With writeback files we can allow writes! */
   tryPerr(ufo->start, ufo->start == (void*)-1, mmap(NULL, ufo->trueSize, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0), "error allocating ufo memory", callerErr);
   printf("mapping \n");
-    printf("		ufo->start %p\n", ufo->start);
-    printf("		size       %li\n", size);
+  printf("		ufo->start %p\n", ufo->start);
+  printf("		size       %li\n", ufo->trueSize);
 
   /* With writeback files the whole mapping is already writeable */
   //  tryPerrInt(res, mprotect(ufo->start, ufo->config.headerSzWithPadding, PROT_READ|PROT_WRITE), "error changing header write protections", mprotectErr); // make the header writeable
@@ -377,6 +397,8 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
     struct uffdio_zeropage ufZ = (struct uffdio_zeropage) {.mode = 0, .range = {.start = ufo->startI, .len = ufo->config.headerSzWithPadding}};
     tryPerrInt(res, ioctl(i->ufFd, UFFDIO_ZEROPAGE, &ufZ), "error zeroing ufo header", error);
   }
+
+  assert(nonOverlapping(i, ufo));
 
   *msg->return_p = 0;
 
@@ -439,26 +461,6 @@ static int resetUfo(ufInstance* i, ufAsyncMsg* msg){
   errMadv:
   errSem:
   return res;
-}
-
-static bool nonOverlapping(ufInstance* i, ufObject* ufo){
-  bool isOverlapping = false;
-
-  const uint64_t uS = ufo->startI, uE = uS + ufo->trueSize;
-
-  void cb(entry* etr){
-    const uint64_t s = (uint64_t)etr->ptr, e = s + etr->length;
-
-    isOverlapping |= s >= uS && s < uE;
-    isOverlapping |= e >= uS && e < uE;
-
-    isOverlapping |= uS >= s && uS < e;
-    isOverlapping |= uE >= s && uE < e;
-  }
-
-  listWalk(i->objects, cb);
-
-  return isOverlapping;
 }
 
 static int freeUfo(ufInstance* i, ufAsyncMsg* msg){
