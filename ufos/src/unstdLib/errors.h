@@ -1,3 +1,5 @@
+#include <errno.h>
+
 #define tryPerr(res, errPred, f, errMsg, gotoE) ({    \
   res = f;                               \
   if(errPred){                           \
