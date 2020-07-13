@@ -2,7 +2,7 @@ MkInclude = $(R_HOME)/etc${R_ARCH}/Makeconf
 
 #PKG_CXXFLAGS =
 #PKG_CPPFLAGS = -pthread
-PKG_CFLAGS = -DMAKE_SURE # -DUSE_R_HACKS
+PKG_CFLAGS = -DMAKE_SURE
 PKG_LIBS = -pthread -LmappedMemory -lmappedMemory -lcrypto -g -O2 -Wall -Werror
 CFLAGS = -g -O2 -fpic -Wall -Werror
 #-Og -ggdb -Wall -Werror -fPIC
