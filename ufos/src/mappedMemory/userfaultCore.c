@@ -44,6 +44,17 @@ static size_t get_page_size(){
   return ret;
 }
 
+static inline uint32_t ufoWritebackBitmapSize(ufObject* o){
+  uint32_t bitmapSize = ceilDiv(o->config.elementCt, o->config.objectsAtOnce); // number of slots
+  bitmapSize = ceilDiv(bitmapSize, 8); // number of bytes for those slots, rounded up
+  bitmapSize = ceilDiv(bitmapSize, pageSize) * pageSize; // round up to the next page boundary
+  return bitmapSize;
+}
+
+static inline uint64_t ufoWritebackTotalSize(ufObject* o){
+  return ufoWritebackBitmapSize(o) + (o->config.stride * o->config.elementCt);
+}
+
 //static uint32_t loadChunkSize(ufObject* o){
 //  const uint32_t atOnce = o->config.objectsAtOnce;
 //  const uint32_t stride = o->config.stride;
@@ -109,10 +120,12 @@ static void handlerShutdown(ufInstance* i, bool selfFree){
   void nullObject(entry* e){
     ufObject* ufo = asUfo(e->valuePtr);
     if(NULL != ufo) {
-      printf("unmapping (on handlerShutdown) \n");
-      printf("		ufo->start %p\n", ufo->start);
-      printf("		ufo->trueSize %li\n", ufo->trueSize);
+      printf("shtdn: %p (%li) \n", ufo->start, ufo->trueSize);
       munmap(ufo->start, ufo->trueSize);
+
+      printf("shtdw: %p (%li) \n", ufo->writebackMmapBase, ufoWritebackTotalSize(ufo));
+      munmap(ufo->writebackMmapBase, ufoWritebackTotalSize(ufo));
+      close(ufo->writebackMmapFd); // temp file is destroyed when the last handle to it is closed
     } else
       assert(false);
   }
@@ -373,9 +386,7 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
   // allocate a memory region to be managed by userfaultfd
   /* With writeback files we can allow writes! */
   tryPerr(ufo->start, ufo->start == (void*)-1, mmap(NULL, ufo->trueSize, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0), "error allocating ufo memory", callerErr);
-  printf("mapping \n");
-  printf("		ufo->start %p\n", ufo->start);
-  printf("		size       %li\n", ufo->trueSize);
+  printf("alloc: %p (%li) \n", ufo->start, ufo->trueSize);
 
   /* With writeback files the whole mapping is already writeable */
   //  tryPerrInt(res, mprotect(ufo->start, ufo->config.headerSzWithPadding, PROT_READ|PROT_WRITE), "error changing header write protections", mprotectErr); // make the header writeable
@@ -416,17 +427,6 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
 
   error:
   return -1;
-}
-
-static inline uint32_t ufoWritebackBitmapSize(ufObject* o){
-  uint32_t bitmapSize = ceilDiv(o->config.elementCt, o->config.objectsAtOnce); // number of slots
-  bitmapSize = ceilDiv(bitmapSize, 8); // number of bytes for those slots, rounded up
-  bitmapSize = ceilDiv(bitmapSize, pageSize) * pageSize; // round up to the next page boundary
-  return bitmapSize;
-}
-
-static inline uint64_t ufoWritebackTotalSize(ufObject* o){
-  return ufoWritebackBitmapSize(o) + (o->config.stride * o->config.elementCt);
 }
 
 static int resetUfo(ufInstance* i, ufAsyncMsg* msg){
@@ -474,9 +474,11 @@ static int freeUfo(ufInstance* i, ufAsyncMsg* msg){
   ufObject ufo;
   memcpy(&ufo, ufoRawPtr, sizeof(ufObject));
 
+  printf(" free: %p (%li) \n", ufo.start, ufo.trueSize);
 
   struct uffdio_register ufM;
 
+  const uint64_t writebackSize = ufoWritebackTotalSize(&ufo);
   const uint64_t size = ufo.trueSize;
   ufM = (struct uffdio_register) {.range = {.start = ufo.startI, .len = size}};
   tryPerrInt(res, ioctl(i->ufFd, UFFDIO_UNREGISTER, &ufM), "error unregistering ufo with UF", callerErr);
@@ -503,7 +505,8 @@ static int freeUfo(ufInstance* i, ufAsyncMsg* msg){
   }
   oroboros_for_each(i->chunkRecord, mark, NULL);
 
-  munmap(ufo.writebackMmapBase, size + ufo.writebackMmapBitmapLength);
+  printf("wb un: %p (%li) \n", ufo.writebackMmapBase, writebackSize);
+  munmap(ufo.writebackMmapBase, writebackSize);
   close(ufo.writebackMmapFd); // temp file is destroyed when the last handle to it is closed
 
   return 0;
@@ -602,6 +605,7 @@ static void* handler(void* arg){
   return NULL;
 
   error:
+  perror("\n\n\n CRASHING \n\n\n");
   handlerShutdown(i, true); // On an error always self-free
   return NULL;
 }

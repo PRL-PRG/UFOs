@@ -178,11 +178,7 @@ SEXP ufo_new(ufo_source_t* source) {
     R_allocator_t* allocator = __ufo_new_allocator(source);
 
     // Create a new vector of the appropriate type using the allocator.
-#ifdef USE_R_HACKS
-    SEXP ufo = PROTECT(allocVectorIII(type, source->vector_size, allocator, 1));
-#else
     SEXP ufo = PROTECT(allocVector3(type, source->vector_size, allocator));
-#endif
 
     // Workaround for scalar vectors ignoring custom allocator:
     // Pre-load the data in, at least it'll work as read-only.
