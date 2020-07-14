@@ -132,6 +132,7 @@ SEXP/*NILSXP*/ ufo_store_bin(SEXP/*STRSXP*/ _path, SEXP vector) {
     return R_NilValue;
 }
 
+// TODO I think we should remove this and assign dimensions to a vector in R.
 SEXP __make_matrix(ufo_vector_type_t type, SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ rows, SEXP/*INTSXP*/ cols, SEXP/*INTSXP*/ min_load_count_sexp) {
     const char *path = __extract_path_or_die(path_sexp);
     int32_t min_load_count = __extract_int_or_die(min_load_count_sexp);
