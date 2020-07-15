@@ -86,22 +86,12 @@ int __populate_empty(uint64_t start, uint64_t end, ufPopulateCallout cf, ufUserD
 }
 
 void __destroy_empty(ufUserData *user_data) {
-    //data_t *data = (data_t*) user_data; XXX
-
     if (__get_debug_mode()) {
         REprintf("__destroy\n");
-        //REprintf("    vector type: %d\n", data->vector_type);
-        //REprintf("    vector size: %li\n", data->vector_size);
-        //REprintf("   element size: %li\n", data->element_size);
     }
-
-    //free(data); XXX
 }
 
-SEXP __make_empty(ufo_vector_type_t type, SEXP/*REALSXP*/ size_sexp, SEXP/*INTSXP*/ min_load_count_sexp) {
-    int32_t min_load_count = __extract_int_or_die(min_load_count_sexp);
-    R_xlen_t size = __extract_R_xlen_t_or_die(size_sexp);
-
+SEXP ufo_empty(ufo_vector_type_t type, R_xlen_t size, int32_t min_load_count) {
     ufo_source_t* source = (ufo_source_t*) malloc(sizeof(ufo_source_t));
     if(source == NULL) {
     	Rf_error("Cannot allocate ufo_source_t");
@@ -116,11 +106,6 @@ SEXP __make_empty(ufo_vector_type_t type, SEXP/*REALSXP*/ size_sexp, SEXP/*INTSX
     source->dimensions_length = 0;
     source->min_load_count = __select_min_load_count(min_load_count, source->element_size);
 
-//    data_t *data = (data_t*) malloc(sizeof(data_t));
-//    data->vector_type = source->vector_type;
-//    data->vector_size = source->vector_size;
-//    data->element_size = source->element_size;
-
     make_sure(sizeof(ufo_vector_type_t) <= sizeof(ufUserData*), Rf_error, "Cannot fit vector type information into ufUserData pointer.");
     source->data = (ufUserData*) type;
 
@@ -129,29 +114,43 @@ SEXP __make_empty(ufo_vector_type_t type, SEXP/*REALSXP*/ size_sexp, SEXP/*INTSX
 }
 
 SEXP ufo_intsxp_empty(SEXP/*REALSXP*/ size, SEXP/*INTSXP*/ min_load_count) {
-	return __make_empty(INTSXP, size, min_load_count);
+	return ufo_empty(INTSXP,
+			__extract_R_xlen_t_or_die(size),
+			__extract_int_or_die(min_load_count));
 }
 
 SEXP ufo_realsxp_empty(SEXP/*REALSXP*/ size, SEXP/*INTSXP*/ min_load_count) {
-	return __make_empty(REALSXP, size, min_load_count);
+	return ufo_empty(REALSXP,
+			__extract_R_xlen_t_or_die(size),
+			__extract_int_or_die(min_load_count));
 }
 
 SEXP ufo_rawsxp_empty(SEXP/*REALSXP*/ size, SEXP/*INTSXP*/ min_load_count) {
-	return __make_empty(RAWSXP, size, min_load_count);
+	return ufo_empty(RAWSXP,
+			__extract_R_xlen_t_or_die(size),
+			__extract_int_or_die(min_load_count));
 }
 
 SEXP ufo_cplxsxp_empty(SEXP/*REALSXP*/ size, SEXP/*INTSXP*/ min_load_count) {
-	return __make_empty(CPLXSXP, size, min_load_count);
+	return ufo_empty(CPLXSXP,
+			__extract_R_xlen_t_or_die(size),
+			__extract_int_or_die(min_load_count));
 }
 
 SEXP ufo_lglsxp_empty(SEXP/*REALSXP*/ size, SEXP/*INTSXP*/ min_load_count) {
-	return __make_empty(LGLSXP, size, min_load_count);
+	return ufo_empty(LGLSXP,
+			__extract_R_xlen_t_or_die(size),
+			__extract_int_or_die(min_load_count));
 }
 
 SEXP ufo_vecsxp_empty(SEXP/*REALSXP*/ size, SEXP/*INTSXP*/ min_load_count) {
-	return __make_empty(VECSXP, size, min_load_count);
+	return ufo_empty(VECSXP,
+			__extract_R_xlen_t_or_die(size),
+			__extract_int_or_die(min_load_count));
 }
 
 SEXP ufo_strsxp_empty(SEXP/*REALSXP*/ size, SEXP/*INTSXP*/ min_load_count) {
-	return __make_empty(STRSXP, size, min_load_count);
+	return ufo_empty(STRSXP,
+			__extract_R_xlen_t_or_die(size),
+			__extract_int_or_die(min_load_count));
 }

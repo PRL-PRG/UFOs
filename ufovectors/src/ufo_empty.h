@@ -12,6 +12,8 @@
 
 #include "../include/mappedMemory/userfaultCore.h"
 
+SEXP ufo_empty(ufo_vector_type_t type, R_xlen_t size, int32_t min_load_count);
+
 SEXP ufo_intsxp_empty (SEXP/*REALSXP*/ size, SEXP/*INTSXP*/ min_load_count);
 SEXP ufo_realsxp_empty(SEXP/*REALSXP*/ size, SEXP/*INTSXP*/ min_load_count);
 SEXP ufo_rawsxp_empty (SEXP/*REALSXP*/ size, SEXP/*INTSXP*/ min_load_count);

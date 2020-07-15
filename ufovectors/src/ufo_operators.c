@@ -5,131 +5,283 @@
 #include <Rinternals.h>
 
 #include "make_sure.h"
+#include "ufo_empty.h"
 
-typedef enum {UFO_ADDITION, UFO_SUBTRACTION, UFO_MULTIPLICATION, UFO_DIVISION} ufo_operations_t;
+// Good for: + - * / ^ < > <= >= == != | &
+R_xlen_t ufo_vector_size_to_fit_both(SEXPTYPE x_type, SEXPTYPE y_type, R_xlen_t x_length, R_xlen_t y_length) {
+	if (x_type == NILSXP || y_type == NILSXP) {
+		return 0;
+	}
 
-SEXP make_scalar_vector_for_result(SEXPTYPE type, SEXP x, SEXP y) {
-    if (NO_REFERENCES(x)) return x;
-    if (NO_REFERENCES(y)) return y;
+	if ((x_type == REALSXP || x_type == INTSXP || x_type == LGLSXP || x_type == NILSXP || x_type == CPLXSXP)
+		&& (y_type == REALSXP || y_type == INTSXP || y_type == LGLSXP || y_type == NILSXP || y_type == CPLXSXP))  {
+		return x_length >= y_length ? x_length : y_length;
+	}
 
-	return allocVector(type, 1);
+	Rf_error("operation is not supported");
+	return 0; // Mollifies linters.
 }
 
-//// This is not optimized for scalars under the assumption that length-1 UFOs are impossible.
-//SEXP ufo_binary_arithmetic(SEXP x, SEXP y) {
-//	make_sure((TYPEOF(x) == INTSXP || TYPEOF(x) == REALSXP) &&
-//			  (TYPEOF(y) == INTSXP || TYPEOF(y) == REALSXP),
-//			  Rf_error, "Both arguments must be either INTSXPs or REALSXPs.");
-//
-//	if (IS_SCALAR(x, REALSXP) && IS_SCALAR(y, REALSXP)) {
-//		// This should not ever happen, since length-1 UFOs cannot be created.
-//		SEXP result = make_scalar_vector_for_result(REALSXP, x, y);
-//
-//		double x_value = SCALAR_DVAL(x);
-//		double y_value = SCALAR_DVAL(y);
-//
-//
-//	}
-//
-//	if (IS_SCALAR(x, REALSXP) || IS_SCALAR(y, REALSXP)) {
-//		SEXP scalar = IS_SCALAR(x, REALSXP) ? x : y;
-//		SEXP vector = IS_SCALAR(x, REALSXP) ? x : y;
-//
-//
-//	}
-//
-//	return R_NilValue;
-//}
-//
-//SEXP ufo_real_binary(ufo_operations_t operation, SEXP x, SEXP y, R_alloc_t result_allocator) {
-//	R_xlen_t x_length = XLENGTH(x);
-//	R_xlen_t y_length = XLENGTH(y);
-//	R_xlen_t length = (x_length > y_length) ? x_length : y_length;
-//
-//	if (x_length == 0 || y_length == 0) {
-//		return(allocVector3(REALSXP, 0, ));
-//	}
-//
-//
-//
-//}
+// Good for: %% %/%
+R_xlen_t ufo_vector_size_to_mod_both(SEXPTYPE x_type, SEXPTYPE y_type, R_xlen_t x_length, R_xlen_t y_length) {
+	if (x_type == NILSXP || y_type == NILSXP) {
+		return 0;
+	}
 
-SEXP ufo_add (SEXP x, SEXP y) {
-	return R_NilValue;
+	if ((x_type == REALSXP || x_type == INTSXP || x_type == LGLSXP || x_type == NILSXP)
+		&& (y_type == REALSXP || y_type == INTSXP || y_type == LGLSXP || y_type == NILSXP))  {
+		return x_length >= y_length ? x_length : y_length;
+	}
+
+	if (x_type == CPLXSXP && y_type == CPLXSXP) {
+		return x_length >= y_length ? x_length : y_length;
+	}
+
+	Rf_error("operation is not supported");
+	return 0; // Mollifies linters.
 }
 
-SEXP ufo_sub (SEXP x, SEXP y) {
-	return R_NilValue;
+// Good for: + - *
+SEXPTYPE ufo_vector_type_to_fit_both(SEXPTYPE x, SEXPTYPE y) {
+	if (x == REALSXP) {
+		if (y == REALSXP) 	return REALSXP;
+		if (y == INTSXP) 	return REALSXP;
+		if (y == LGLSXP)	return REALSXP;
+		if (y == NILSXP)	return REALSXP;
+		if (y == CPLXSXP)	return CPLXSXP;
+
+		Rf_error("operation is not supported");
+	}
+
+	if (x == INTSXP || x == LGLSXP || x == NILSXP) {
+		if (y == REALSXP) 	return REALSXP;
+		if (y == INTSXP) 	return INTSXP;
+		if (y == LGLSXP)	return INTSXP;
+		if (y == NILSXP)	return INTSXP;
+		if (y == CPLXSXP)	return CPLXSXP;
+
+		Rf_error("operation is not supported");
+	}
+
+	if (x == CPLXSXP) {
+		if (y == REALSXP) 	return CPLXSXP;
+		if (y == INTSXP) 	return CPLXSXP;
+		if (y == LGLSXP)	return CPLXSXP;
+		if (y == NILSXP)	return CPLXSXP;
+		if (y == CPLXSXP)	return CPLXSXP;
+
+		Rf_error("operation is not supported");
+	}
+
+	Rf_error("operation is not supported");
+	return 0; // Mollifies linters.
 }
 
-SEXP ufo_mul (SEXP x, SEXP y) {
-	return R_NilValue;
+// Good for: + - *
+SEXPTYPE ufo_vector_type_to_neg(SEXPTYPE x) {
+	if (x == REALSXP) 	return REALSXP;
+	if (x == INTSXP) 	return INTSXP;
+	if (x == LGLSXP)	return INTSXP;
+	if (x == CPLXSXP)	return CPLXSXP;
+
+	Rf_error("operation is not supported");
+	return 0; // Mollifies linters.
 }
 
-SEXP ufo_div (SEXP x, SEXP y) {
-	return R_NilValue;
+// Good for: / ^
+SEXPTYPE ufo_vector_type_to_div_both(SEXPTYPE x, SEXPTYPE y) {
+	if (x == REALSXP || x == INTSXP || x == LGLSXP || x == NILSXP) {
+		if (y == REALSXP) 	return REALSXP;
+		if (y == INTSXP) 	return REALSXP;
+		if (y == LGLSXP)	return REALSXP;
+		if (y == NILSXP)	return REALSXP;
+		if (y == CPLXSXP)	return CPLXSXP;
+
+		Rf_error("operation is not supported");
+	}
+
+	if (x == CPLXSXP) {
+		if (y == REALSXP) 	return CPLXSXP;
+		if (y == INTSXP) 	return CPLXSXP;
+		if (y == LGLSXP)	return CPLXSXP;
+		if (y == NILSXP)	return CPLXSXP;
+		if (y == CPLXSXP)	return CPLXSXP;
+
+		Rf_error("operation is not supported");
+	}
+
+	Rf_error("operation is not supported");
+	return 0; // Mollifies linters.
 }
 
-SEXP ufo_pow (SEXP x, SEXP y) {
-	return R_NilValue;
+// Good for: %% %/%
+SEXPTYPE ufo_vector_type_to_mod_both(SEXPTYPE x, SEXPTYPE y) {
+	if (x == REALSXP) {
+		if (y == REALSXP) 	return REALSXP;
+		if (y == INTSXP) 	return REALSXP;
+		if (y == LGLSXP)	return REALSXP;
+		if (y == NILSXP)	return REALSXP;
+
+		Rf_error("operation is not supported");
+	}
+
+	if (x == INTSXP || x == LGLSXP) {
+		if (y == REALSXP) 	return REALSXP;
+		if (y == INTSXP) 	return INTSXP;
+		if (y == LGLSXP)	return INTSXP;
+		if (y == NILSXP)	return INTSXP;
+
+		Rf_error("operation is not supported");
+	}
+
+	if (x == NILSXP) {
+		if (y == REALSXP) 	return REALSXP;
+		if (y == INTSXP) 	return INTSXP;
+		if (y == LGLSXP)	return INTSXP;
+		if (y == NILSXP)	return INTSXP;
+		if (y == CPLXSXP)	return CPLXSXP;
+
+		Rf_error("operation is not supported");
+	}
+
+	if (x == CPLXSXP) {
+		if (y == NILSXP)	return CPLXSXP;
+
+		Rf_error("operation is not supported");
+	}
+
+	Rf_error("operation is not supported");
+	return 0; // Mollifies linters.
 }
 
-SEXP ufo_mod (SEXP x, SEXP y) {
-	return R_NilValue;
+// Good for: < > <= >=
+SEXPTYPE ufo_vector_type_to_rel_both(SEXPTYPE x, SEXPTYPE y) {
+	if (x == REALSXP || x == INTSXP || x == LGLSXP) {
+		if (y == REALSXP) 	return LGLSXP;
+		if (y == INTSXP) 	return LGLSXP;
+		if (y == LGLSXP)	return LGLSXP;
+		if (y == NILSXP)	return LGLSXP;
+
+		Rf_error("operation is not supported");
+	}
+
+	if (x == NILSXP) {
+		if (y == REALSXP) 	return LGLSXP;
+		if (y == INTSXP) 	return LGLSXP;
+		if (y == LGLSXP)	return LGLSXP;
+		if (y == NILSXP)	return LGLSXP;
+		if (y == CPLXSXP)	return LGLSXP;
+
+		Rf_error("operation is not supported");
+	}
+
+	if (x == CPLXSXP) {
+		if (y == NILSXP)	return LGLSXP;
+
+		Rf_error("operation is not supported");
+	}
+
+	Rf_error("operation is not supported");
+	return 0; // Mollifies linters.
 }
 
-SEXP ufo_idiv(SEXP x, SEXP y) {
-	return R_NilValue;
+// Good for: == != | &
+SEXPTYPE ufo_vector_type_to_log_both(SEXPTYPE x, SEXPTYPE y) {
+	if (x == REALSXP || x == INTSXP || x == LGLSXP || x == NILSXP || x == CPLXSXP) {
+		if (y == REALSXP) 	return LGLSXP;
+		if (y == INTSXP) 	return LGLSXP;
+		if (y == LGLSXP)	return LGLSXP;
+		if (y == NILSXP)	return LGLSXP;
+		if (y == CPLXSXP)	return LGLSXP;
+
+		Rf_error("operation is not supported");
+	}
+
+	Rf_error("operation is not supported");
+	return 0; // Mollifies linters.
 }
 
-SEXP ufo_lt  (SEXP x, SEXP y) {
-	return R_NilValue;
+// Good for: + - *
+SEXP ufo_fit_result (SEXP x, SEXP y, SEXP min_load_count) {
+	SEXPTYPE x_type = TYPEOF(x);
+	SEXPTYPE y_type = TYPEOF(y);
+	R_xlen_t x_size = XLENGTH(x);
+	R_xlen_t y_size = XLENGTH(y);
+
+	SEXPTYPE result_type = ufo_vector_type_to_fit_both(x_type, y_type);
+	R_xlen_t result_size = ufo_vector_size_to_fit_both(x_type, y_type, x_size, y_size);
+
+	return ufo_empty(result_type, result_size, __extract_int_or_die(min_load_count));
 }
 
-SEXP ufo_le  (SEXP x, SEXP y) {
-	return R_NilValue;
+// Good for: / ^
+SEXP ufo_div_result (SEXP x, SEXP y, SEXP min_load_count) {
+	SEXPTYPE x_type = TYPEOF(x);
+	SEXPTYPE y_type = TYPEOF(y);
+	R_xlen_t x_size = XLENGTH(x);
+	R_xlen_t y_size = XLENGTH(y);
+
+	SEXPTYPE result_type = ufo_vector_type_to_div_both(x_type, y_type);
+	R_xlen_t result_size = ufo_vector_size_to_fit_both(x_type, y_type, x_size, y_size);
+
+	return ufo_empty(result_type, result_size, __extract_int_or_die(min_load_count));
 }
 
-SEXP ufo_gt  (SEXP x, SEXP y) {
-	return R_NilValue;
+// Good for: %% %/%
+SEXP ufo_mod_result (SEXP x, SEXP y, SEXP min_load_count) {
+	SEXPTYPE x_type = TYPEOF(x);
+	SEXPTYPE y_type = TYPEOF(y);
+	R_xlen_t x_size = XLENGTH(x);
+	R_xlen_t y_size = XLENGTH(y);
+
+	SEXPTYPE result_type = ufo_vector_type_to_mod_both(x_type, y_type);
+	R_xlen_t result_size = ufo_vector_size_to_mod_both(x_type, y_type, x_size, y_size);
+
+	return ufo_empty(result_type, result_size, __extract_int_or_die(min_load_count));
 }
 
-SEXP ufo_ge  (SEXP x, SEXP y) {
-	return R_NilValue;
+// Good for: < > <= >=
+SEXP ufo_rel_result (SEXP x, SEXP y, SEXP min_load_count) {
+	SEXPTYPE x_type = TYPEOF(x);
+	SEXPTYPE y_type = TYPEOF(y);
+	R_xlen_t x_size = XLENGTH(x);
+	R_xlen_t y_size = XLENGTH(y);
+
+	SEXPTYPE result_type = ufo_vector_type_to_rel_both(x_type, y_type);
+	R_xlen_t result_size = ufo_vector_size_to_fit_both(x_type, y_type, x_size, y_size);
+
+	return ufo_empty(result_type, result_size, __extract_int_or_die(min_load_count));
 }
 
-SEXP ufo_eq  (SEXP x, SEXP y) {
-	return R_NilValue;
+// Good for: == != | &
+SEXP ufo_log_result (SEXP x, SEXP y, SEXP min_load_count) {
+	SEXPTYPE x_type = TYPEOF(x);
+	SEXPTYPE y_type = TYPEOF(y);
+	R_xlen_t x_size = XLENGTH(x);
+	R_xlen_t y_size = XLENGTH(y);
+
+	SEXPTYPE result_type = ufo_vector_type_to_log_both(x_type, y_type);
+	R_xlen_t result_size = ufo_vector_size_to_fit_both(x_type, y_type, x_size, y_size);
+
+	return ufo_empty(result_type, result_size, __extract_int_or_die(min_load_count));
 }
 
-SEXP ufo_neq (SEXP x, SEXP y) {
-	return R_NilValue;
+// Good for: unary + and -
+SEXP ufo_neg_result (SEXP x, SEXP min_load_count) {
+	SEXPTYPE x_type = TYPEOF(x);
+	R_xlen_t x_size = XLENGTH(x);
+
+	SEXPTYPE result_type = ufo_vector_type_to_neg(x_type);
+
+	return ufo_empty(result_type, x_size, __extract_int_or_die(min_load_count));
 }
 
-SEXP ufo_neg (SEXP x) {
-	return R_NilValue;
-}
-
-SEXP ufo_bor (SEXP x, SEXP y) {
-	return R_NilValue;
-}
-
-SEXP ufo_band(SEXP x, SEXP y) {
-	return R_NilValue;
-}
-
-SEXP ufo_or  (SEXP x, SEXP y) {
-	return R_NilValue;
-}
-
-SEXP ufo_and (SEXP x, SEXP y) {
-	return R_NilValue;
-}
-
-SEXP ufo_subset		  (SEXP x, SEXP y) {
+SEXP ufo_subset(SEXP x, SEXP y) {
+	Rf_error("not implemented");
 	return R_NilValue;
 }
 
 SEXP ufo_subset_assign(SEXP x, SEXP y, SEXP z) {
+	Rf_error("not implemented");
 	return R_NilValue;
 }
