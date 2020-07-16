@@ -78,7 +78,9 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
     size_t sexp_header_size = sizeof(SEXPREC_ALIGN);
     size_t sexp_metadata_size = sizeof(R_allocator_t);
 
-    make_sure((size - sexp_header_size - sexp_metadata_size) == (source->vector_size *  source->element_size), Rf_error, "Sizes don't match at ufo_alloc.");
+    make_sure((size - sexp_header_size - sexp_metadata_size) >= (source->vector_size *  source->element_size), Rf_error,
+    		  "Sizes don't match at ufo_alloc (%li vs expected %li).", size - sexp_header_size - sexp_metadata_size,
+			  	  	  	  	  	  	  	  	  	  	  	  	  	  	   source->vector_size *  source->element_size);
 
     ufObjectConfig_t cfg = makeObjectConfig0(sexp_header_size + sexp_metadata_size,
                                              source->vector_size,

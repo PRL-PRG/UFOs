@@ -2,35 +2,62 @@
 # Custom operators
 #-----------------------------------------------------------------------------
 
-`.ufo.+` <- function(operation, x, y, min_load_count=0, chunk_size=100000) {
-  if (is_ufo(x) || is_ufo(y)) {
-    result <- .Call("ufo_fit_result",  x, y, min_load_count)  
-    # TODO
-  } else {
-    `.base.+`(x,y)
+.ufo_binary <- function(operation, result_inference, x, y, min_load_count=0, chunk_size=100000) {
+  print("hi")
+  
+  if (!is_ufo(x) && !is_ufo(y)) {
+    return(operation(x, y))
   }
+
+  result <- .Call(result_inference, x, y, as.integer(min_load_count))
+  result_size <- length(result);    
+  number_of_chunks <- ceiling(result_size / chunk_size)
+            
+  for (chunk in 0:(number_of_chunks - 1)) {
+    x_chunk <- .Call("ufo_get_chunk", x, chunk, chunk_size, result_size)
+    y_chunk <- .Call("ufo_get_chunk", y, chunk, chunk_size, result_size)
+    result[attr(x_chunk, 'start_index'):attr(x_chunk, 'end_index')] <- operation(x_chunk, y_chunk)
+  }
+    
+  return(result)
 }
 
-`.ufo.+`    <- 	function(x, y) if (is_ufo(x) || is_ufo(y)) .Call("ufo_add",  x, y) else `.base.-`  (x,y)
-`.ufo.-`    <- 	function(x, y) if (is_ufo(x) || is_ufo(y)) .Call("ufo_sub",  x, y) else `.base.-`  (x,y)
-`.ufo.*`    <- 	function(x, y) if (is_ufo(x) || is_ufo(y)) .Call("ufo_mul",  x, y) else `.base.*`  (x,y)
-`.ufo./`    <- 	function(x, y) if (is_ufo(x) || is_ufo(y)) .Call("ufo_div",  x, y) else `.base./`  (x,y)
-`.ufo.^`    <- 	function(x, y) if (is_ufo(x) || is_ufo(y)) .Call("ufo_pow",  x, y) else `.base.^`  (x,y)
-`.ufo.%%`   <- 	function(x, y) if (is_ufo(x) || is_ufo(y)) .Call("ufo_mod",  x, y) else `.base.%%` (x,y)
-`.ufo.%/%`  <- 	function(x, y) if (is_ufo(x) || is_ufo(y)) .Call("ufo_idiv", x, y) else `.base.%/%`(x,y)
+.ufo_unary <- function(operation, inference, x, min_load_count=0, chunk_size=100000) {
+  if (!is_ufo(x)) {
+    return(operation(x))
+  }
+  
+  result <- .Call(result_inference, x, as.integer(min_load_count))
+  result_size <- length(result);    
+  number_of_chunks <- ceiling(result_size / chunk_size)
+  
+  for (chunk in 0:(number_of_chunks - 1)) {
+    x_chunk <- .Call("ufo_get_chunk", x, chunk, chunk_size, result_size)
+    result[attr(x_chunk, 'start_index'):attr(x_chunk, 'end_index')] <- operation(x_chunk)
+  }
+  
+  return(result)
+}
 
-`.ufo.<`    <- 	function(x, y) if (is_ufo(x) || is_ufo(y)) .Call("ufo_lt",   x, y) else `.base.<`  (x,y)
-`.ufo.<=`   <- 	function(x, y) if (is_ufo(x) || is_ufo(y)) .Call("ufo_le",   x, y) else `.base.<=` (x,y)
-`.ufo.>`    <- 	function(x, y) if (is_ufo(x) || is_ufo(y)) .Call("ufo_gt",   x, y) else `.base.>`  (x,y)
-`.ufo.>=`   <- 	function(x, y) if (is_ufo(x) || is_ufo(y)) .Call("ufo_ge",   x, y) else `.base.>=` (x,y)
-`.ufo.==`   <- 	function(x, y) if (is_ufo(x) || is_ufo(y)) .Call("ufo_eq",   x, y) else `.base.==` (x,y)
-`.ufo.!=`   <- 	function(x, y) if (is_ufo(x) || is_ufo(y)) .Call("ufo_neq",  x, y) else `.base.!=` (x,y)
-`.ufo.!`    <- 	function(x)	   if (is_ufo(x) || is_ufo(y)) .Call("ufo_neg",  x)    else `.base.!`  (x)
-`.ufo.|`    <- 	function(x, y) if (is_ufo(x) || is_ufo(y)) .Call("ufo_bor",  x, y) else `.base.|`  (x,y)
-`.ufo.&`    <- 	function(x, y) if (is_ufo(x) || is_ufo(y)) .Call("ufo_band", x, y) else `.base.&`  (x,y)
+`+.ufo`   <- function(x, y) .ufo_binary(`.base.+`,   "ufo_fit_result", x, y)
+`-.ufo`   <- function(x, y) .ufo_binary(`.base.-`,   "ufo_fit_result", x, y)
+`*.ufo`   <- function(x, y) .ufo_binary(`.base.*`,   "ufo_fit_result", x, y)
+`/.ufo`   <- function(x, y) .ufo_binary(`.base./`,   "ufo_div_result", x, y)
+`^.ufo`   <- function(x, y) .ufo_binary(`.base.^`,   "ufo_div_result", x, y)
+`%%.ufo`  <- function(x, y) .ufo_binary(`.base.%%`,  "ufo_mod_result", x, y)
+`%/%.ufo` <- function(x, y) .ufo_binary(`.base.%/%`, "ufo_mod_result", x, y)
+`<.ufo`   <- function(x, y) .ufo_binary(`.base.<`,   "ufo_rel_result", x, y)
+`<=.ufo`  <- function(x, y) .ufo_binary(`.base.<=`,  "ufo_rel_result", x, y)
+`>.ufo`   <- function(x, y) .ufo_binary(`.base.>`,   "ufo_rel_result", x, y)
+`>=.ufo`  <- function(x, y) .ufo_binary(`.base.>=`,  "ufo_rel_result", x, y)
+`==.ufo`  <- function(x, y) .ufo_binary(`.base.==`,  "ufo_log_result", x, y)
+`!=.ufo`  <- function(x, y) .ufo_binary(`.base.!=`,  "ufo_log_result", x, y)
+`|.ufo`   <- function(x, y) .ufo_binary(`.base.|`,   "ufo_log_result", x, y)
+`&.ufo`   <- function(x, y) .ufo_binary(`.base.&`,   "ufo_log_result", x, y)
+`!.ufo`   <- function(x)    .ufo_unary (`.base.!`,   "ufo_neg_result", x, y)
 
-`.ufo.[`    <- 	function(x, y) if (is_ufo(x) || is_ufo(y)) .Call("ufo_subset",        x, y) else `.base.[`  (x,y)
-`.ufo.[<-`  <- 	function(x, y) if (is_ufo(x) || is_ufo(y)) .Call("ufo_subset_assign", x, y) else `.base.[<-`(x,y)
+#`[.ufo`   <- function(x, y) if (is_ufo(x) || is_ufo(y)) .Call("ufo_subset",        x, y) else `.base.[`  (x,y)
+#`[<-.ufo` <- function(x, y) if (is_ufo(x) || is_ufo(y)) .Call("ufo_subset_assign", x, y) else `.base.[<-`(x,y)
 
 #-----------------------------------------------------------------------------
 # Save base operators for use later
@@ -58,26 +85,25 @@
 `.base.[<-` <- 	`[<-`
 
 #-----------------------------------------------------------------------------
-# Overload base oeprators
+# Overload base operators
 #-----------------------------------------------------------------------------
 
-#   `+`		<- `.ufo.+`
-#	`-` 	<- `.ufo.-`
-#	`*`		<- `.ufo.*`
-#	`/`		<- `.ufo./`
-#	`^`		<- `.ufo.^`
-#	`%%`	<- `.ufo.%%`
-#	`%/%`	<- `.ufo.%/%`
-
-#	`<`		<- `.ufo.<`
-#	`<=`	<- `.ufo.<=`
-#	`>`		<- `.ufo.>`
-#	`>=`	<- `.ufo.>=`
-#	`==`	<- `.ufo.==`
-#	`!=`	<- `.ufo.!=`
-#	`!`		<- `.ufo.!`
-#	`|`		<- `.ufo.|`
-#	`&`		<- `.ufo.&`
+`+`		<- `+.ufo`
+`-` 	<- `-.ufo`
+`*`		<- `*.ufo`
+`/`		<- `/.ufo`
+`^`		<- `^.ufo`
+`%%`	<- `%%.ufo`
+`%/%`	<- `%/%.ufo`
+`<`		<- `<.ufo`
+`<=`	<- `<=.ufo`
+`>`		<- `>.ufo`
+`>=`	<- `>=.ufo`
+`==`	<- `==.ufo`
+`!=`	<- `!=.ufo`
+`!`		<- `!.ufo`
+`|`		<- `|.ufo`
+`&`		<- `&.ufo`
 	
-#	`[`		<- `.ufo.[`
-#	`[<-`	<- `.ufo.[<-`
+#	`[`		<- `[.ufo`
+#	`[<-`	<- `[<-.ufo`

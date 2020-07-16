@@ -55,6 +55,11 @@ static const R_CallMethodDef CallEntries[] = {
 	{"ufo_subset",					(DL_FUNC) &ufo_subset,						2},
 	{"ufo_subset_assign",			(DL_FUNC) &ufo_subset_assign,				3},
 
+	// Chunking.
+	//{"ufo_calculate_chunk_indices", (DL_FUNC) &ufo_calculate_chunk_indices,     4},
+	//{"ufo_calculate_chunk_indices", (DL_FUNC) &ufo_calculate_chunk_indices,     4},
+	{"ufo_get_chunk",               (DL_FUNC) &ufo_get_chunk,					4},
+
     // Terminates the function list. Necessary.
     {NULL,                          NULL,                                       0}
 };
