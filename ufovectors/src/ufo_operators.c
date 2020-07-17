@@ -82,7 +82,7 @@ SEXPTYPE ufo_vector_type_to_fit_both(SEXPTYPE x, SEXPTYPE y) {
 SEXPTYPE ufo_vector_type_to_neg(SEXPTYPE x) {
 	if (x == REALSXP) 	return REALSXP;
 	if (x == INTSXP) 	return INTSXP;
-	if (x == LGLSXP)	return INTSXP;
+	if (x == LGLSXP)	return LGLSXP;
 	if (x == CPLXSXP)	return CPLXSXP;
 
 	Rf_error("operation is not supported");

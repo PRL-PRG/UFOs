@@ -40,7 +40,6 @@ int __populate_empty(uint64_t start, uint64_t end, ufPopulateCallout cf, ufUserD
     	}
 
 	case UFO_LGL: {
-    		printf("UFO_LGL\n");
     		Rboolean *boolean_vector = (Rboolean *) target;
     	    for (size_t i = 0; i < size; i++) {
     	    	boolean_vector[i] = 0;
@@ -82,7 +81,7 @@ int __populate_empty(uint64_t start, uint64_t end, ufPopulateCallout cf, ufUserD
     	}
 	}
 
-	REprintf("\n\n\nCRASH AND BURN TIME, UNKNOWN TYPE %d\n\n\n", type);
+	REprintf("Unknown vector type %i", type);
 	return 1;
 }
 
@@ -90,7 +89,7 @@ void __destroy_empty(ufUserData *user_data) {
     int64_t *type = (int64_t *) user_data;
 
     if (__get_debug_mode()) {
-        REprintf("__destroy\n");
+        REprintf("__destroy_empty\n");
         REprintf("    vector type: %d\n", type);
     }
 

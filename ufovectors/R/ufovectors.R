@@ -46,13 +46,9 @@ ufo_set_debug_mode <- function(debug=TRUE) {
     vector
 }
 
-.add_class <- function(vector, cls, add_class, preserve_previous = FALSE) {
+.add_class <- function(vector, cls, add_class, preserve_previous = TRUE) {
   if(add_class) {
-   if(preserve_previous) {
-    class(vector) <- c(cls, class(vector))   
-   } else {
-    class(vector) <- cls
-   }
+    class(vector) <- if(preserve_previous) c(cls, attr(vector, "class")) else cls
   }
   return(vector)
 }
