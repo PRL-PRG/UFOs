@@ -99,7 +99,7 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
 }
 
 void __ufo_free(R_allocator_t *allocator, void *ptr) {
-    ufObject_t* object = ufLookupObjectByMemberAddress(__ufo_system, ptr);
+    ufObject_t object = ufLookupObjectByMemberAddress(__ufo_system, ptr);
     if (object == NULL) {
         Rf_error("Tried freeing a UFO, "
                  "but the provided address is not a UFO header address.");
@@ -164,9 +164,22 @@ int __callout_stub(ufPopulateCalloutMsg* msg){
     __builtin_unreachable();
 }
 
-void __prepopulate_scala(SEXP scalar, ufo_source_t* source) {
+void __prepopulate_scalar(SEXP scalar, ufo_source_t* source) {
     source->population_function(0, source->vector_size, __callout_stub,
                                 source->data, DATAPTR(scalar));
+}
+
+void __reset_vector(SEXP vector) {
+	 ufObject_t object = ufLookupObjectByMemberAddress(__ufo_system, vector);
+	 if (object == NULL) {
+	     Rf_error("Tried reseting a UFO, "
+	              "but the provided address is not a UFO header address.");
+	 }
+
+	 int result = ufResetObject(object);
+	 if (result != 0) {
+		 Rf_error("Tried reseting a UFO, but something went wrong.");
+	 }
 }
 
 SEXP ufo_new(ufo_source_t* source) {
@@ -180,16 +193,18 @@ SEXP ufo_new(ufo_source_t* source) {
     R_allocator_t* allocator = __ufo_new_allocator(source);
 
     // Create a new vector of the appropriate type using the allocator.
-#ifdef USE_R_HACKS
-    SEXP ufo = PROTECT(allocVectorIII(type, source->vector_size, allocator, 1));
-#else
     SEXP ufo = PROTECT(allocVector3(type, source->vector_size, allocator));
-#endif
 
     // Workaround for scalar vectors ignoring custom allocator:
     // Pre-load the data in, at least it'll work as read-only.
     if (__vector_will_be_scalarized(type, source->vector_size)) {
-        __prepopulate_scala(ufo, source);
+        __prepopulate_scalar(ufo, source);
+    }
+
+    // Workaround for strings being populated with empty string pointers in vectorAlloc3.
+    // Reset will remove all values from the vector and get rid of the temporary files on disk.
+    if (type == STRSXP) {
+    	__reset_vector(ufo);
     }
 
     UNPROTECT(1);
@@ -213,7 +228,13 @@ SEXP ufo_new_multidim(ufo_source_t* source) {
     // Workaround for scalar vectors ignoring custom allocator:
     // Pre-load the data in, at least it'll work as read-only.
     if (__vector_will_be_scalarized(type, source->vector_size)) {
-        __prepopulate_scala(ufo, source);
+        __prepopulate_scalar(ufo, source);
+    }
+
+    // Workaround for strings being populated with empty string pointers in vectorAlloc3.
+    // Reset will remove all values from the vector and get rid of the temporary files on disk.
+    if (type == STRSXP) {
+    	__reset_vector(ufo);
     }
 
     UNPROTECT(1);

@@ -57,19 +57,32 @@ int main(int argc, char **argv) {
     assert(h[0] == 0x01);
 
 
+    *((uint32_t*)ufGetHeaderPointer(o)) = 0x5c5c;
     uint64_t* ptr = (uint64_t*) ufGetValuePointer(o);
 
     free(config);
 
     printf("%lu\n", (uint64_t)ct);
 
-    const uint64_t persianFlawIdx = rand() % ct;
-    ptr[persianFlawIdx] = persianFlawIdx;
+    uint64_t persianFlawIdx;
+
+    void makeFlaw(){
+      persianFlawIdx = rand() % ct;
+      ptr[persianFlawIdx] = persianFlawIdx;
+    }
+    makeFlaw();
 
     while((random() & 0xfff) != 0){
+      if((random() & 0xfff) < 7){
+        ufResetObject(o);
+        makeFlaw();
+        assert(0x5c5c == *((uint32_t*)ufGetHeaderPointer(o)));
+      }
+
       uint64_t i = rand() % ct;
       assert(i < ct);
       assert(  (((uint64_t) &ptr[i]) - ((uint64_t)ptr)) < sz );
+
 
       if(persianFlawIdx == i){
         assert(ptr[i] == persianFlawIdx);

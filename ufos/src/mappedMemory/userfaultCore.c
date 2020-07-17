@@ -44,6 +44,17 @@ static size_t get_page_size(){
   return ret;
 }
 
+static inline uint32_t ufoWritebackBitmapSize(ufObject* o){
+  uint32_t bitmapSize = ceilDiv(o->config.elementCt, o->config.objectsAtOnce); // number of slots
+  bitmapSize = ceilDiv(bitmapSize, 8); // number of bytes for those slots, rounded up
+  bitmapSize = ceilDiv(bitmapSize, pageSize) * pageSize; // round up to the next page boundary
+  return bitmapSize;
+}
+
+static inline uint64_t ufoWritebackTotalSize(ufObject* o){
+  return ufoWritebackBitmapSize(o) + (o->config.stride * o->config.elementCt);
+}
+
 //static uint32_t loadChunkSize(ufObject* o){
 //  const uint32_t atOnce = o->config.objectsAtOnce;
 //  const uint32_t stride = o->config.stride;
@@ -109,10 +120,12 @@ static void handlerShutdown(ufInstance* i, bool selfFree){
   void nullObject(entry* e){
     ufObject* ufo = asUfo(e->valuePtr);
     if(NULL != ufo) {
-      printf("unmapping (on handlerShutdown) \n");
-      printf("		ufo->start %p\n", ufo->start);
-      printf("		ufo->trueSize %li\n", ufo->trueSize);
+      printf("shtdn: %p (%li) \n", ufo->start, ufo->trueSize);
       munmap(ufo->start, ufo->trueSize);
+
+      printf("shtdw: %p (%li) \n", ufo->writebackMmapBase, ufoWritebackTotalSize(ufo));
+      munmap(ufo->writebackMmapBase, ufoWritebackTotalSize(ufo));
+      close(ufo->writebackMmapFd); // temp file is destroyed when the last handle to it is closed
     } else
       assert(false);
   }
@@ -338,12 +351,30 @@ static int readHandleUfEvent(ufInstance* i){
   return -1;
 }
 
+static bool nonOverlapping(ufInstance* i, ufObject* ufo){
+  bool isOverlapping = false;
+
+  const uint64_t uS = ufo->startI, uE = uS + ufo->trueSize;
+
+  void cb(entry* etr){
+    const uint64_t s = (uint64_t)etr->ptr, e = s + etr->length;
+
+    isOverlapping |= s >= uS && s < uE;
+    isOverlapping |= e >= uS && e < uE;
+
+    isOverlapping |= uS >= s && uS < e;
+    isOverlapping |= uE >= s && uE < e;
+  }
+
+  listWalk(i->objects, cb);
+
+  return isOverlapping;
+}
+
 static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
   assert(ufAllocateMsg == msg->msgType);
   int res;
-  ufObject* ufo = asUfo(msg->toAllocate);
-  const uint64_t size = ufo->trueSize;
-  assert(size > 0);
+  ufObject* ufo = asUfo(msg->theUfo);
 
   const uint64_t fillSizeBytes = ceilDiv(ufo->config.objectsAtOnce * ufo->config.stride, pageSize) * pageSize;
   if (fillSizeBytes > i->highWaterMarkBytes) {
@@ -355,16 +386,14 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
   // allocate a memory region to be managed by userfaultfd
   /* With writeback files we can allow writes! */
   tryPerr(ufo->start, ufo->start == (void*)-1, mmap(NULL, ufo->trueSize, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0), "error allocating ufo memory", callerErr);
-  printf("mapping \n");
-    printf("		ufo->start %p\n", ufo->start);
-    printf("		size       %li\n", size);
+  printf("alloc: %p (%li) \n", ufo->start, ufo->trueSize);
 
   /* With writeback files the whole mapping is already writeable */
   //  tryPerrInt(res, mprotect(ufo->start, ufo->config.headerSzWithPadding, PROT_READ|PROT_WRITE), "error changing header write protections", mprotectErr); // make the header writeable
 
   // register with the kernel
   struct uffdio_register ufM;
-  ufM = (struct uffdio_register) {.range = {.start = ufo->startI, .len = size}, .mode = UFFDIO_REGISTER_MODE_MISSING, .ioctls = 0};
+  ufM = (struct uffdio_register) {.range = {.start = ufo->startI, .len = ufo->trueSize}, .mode = UFFDIO_REGISTER_MODE_MISSING, .ioctls = 0};
   tryPerrInt(res, ioctl(i->ufFd, UFFDIO_REGISTER, &ufM), "error registering ufo with UF", callerErr);
 
   if((ufM.ioctls & UFFD_API_RANGE_IOCTLS) != UFFD_API_RANGE_IOCTLS) {
@@ -379,6 +408,8 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
     struct uffdio_zeropage ufZ = (struct uffdio_zeropage) {.mode = 0, .range = {.start = ufo->startI, .len = ufo->config.headerSzWithPadding}};
     tryPerrInt(res, ioctl(i->ufFd, UFFDIO_ZEROPAGE, &ufZ), "error zeroing ufo header", error);
   }
+
+  assert(nonOverlapping(i, ufo));
 
   *msg->return_p = 0;
 
@@ -398,29 +429,72 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
   return -1;
 }
 
+static int resetUfo(ufInstance* i, ufAsyncMsg* msg){
+  assert(ufResetMsg == msg->msgType);
+  int res;
+  ufObject* ufo = asUfo(msg->theUfo);
+
+  //Bulk free the memory, but not the header
+  const uint64_t sizeWithoutHeader = ufo->trueSize - ufo->config.headerSzWithPadding;
+  tryPerrInt(res, madvise(ufGetValuePointer(ufo), sizeWithoutHeader, MADV_DONTNEED), "error clearing memory on reset", errMadv);
+
+  // Clean up this UFO's chunks in the oroboros
+  void markFree(size_t idx, oroboros_item_t* e, void* usr){
+    if(e->ufo == ufo){
+      i->usedMemory -= e->size;
+      // clear the structure entirely, also marks it as claimed by setting size to 0
+      memset(e, 0, sizeof(oroboros_item_t));
+
+      assert(check_totals(i));
+    }
+  }
+  oroboros_for_each(i->chunkRecord, markFree, NULL);
+
+  // Also clean up the writeback file by punchuing a big old hole in it
+  tryPerrInt(res, madvise(ufo->writebackMmapBase, ufoWritebackTotalSize(ufo), MADV_REMOVE), "error clearing writeback on reset", errMadv);
+
+  *msg->return_p = 0; // Success
+  tryPerrInt(res, sem_post(msg->completionLock_p), "error unlocking waiter for free", errSem);
+
+  return 0;
+
+  errMadv:
+  errSem:
+  return res;
+}
+
 static int freeUfo(ufInstance* i, ufAsyncMsg* msg){
   assert(ufFreeMsg == msg->msgType);
   int res;
-  ufObject* ufo = asUfo(msg->toFree);
+
+  ufObject* ufoRawPtr = msg->theUfo;
+  assert(nonOverlapping(i, ufoRawPtr));
+
+  // Make a copy of the UFO object so we can release the waiting thread as quickly as possible
+  ufObject ufo;
+  memcpy(&ufo, ufoRawPtr, sizeof(ufObject));
+
+  printf(" free: %p (%li) \n", ufo.start, ufo.trueSize);
+
   struct uffdio_register ufM;
 
-  const uint64_t size = ufo->trueSize;
-  ufM = (struct uffdio_register) {.range = {.start = ufo->startI, .len = size}};
+  const uint64_t writebackSize = ufoWritebackTotalSize(&ufo);
+  const uint64_t size = ufo.trueSize;
+  ufM = (struct uffdio_register) {.range = {.start = ufo.startI, .len = size}};
   tryPerrInt(res, ioctl(i->ufFd, UFFDIO_UNREGISTER, &ufM), "error unregistering ufo with UF", callerErr);
 
-  tryPerrInt(res, listRemove(i->objects, ufo->start), "unknown UFO", callerErr);
+  tryPerrInt(res, listRemove(i->objects, ufo.start), "unknown UFO", callerErr);
+  
+  tryPerrInt(res, munmap(ufo.start, size), "error munmapping ufo", error);
 
-  printf("unmapping \n");
-  printf("		ufo->start %p\n", ufo->start);
-  printf("		size       %li\n", size);
-  tryPerrInt(res, munmap(ufo->start, size), "error munmapping ufo", error);
   *msg->return_p = 0; // Success
   tryPerrInt(res, sem_post(msg->completionLock_p), "error unlocking waiter for free", error);
 
-  void mark (size_t index, oroboros_item_t *item, void *data) {
-    if (item->ufo == ufo) {
-      //item->garbage_collected = true;
+  // The waiting thread is now released after we finish unmapping and clearing, but we still have internal cleanup to do
+  // Note that at this point the original UFO object might have been freed or worse
 
+  void mark (size_t index, oroboros_item_t *item, void *data) {
+    if (item->ufo == ufoRawPtr) { // note we use the cached ptr
       i->usedMemory -= item->size;
       // clear the structure entirely, also marks it as claimed by setting size to 0
       memset(item, 0, sizeof(oroboros_item_t));
@@ -431,8 +505,9 @@ static int freeUfo(ufInstance* i, ufAsyncMsg* msg){
   }
   oroboros_for_each(i->chunkRecord, mark, NULL);
 
-  munmap(ufo->writebackMmapBase, size + ufo->writebackMmapBitmapLength);
-  close(ufo->writebackMmapFd); // temp file is destroyed when the last handle to it is closed
+  printf("wb un: %p (%li) \n", ufo.writebackMmapBase, writebackSize);
+  munmap(ufo.writebackMmapBase, writebackSize);
+  close(ufo.writebackMmapFd); // temp file is destroyed when the last handle to it is closed
 
   return 0;
 
@@ -463,6 +538,10 @@ static int readHandleMsg(ufInstance* i, bool* selfFreeP){
   switch(msg.msgType){
     case ufAllocateMsg:
       tryPerrInt(res, allocateUfo(i, &msg), "error allocating ufo", error);
+      break;
+
+    case ufResetMsg:
+      tryPerrInt(res, resetUfo(i, &msg), "error resetting ufo", error);
       break;
 
     case ufFreeMsg:
@@ -526,6 +605,7 @@ static void* handler(void* arg){
   return NULL;
 
   error:
+  perror("\n\n\n CRASHING \n\n\n");
   handlerShutdown(i, true); // On an error always self-free
   return NULL;
 }
@@ -722,18 +802,6 @@ int ufShutdown(ufInstance_t instance, bool free){
   return ufAwaitShutdown(instance);
 }
 
-////TODO CMYK 2020.05.22: make the temp folder configurable
-//static int writebackFileName(char** dst, ufInstance_t instance, uint64_t ufObjectBase){
-//  uint64_t myPid = (uint64_t) getpid();
-//  uint64_t instAddr = (uint64_t) instance;
-//
-//  // the pid is printed normally and the memory addresses are hex
-//  return asprintf(dst, "/tmp/%lu_%lx.%lx", myPid,
-//      // Try to make the name as compact as possible, but consistent
-//      instAddr     >> __builtin_ctz(sizeof(ufInstance)),
-//      ufObjectBase >> __builtin_ctz(pageSize));
-//}
-
 static int createWriebackFile(ufInstance* instance, ufObject* o){
   int res;
 
@@ -745,22 +813,21 @@ static int createWriebackFile(ufInstance* instance, ufObject* o){
 
   tryPerrNegOne(fd, open("/tmp/", O_RDWR | O_TMPFILE, 0600), "Could not open annon writeback file", fileErr);
 
-  uint32_t bitmapSize = ceilDiv(o->config.elementCt, o->config.objectsAtOnce); // number of slots
-  bitmapSize = ceilDiv(bitmapSize, 8); // number of bytes for those slots, rounded up
-  bitmapSize = ceilDiv(bitmapSize, pageSize) * pageSize; // round up to the next page boundary
-
-  uint64_t writebackSize = bitmapSize + (o->config.stride * o->config.elementCt);
+  const uint32_t bitmapSize = ufoWritebackBitmapSize(o);
+  const uint64_t writebackSize = ufoWritebackTotalSize(o);
 
   assert(64 - __builtin_clz(writebackSize) <= (sizeof(off_t) << 3));
   tryPerrInt(res, ftruncate(fd, writebackSize), "could not truncate file to required size", errTruncate);
 
   void* writebackMmapPtr;
   tryPerr(writebackMmapPtr, writebackMmapPtr == (void*)-1,
-    mmap(NULL, writebackSize, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0), "could not mmap writeback", errMMap);
+    mmap(NULL, writebackSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "could not mmap writeback", errMMap);
+
 
   o->writebackMmapFd = fd;
   o->writebackMmapBase = writebackMmapPtr;
   o->writebackMmapBitmapLength = bitmapSize;
+  printf("   wb: %p (%li) \n", o->writebackMmapBase, ufoWritebackTotalSize(o));
 //  o->writebackFileName = filename;
 
   return 0;
@@ -794,7 +861,7 @@ int ufCreateObject(ufInstance_t instance, ufObjectConfig_t objectConfig, ufObjec
   // Init the allocation vars and message
   sem_t completionLock;
   tryPerrInt(res, sem_init(&completionLock, 0, 0), "error initializing the completion lock", semErr);
-  ufAsyncMsg msg = (ufAsyncMsg) {.msgType = ufAllocateMsg, .toAllocate = o, .completionLock_p = &completionLock, .return_p = &returnVal};
+  ufAsyncMsg msg = (ufAsyncMsg) {.msgType = ufAllocateMsg, .theUfo = o, .completionLock_p = &completionLock, .return_p = &returnVal};
 
   // Ask the worker thread to allocate our object
   tryPerrInt(res, sendMsg(i, &msg), "error sending message, instance shutting down?", sendErr);
@@ -831,11 +898,29 @@ int ufCreateObject(ufInstance_t instance, ufObjectConfig_t objectConfig, ufObjec
   return res;
 }
 
-int ufIsObject(ufInstance_t instance, void* ptr){
-  ufInstance* i = asUfInstance(instance);
-  entry e;
-  int res = listFind(i->objects, &e, ptr);
-  return 0 == res;
+int ufResetObject(ufObject_t object_p){
+  ufObject*   o = asUfo(object_p);
+  ufInstance* i = o->instance;
+
+  if(NULL == i)
+    return -1;
+
+  int res = -1, returnVal = -1, sendErr = 0;
+  sem_t completionLock;
+  tryPerrInt(res, sem_init(&completionLock, 0, 0), "error initializing the completion lock", semErr);
+
+  // Init the reset request
+  ufAsyncMsg msg = (ufAsyncMsg) {.msgType = ufResetMsg, .theUfo = o, .return_p = &returnVal, .completionLock_p = &completionLock};
+  // send the request
+  tryPerrInt(sendErr, sendMsg(i, &msg), "instance shutting down", shuttingDown);
+
+  tryPerrInt(res, sem_wait(&completionLock), "error waiting for object destruction", awaitErr);
+
+  semErr:
+  shuttingDown:
+  awaitErr:
+
+  return returnVal; // set by the far side
 }
 
 ufObject_t ufLookupObjectByMemberAddress(ufInstance_t instance, void* ptr){
@@ -866,7 +951,7 @@ int ufDestroyObject(ufObject_t object_p){
     tryPerrInt(res, sem_init(&completionLock, 0, 0), "error initializing the completion lock", semErr);
 
     // Init the free request
-    ufAsyncMsg msg = (ufAsyncMsg) {.msgType = ufFreeMsg, .toFree = o, .return_p = &returnVal, .completionLock_p = &completionLock};
+    ufAsyncMsg msg = (ufAsyncMsg) {.msgType = ufFreeMsg, .theUfo = o, .return_p = &returnVal, .completionLock_p = &completionLock};
     // send the request
     tryPerrInt(sendErr, sendMsg(i, &msg), "instance shutting down", shuttingDown);
 

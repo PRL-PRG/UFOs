@@ -21,7 +21,7 @@ typedef struct {
 } data_t;
 
 int __populate_empty(uint64_t start, uint64_t end, ufPopulateCallout cf, ufUserData user_data, char* target) {
-	ufo_vector_type_t type = (ufo_vector_type_t) user_data;
+	ufo_vector_type_t type = *((ufo_vector_type_t*) user_data);
 
 	if (__get_debug_mode()) {
 	    REprintf("__populate\n");
@@ -82,13 +82,19 @@ int __populate_empty(uint64_t start, uint64_t end, ufPopulateCallout cf, ufUserD
     	}
 	}
 
+	REprintf("\n\n\nCRASH AND BURN TIME, UNKNOWN TYPE %d\n\n\n", type);
 	return 1;
 }
 
 void __destroy_empty(ufUserData *user_data) {
+    int64_t *type = (int64_t *) user_data;
+
     if (__get_debug_mode()) {
         REprintf("__destroy\n");
+        REprintf("    vector type: %d\n", type);
     }
+
+    free(type);
 }
 
 SEXP ufo_empty(ufo_vector_type_t type, R_xlen_t size, int32_t min_load_count) {
@@ -106,11 +112,14 @@ SEXP ufo_empty(ufo_vector_type_t type, R_xlen_t size, int32_t min_load_count) {
     source->dimensions_length = 0;
     source->min_load_count = __select_min_load_count(min_load_count, source->element_size);
 
-    make_sure(sizeof(ufo_vector_type_t) <= sizeof(ufUserData*), Rf_error, "Cannot fit vector type information into ufUserData pointer.");
-    source->data = (ufUserData*) type;
+    make_sure(sizeof(ufo_vector_type_t) <= sizeof(int64_t), Rf_error, "Cannot fit vector type information into ufUserData pointer.");
+    int64_t *data = (int64_t *) malloc(sizeof(int64_t));
+    *data = type;
+    source->data = (ufUserData *) data;
 
     ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
-    return ufo_new(source);
+    SEXP result = ufo_new(source);
+    return result;
 }
 
 SEXP ufo_intsxp_empty(SEXP/*REALSXP*/ size, SEXP/*INTSXP*/ min_load_count) {
