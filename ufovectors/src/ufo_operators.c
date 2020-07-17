@@ -420,13 +420,14 @@ R_xlen_t ufo_subscript_dimension_length(SEXP vector, SEXP subscript) {
 
 	switch(TYPEOF(subscript)) {
 	case INTSXP: {
-		if (IS_SCALAR(subscript, INTSXP)) {
-			int value = SCALAR_IVAL(subscript);
-			if (0 < value || value <= vector_length) return 1;
-			else if (value == NA_INTEGER)            return 1;
-			else if (value == 0) 	           	     return 0;
-			else 							         return vector_length - 1;
-		}
+
+//		if (IS_SCALAR(subscript, INTSXP)) {
+//			int value = SCALAR_IVAL(subscript);
+//			if (0 < value || value <= vector_length) return 1;
+//			else if (value == NA_INTEGER)            return 1;
+//			else if (value == 0) 	           	     return 0;
+//			else 							         return vector_length - 1;
+//		}
 
 		R_xlen_t nas = 0, negatives = 0, positives = 0;
 		for (R_xlen_t i = 0; i < subscript_length; i++) {
@@ -445,15 +446,20 @@ R_xlen_t ufo_subscript_dimension_length(SEXP vector, SEXP subscript) {
 	}
 
 	case REALSXP: {
-		if (IS_SCALAR(subscript, REALSXP)) {			/// XXX consider removing this for simplicity
-			double value = SCALAR_DVAL(subscript);
-			if (1 <= value || value <= vector_length) return 1;
-			else if (ISNAN(value))                    return 1;
-			else if (value == 0) 			          return 0;
-			else 							          return vector_length - 1;
-		}
 
-		R_xlen_t nas = 0, negatives = 0, positives = 0, between_zero_and_ones = 0;
+//		if (IS_SCALAR(subscript, REALSXP)) {			/// XXX consider removing this for simplicity
+//			double value = SCALAR_DVAL(subscript);
+//			if (1 <= value || value <= vector_length) return 1;
+//			else if (ISNAN(value))                    return 1;
+//			else if (value == 0) 			          return 0;
+//			else 							          return vector_length - 1;
+//		}
+
+		R_xlen_t nas = 0;
+		R_xlen_t negatives = 0;
+		R_xlen_t positives = 0;
+		R_xlen_t between_zero_and_ones = 0;
+
 		for (R_xlen_t i = 0; i < subscript_length; i++) {
 			double value = REAL_ELT(subscript, i);
 			if (ISNAN(value)) 	    nas++;
@@ -471,7 +477,37 @@ R_xlen_t ufo_subscript_dimension_length(SEXP vector, SEXP subscript) {
 	}
 
 	case NILSXP: return 0;
-	case LGLSXP: Rf_error("Not implemented yet.");
+	case LGLSXP: {
+
+		if (vector_length <= subscript_length) {
+			R_xlen_t elements = vector_length;
+			for (R_xlen_t i = 0; i < subscript_length; i++) {
+				if (LOGICAL_ELT(subscript, i) == 0) {
+					elements--;
+				}
+			}
+			return elements;
+		}
+
+		if (subscript_length == 1) return LOGICAL_ELT(subscript, 0) == 0 ? 0 : 1;
+		if (subscript_length == 0) return 0;
+
+		R_xlen_t whole_fits_this_many_times = vector_length / subscript_length;
+		R_xlen_t remainder_fits_this_many_elements = vector_length % subscript_length;
+		R_xlen_t elements_in_whole = subscript_length;
+		R_xlen_t elements_in_remainder = remainder_fits_this_many_elements;
+
+		for (R_xlen_t i = 0; i < subscript_length; i++) {
+			if (LOGICAL_ELT(subscript, i) == 0) {
+				elements_in_whole--;
+				if (i < remainder_fits_this_many_elements) {
+					elements_in_remainder--;
+				}
+			}
+		}
+
+		return whole_fits_this_many_times * elements_in_whole + elements_in_remainder;
+	}
 	case STRSXP: Rf_error("Not implemented yet.");
 	default: Rf_error("invalid subscript type '%s'", type2char(TYPEOF(subscript)));
 	}
