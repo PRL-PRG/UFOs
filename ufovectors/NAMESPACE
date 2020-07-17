@@ -42,8 +42,8 @@ export(`!=.ufo`)
 export(`|.ufo`)
 export(`&.ufo`)
 export(`!.ufo`)
-export(`[.ufo`)
-export(`[<-.ufo`)
+#export(`[.ufo`)
+#export(`[<-.ufo`)
 
 # Overloading operators
 #export(`+`)

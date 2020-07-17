@@ -3,8 +3,6 @@
 #-----------------------------------------------------------------------------
 
 .ufo_binary <- function(operation, result_inference, x, y, min_load_count=0, chunk_size=100000) {
-  print("hi")
-  
   if (!is_ufo(x) && !is_ufo(y)) {
     return(operation(x, y))
   }
@@ -13,7 +11,7 @@
   result_size <- length(result);    
   number_of_chunks <- ceiling(result_size / chunk_size)
             
-  for (chunk in 0:(number_of_chunks - 1)) {
+  for (chunk in 0:(`.base.-`(number_of_chunks, 1))) {
     x_chunk <- .Call("ufo_get_chunk", x, chunk, chunk_size, result_size)
     y_chunk <- .Call("ufo_get_chunk", y, chunk, chunk_size, result_size)
     result[attr(x_chunk, 'start_index'):attr(x_chunk, 'end_index')] <- operation(x_chunk, y_chunk)
@@ -88,22 +86,22 @@
 # Overload base operators
 #-----------------------------------------------------------------------------
 
-`+`		<- `+.ufo`
-`-` 	<- `-.ufo`
-`*`		<- `*.ufo`
-`/`		<- `/.ufo`
-`^`		<- `^.ufo`
-`%%`	<- `%%.ufo`
-`%/%`	<- `%/%.ufo`
-`<`		<- `<.ufo`
-`<=`	<- `<=.ufo`
-`>`		<- `>.ufo`
-`>=`	<- `>=.ufo`
-`==`	<- `==.ufo`
-`!=`	<- `!=.ufo`
-`!`		<- `!.ufo`
-`|`		<- `|.ufo`
-`&`		<- `&.ufo`
+#`+`		<- `+.ufo`
+#`-` 	<- `-.ufo`
+#`*`		<- `*.ufo`
+#`/`		<- `/.ufo`
+#`^`		<- `^.ufo`
+#`%%`	<- `%%.ufo`
+#`%/%`	<- `%/%.ufo`
+#`<`		<- `<.ufo`
+#`<=`	<- `<=.ufo`
+#`>`		<- `>.ufo`
+#`>=`	<- `>=.ufo`
+#`==`	<- `==.ufo`
+#`!=`	<- `!=.ufo`
+#`!`		<- `!.ufo`
+#`|`		<- `|.ufo`
+#`&`		<- `&.ufo`
 	
 #	`[`		<- `[.ufo`
 #	`[<-`	<- `[<-.ufo`
