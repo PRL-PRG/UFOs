@@ -22,7 +22,15 @@ ufo_unequal       <- function(x, y)   .ufo_binary(.base_unequal,       "ufo_log_
 ufo_or            <- function(x, y)   .ufo_binary(.base_or,            "ufo_log_result", x, y)
 ufo_and           <- function(x, y)   .ufo_binary(.base_and,           "ufo_log_result", x, y)
 ufo_not           <- function(x)      .ufo_unary (.base_not,           "ufo_neg_result", x)
-#ufo_subset        <- function(x, i) 
+
+ufo_subset <- function(x, i, ..., drop=TRUE) {
+  cat("[...]\n")
+  
+  result <- .Call(result_inference, x, y, as.integer(min_load_count))
+  result_size <- length(result);    
+  number_of_chunks <- ceiling(result_size / chunk_size)
+  
+}
 #ufo_subset_assign <- function(x, i, v)
 
 #-----------------------------------------------------------------------------
@@ -43,6 +51,7 @@ ufo_not           <- function(x)      .ufo_unary (.base_not,           "ufo_neg_
     result[attr(x_chunk, 'start_index'):attr(x_chunk, 'end_index')] <- operation(x_chunk, y_chunk)
   }
   
+  # TODO copy attributes`
   return(.add_class(result, "ufo", .check_add_class()))
 }
 
@@ -59,6 +68,7 @@ ufo_not           <- function(x)      .ufo_unary (.base_not,           "ufo_neg_
     result[attr(x_chunk, 'start_index'):attr(x_chunk, 'end_index')] <- operation(x_chunk)
   }
   
+  # TODO copy attributes
   return(.add_class(result, "ufo", .check_add_class()))
 }
 
