@@ -122,7 +122,7 @@ SEXPTYPE ufo_type_to_vector_type (ufo_vector_type_t ufo_type) {
         case UFO_CPLX: return CPLXSXP;
         case UFO_RAW:  return RAWSXP;
         case UFO_STR:  return STRSXP;
-        default:       printf("Cannot convert ufo_type_t=%i to SEXPTYPE", ufo_type);
+        default:       Rf_error("Cannot convert ufo_type_t=%i to SEXPTYPE", ufo_type);
                        return -1;
     }
 }

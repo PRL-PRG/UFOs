@@ -3,7 +3,7 @@
 #-----------------------------------------------------------------------------
 
 .ufo_binary <- function(operation, result_inference, x, y, min_load_count=0, chunk_size=100000) {
-  cat("...")
+  #cat("...")
   
   if (!is_ufo(x) && !is_ufo(y)) {
     return(operation(x, y))
@@ -23,6 +23,8 @@
 }
 
 .ufo_unary <- function(operation, inference, x, min_load_count=0, chunk_size=100000) {
+  #cat("...")
+
   if (!is_ufo(x)) {
     return(operation(x))
   }

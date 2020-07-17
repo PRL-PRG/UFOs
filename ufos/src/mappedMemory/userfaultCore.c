@@ -120,10 +120,10 @@ static void handlerShutdown(ufInstance* i, bool selfFree){
   void nullObject(entry* e){
     ufObject* ufo = asUfo(e->valuePtr);
     if(NULL != ufo) {
-      printf("shtdn: %p (%li) \n", ufo->start, ufo->trueSize);
+      //printf("shtdn: %p (%li) \n", ufo->start, ufo->trueSize);
       munmap(ufo->start, ufo->trueSize);
 
-      printf("shtdw: %p (%li) \n", ufo->writebackMmapBase, ufoWritebackTotalSize(ufo));
+      //printf("shtdw: %p (%li) \n", ufo->writebackMmapBase, ufoWritebackTotalSize(ufo));
       munmap(ufo->writebackMmapBase, ufoWritebackTotalSize(ufo));
       close(ufo->writebackMmapFd); // temp file is destroyed when the last handle to it is closed
     } else
@@ -896,6 +896,13 @@ int ufCreateObject(ufInstance_t instance, ufObjectConfig_t objectConfig, ufObjec
   errAlloc:
 
   return res;
+}
+
+int ufIsObject(ufInstance_t instance, void* ptr){
+  ufInstance* i = asUfInstance(instance);
+  entry e;
+  int res = listFind(i->objects, &e, ptr);
+  return 0 == res;
 }
 
 int ufResetObject(ufObject_t object_p){
