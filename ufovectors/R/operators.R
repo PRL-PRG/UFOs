@@ -30,6 +30,7 @@ ufo_subset <- function(x, i, ..., drop=TRUE) {
   result_size <- length(result);    
   number_of_chunks <- ceiling(result_size / chunk_size)
   
+  
 }
 #ufo_subset_assign <- function(x, i, v)
 

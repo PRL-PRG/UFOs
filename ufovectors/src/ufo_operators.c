@@ -411,6 +411,75 @@ SEXP __ufo_calculate_chunk_indices(SEXP x_length_sexp, SEXP y_length_sexp, SEXP 
 	return result;
 }
 
+R_xlen_t ufo_subscript_dimension_length(SEXP vector, SEXP subscript) {
+
+	make_sure(isVector(vector) || isList(vector) || isLanguage(vector), Rf_error, "subscripting on non-vector");
+
+	R_xlen_t vector_length = XLENGTH(vector);
+	R_xlen_t subscript_length = XLENGTH(subscript);
+
+	switch(TYPEOF(subscript)) {
+	case INTSXP: {
+		if (IS_SCALAR(subscript, INTSXP)) {
+			int value = SCALAR_IVAL(subscript);
+			if (0 < value || value <= vector_length) return 1;
+			else if (value == NA_INTEGER)            return 1;
+			else if (value == 0) 	           	     return 0;
+			else 							         return vector_length - 1;
+		}
+
+		R_xlen_t nas = 0, negatives = 0, positives = 0;
+		for (R_xlen_t i = 0; i < subscript_length; i++) {
+			int value = INTEGER_ELT(subscript, i);
+			if (value == NA_INTEGER) nas++;
+			else if (value < 0)		 negatives++;
+			else if (value > 0)      positives++;
+									 // ignore zeros
+		}
+
+		if (positives > 0) return positives + nas;
+		if (positives > 0 || nas > 0) {
+			Rf_error("only 0s may be mixed with negative subscripts");
+		}
+		return vector_length - negatives;
+	}
+
+	case REALSXP: {
+		if (IS_SCALAR(subscript, REALSXP)) {			/// XXX consider removing this for simplicity
+			double value = SCALAR_DVAL(subscript);
+			if (1 <= value || value <= vector_length) return 1;
+			else if (ISNAN(value))                    return 1;
+			else if (value == 0) 			          return 0;
+			else 							          return vector_length - 1;
+		}
+
+		R_xlen_t nas = 0, negatives = 0, positives = 0, between_zero_and_ones = 0;
+		for (R_xlen_t i = 0; i < subscript_length; i++) {
+			double value = REAL_ELT(subscript, i);
+			if (ISNAN(value)) 	    nas++;
+			else if (value < 0)	    negatives++;
+			else if (value >= 1)    positives++;
+			else if (value < 1)     between_zero_and_ones++;
+								    // ignore zeros
+		}
+
+		if (positives > 0) return positives + nas;
+		if (positives > 0 || nas > 0 || between_zero_and_ones > 0) {
+			Rf_error("only 0s may be mixed with negative subscripts");
+		}
+		return vector_length - negatives;
+	}
+
+	case NILSXP: return 0;
+	case LGLSXP: Rf_error("Not implemented yet.");
+	case STRSXP: Rf_error("Not implemented yet.");
+	default: Rf_error("invalid subscript type '%s'", type2char(TYPEOF(subscript)));
+	}
+
+	Rf_error("Not implemented yet.");
+	return 0;
+}
+
 SEXP ufo_subset(SEXP x, SEXP y) {
 	Rf_error("not implemented");
 	return R_NilValue;
