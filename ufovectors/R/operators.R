@@ -30,7 +30,7 @@ ufo_not           <- function(x)      .ufo_unary (.base_not,           "ufo_neg_
 #-----------------------------------------------------------------------------
 
 .ufo_binary <- function(operation, result_inference, x, y, min_load_count=0, chunk_size=100000) {
-  #cat("...")
+  #cat("...\n")
   if (!is_ufo(x) && !is_ufo(y)) return(operation(x, y))
 
   result <- .Call(result_inference, x, y, as.integer(min_load_count))
@@ -47,7 +47,7 @@ ufo_not           <- function(x)      .ufo_unary (.base_not,           "ufo_neg_
 }
 
 .ufo_unary <- function(operation, result_inference, x, min_load_count=0, chunk_size=100000) {
-  #cat("...")
+  #cat("...\n")
   if (!is_ufo(x)) return(operation(x))
   
   result <- .Call(result_inference, x, as.integer(min_load_count))
@@ -89,7 +89,59 @@ ufo_not           <- function(x)      .ufo_unary (.base_not,           "ufo_neg_
 # Set up S3 opertors or overload operators on load
 #-----------------------------------------------------------------------------
 
+# Poor workaround of the commented out code below
+overload_operators <- function() {
+  operator_overload_statements <- c(
+    "`+`  <- ufovectors:::ufo_add",
+    "`-`  <- ufovectors:::ufo_subtract",
+    "`*`  <- ufovectors:::ufo_multiply",
+    "`/`  <- ufovectors:::ufo_divide",
+    "`^`  <- ufovectors:::ufo_power",
+    "`%%` <- ufovectors:::ufo_modulo",
+    "`%/%`<- ufovectors:::ufo_int_divide",
+    "`<`  <- ufovectors:::ufo_less",
+    "`<=` <- ufovectors:::ufo_less_equal",
+    "`>`  <- ufovectors:::ufo_greater",
+    "`>=` <- ufovectors:::ufo_greater_equal",
+    "`==` <- ufovectors:::ufo_equal",
+    "`!=` <- ufovectors:::ufo_unequal",
+    "`!`  <- ufovectors:::ufo_not",
+    "`|`  <- ufovectors:::ufo_or",
+    "`&`  <- ufovectors:::ufo_and"
+    #"`[` <- ufovectors:::ufo_subset",
+    #"`[<-` <- ufovectors:::ufo_subset_assign"
+  )
+  
+  eval(parse(text=operator_overload_statements), envir=globalenv())
+}
+
+unload_operators <- function() {
+  operator_overload_statements <- c(
+    "`+`   <- ufovectors:::.base_add",
+    "`-`   <- ufovectors:::.base_subtract",
+    "`*`   <- ufovectors:::.base_multiply",
+    "`/`   <- ufovectors:::.base_divide",
+    "`^`   <- ufovectors:::.base_power",
+    "`%%`  <- ufovectors:::.base_modulo",
+    "`%/%` <- ufovectors:::.base_int_divide",
+    "`<`   <- ufovectors:::.base_less",
+    "`<=`  <- ufovectors:::.base_less_equal",
+    "`>`   <- ufovectors:::.base_greater",
+    "`>=`  <- ufovectors:::.base_greater_equal",
+    "`==`  <- ufovectors:::.base_equal",
+    "`!=`  <- ufovectors:::.base_unequal",
+    "`!`   <- ufovectors:::.base_not",
+    "`|`   <- ufovectors:::.base_or",
+    "`&`   <- ufovectors:::.base_and"
+    #"`[` <- ufovectors:::.base_subset",
+    #"`[<-`	<- ufovectors:::.base_subset_assign"
+  )
+  
+  eval(parse(text=operator_overload_statements), envir=globalenv())
+}
+
 # options(ufovectors.add_class = TRUE)
+# options(ufovectors.overload_operators = TRUE)
 .onLoad <- function(...) {
   if (isTRUE(getOption("ufovectors.add_class"))) {
     registerS3method("+",   "ufo", ufo_add)
@@ -113,23 +165,8 @@ ufo_not           <- function(x)      .ufo_unary (.base_not,           "ufo_neg_
   }
   
   if (isTRUE(getOption("ufovectors.overload_operators"))) {
-    `+`	  <- ufo_add
-    `-`	  <- ufo_subtract
-    `*`	  <- ufo_multiply
-    `/`	  <- ufo_divide
-    `^`	  <- ufo_power
-    `%%`	<- ufo_modulo
-    `%/%`	<- ufo_int_divide
-    `<`		<- ufo_less
-    `<=`	<- ufo_less_equal
-    `>`		<- ufo_greater
-    `>=`	<- ufo_greater_equal
-    `==`	<- ufo_equal
-    `!=`	<- ufo_unequal
-    `!`		<- ufo_not
-    `|`		<- ufo_or
-    `&`		<- ufo_and
-    #	`[`		<- ufo_subset
-    #	`[<-`	<- ufo_subset_assign
+    ufovectors:::overload_operators()
   }
 }
+
+

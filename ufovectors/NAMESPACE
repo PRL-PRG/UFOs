@@ -25,7 +25,7 @@ export(ufo_matrix_bin)
 
 export(ufo_csv)
 
-# Operators
+# Operators as custom functions
 export(ufo_add)
 export(ufo_subtract)
 export(ufo_multiply)
@@ -45,6 +45,7 @@ export(ufo_not)
 #export(`[.ufo`)
 #export(`[<-.ufo`)
 
+# Operators as S3
 if (isTRUE(getOption("ufovectors.add_class"))) {
   S3method(`+`,   ufo)
   S3method(`-`,   ufo)
@@ -65,6 +66,29 @@ if (isTRUE(getOption("ufovectors.add_class"))) {
   #S3method(`[`,   ufo)
   #S3method(`[<-`, ufo)
 }
+
+# Operators overloaded 
+# XXX could not get it to work, went with onLoad + eval
+#if (isTRUE(getOption("ufovectors.overload_operators"))) {
+  #export(`+`)
+  #export(`-`)
+  #export(`*`)
+  #export(`/`)
+  #export(`%%`)
+  #export(`%/%`)
+  #export(`^`)
+  #export(`<`)
+  #export(`>`)
+  #export(`<=`)
+  #export(`>=`)
+  #export(`==`)
+  #export(`!=`)
+  #export(`|`)
+  #export(`&`)
+  #export(`!`)
+  #export(`[`)
+  #export(`[<-`)
+#}
 
 # Helpers
 export(ufo_store_bin)
