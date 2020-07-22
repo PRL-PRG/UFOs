@@ -522,32 +522,25 @@ SEXP null_subscript(SEXP vector, SEXP subscript) {
 
 SEXP logical_subscript(SEXP vector, SEXP subscript) {
 
-	R_xlen_t vector_length = XLENGTH(vector);
+	R_xlen_t vector_length    = XLENGTH(vector);
 	R_xlen_t subscript_length = XLENGTH(subscript);
-	SEXPTYPE vector_type = TYPEOF(vector);
+	SEXPTYPE vector_type      = TYPEOF(vector);
 
 	if (subscript_length == 0) {
 		return allocVector(vector_type, 0);
 	}
 
-	R_xlen_t result_length = logical_subscript_length(vector, subscript); // FIXME makes sure used only once
-	bool result_vector_is_long = result_length > R_SHORT_LEN_MAX;
-	SEXP result = PROTECT(allocVector(result_vector_is_long ? REALSXP : INTSXP, result_length));
-	R_xlen_t result_index = 0;
+	R_xlen_t result_length         = logical_subscript_length(vector, subscript); // FIXME makes sure used only once
+	bool     result_vector_is_long = result_length > R_SHORT_LEN_MAX;
+	SEXP     result                = PROTECT(allocVector(result_vector_is_long ? REALSXP : INTSXP, result_length));
+	R_xlen_t result_index          = 0;
 
 	for (R_xlen_t vector_index = 0; vector_index < vector_length; vector_index++) { // XXX consider iterating by region
-
 		Rboolean value = LOGICAL_ELT(subscript, vector_index % subscript_length);
 
-		if (value == FALSE)	{
-			continue;
-		}
-
-		if (result_vector_is_long) {
-			SET_REAL_ELT(result, result_index, value == TRUE ? vector_index : NA_REAL);
-		} else {
-			SET_INTEGER_ELT(result, result_index, value == TRUE ? vector_index : NA_INTEGER);
-		}
+		if (value == FALSE)		   continue;
+		if (result_vector_is_long) SET_REAL_ELT   (result, result_index, value == TRUE ? vector_index : NA_REAL);
+		else             		   SET_INTEGER_ELT(result, result_index, value == TRUE ? vector_index : NA_INTEGER);
 
 		result_index++;
 	}
