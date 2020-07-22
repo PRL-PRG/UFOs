@@ -533,50 +533,34 @@ SEXP logical_subscript(SEXP vector, SEXP subscript) {
 	R_xlen_t result_length = logical_subscript_length(vector, subscript); // FIXME makes sure used only once
 	bool result_vector_is_long = result_length > R_SHORT_LEN_MAX;
 	SEXP result = PROTECT(allocVector(result_vector_is_long ? REALSXP : INTSXP, result_length));
+	R_xlen_t result_index = 0;
 
-	// Subscript is equal to or larger than vector.
-	if (vector_length <= subscript_length) {
-		R_xlen_t ri = 0;
+	for (R_xlen_t vector_index = 0; vector_index < vector_length; vector_index++) { // XXX consider iterating by region
 
-		for (R_xlen_t vi = 0; vi < vector_length; vi++) { // XXX consider iterating by region
-			Rboolean value = LOGICAL_ELT(subscript, vi);
+		Rboolean value = LOGICAL_ELT(subscript, vector_index % subscript_length);
 
-			if (value == FALSE)	       continue;
-			if (result_vector_is_long) SET_REAL_ELT(result, ri, value == TRUE ? vi : NA_REAL);
-			else         		       SET_INTEGER_ELT(result, ri, value == TRUE ? vi : NA_INTEGER);
-
-			ri++;
+		if (value == FALSE)	{
+			continue;
 		}
 
-		for (R_xlen_t si = vector_length; si < subscript_length; si++) {
-			if (result_vector_is_long) SET_REAL_ELT(result, ri, NA_REAL);
-			else         		       SET_INTEGER_ELT(result, ri, NA_INTEGER);
-
-			ri++;
+		if (result_vector_is_long) {
+			SET_REAL_ELT(result, result_index, value == TRUE ? vector_index : NA_REAL);
+		} else {
+			SET_INTEGER_ELT(result, result_index, value == TRUE ? vector_index : NA_INTEGER);
 		}
 
-		UNPROTECT(1);
-		return result;
+		result_index++;
 	}
 
-	// Subscript is shorter than the vector, recycling occurs (nested or otherwise)
-	if (vector_length > subscript_length) {
-		for (R_xlen_t si = 0, ri = 0; si < vector_length; si++) { // XXX consider iterating by region
-			Rboolean value = LOGICAL_ELT(subscript, si % subscript_length);
+	for (R_xlen_t si = vector_length; si < subscript_length; si++) {
+		if (result_vector_is_long) SET_REAL_ELT(result, result_index, NA_REAL);
+		else         		       SET_INTEGER_ELT(result, result_index, NA_INTEGER);
 
-			if (value == FALSE)		   continue;
-			if (result_vector_is_long) SET_REAL_ELT(result, ri, value == TRUE ? si : NA_REAL);
-			else         		       SET_INTEGER_ELT(result, ri, value == TRUE ? si : NA_INTEGER);
-
-			ri++;
-		}
-
-		UNPROTECT(1);
-		return result;
+		result_index++;
 	}
 
-	Rf_error("unreachable");
-	return R_NilValue;
+	UNPROTECT(1);
+	return result;
 }
 
 SEXP integer_subscript(SEXP vector, SEXP subscript) {
