@@ -60,6 +60,8 @@ static const R_CallMethodDef CallEntries[] = {
 	//{"ufo_calculate_chunk_indices", (DL_FUNC) &ufo_calculate_chunk_indices,     4},
 	{"ufo_get_chunk",               (DL_FUNC) &ufo_get_chunk,					4},
 
+	{"ufo_subscript",               (DL_FUNC) &ufo_subscript,					2},
+
     // Terminates the function list. Necessary.
     {NULL,                          NULL,                                       0}
 };

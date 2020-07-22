@@ -155,24 +155,24 @@ unload_operators <- function() {
 # options(ufovectors.overload_operators = TRUE)
 .onLoad <- function(...) {
   if (isTRUE(getOption("ufovectors.add_class"))) {
-    registerS3method("+",   "ufo", ufo_add)
-    registerS3method("-",   "ufo", ufo_subtract)
-    registerS3method("*",   "ufo", ufo_multiply)
-    registerS3method("/",   "ufo", ufo_divide)
-    registerS3method("^",   "ufo", ufo_power)
-    registerS3method("%%",  "ufo", ufo_modulo)
-    registerS3method("%/%", "ufo", ufo_int_divide)
-    registerS3method("<",   "ufo", ufo_less)
-    registerS3method("<=",  "ufo", ufo_less_equal)
-    registerS3method(">",   "ufo", ufo_greater)
-    registerS3method(">=",  "ufo", ufo_greater_equal)
-    registerS3method("==",  "ufo", ufo_equal)
-    registerS3method("!=",  "ufo", ufo_unequal)
-    registerS3method("!",   "ufo", ufo_not)
-    registerS3method("|",   "ufo", ufo_or)
-    registerS3method("&",   "ufo", ufo_and)
-    #registerS3method("[",   "ufo", ufo_subset)
-    #registerS3method("[<-", "ufo", ufo_subset_assign)	
+    registerS3method("+",   "ufo", ufovectors:::ufo_add)
+    registerS3method("-",   "ufo", ufovectors:::ufo_subtract)
+    registerS3method("*",   "ufo", ufovectors:::ufo_multiply)
+    registerS3method("/",   "ufo", ufovectors:::ufo_divide)
+    registerS3method("^",   "ufo", ufovectors:::ufo_power)
+    registerS3method("%%",  "ufo", ufovectors:::ufo_modulo)
+    registerS3method("%/%", "ufo", ufovectors:::ufo_int_divide)
+    registerS3method("<",   "ufo", ufovectors:::ufo_less)
+    registerS3method("<=",  "ufo", ufovectors:::ufo_less_equal)
+    registerS3method(">",   "ufo", ufovectors:::ufo_greater)
+    registerS3method(">=",  "ufo", ufovectors:::ufo_greater_equal)
+    registerS3method("==",  "ufo", ufovectors:::ufo_equal)
+    registerS3method("!=",  "ufo", ufovectors:::ufo_unequal)
+    registerS3method("!",   "ufo", ufovectors:::ufo_not)
+    registerS3method("|",   "ufo", ufovectors:::ufo_or)
+    registerS3method("&",   "ufo", ufovectors:::ufo_and)
+    #registerS3method("[",   "ufo", ufovectors:::ufo_subset)
+    #registerS3method("[<-", "ufo", ufovectors:::ufo_subset_assign)	
   }
   
   if (isTRUE(getOption("ufovectors.overload_operators"))) {
@@ -180,4 +180,6 @@ unload_operators <- function() {
   }
 }
 
-
+subscript <- function(x, subscript) {
+  .Call("ufo_subscript", x, subscript)
+}
