@@ -180,6 +180,6 @@ unload_operators <- function() {
   }
 }
 
-subscript <- function(x, subscript) {
-  .Call("ufo_subscript", x, subscript)
+subscript <- function(x, subscript, min_load_count=0) {
+  .Call("ufo_subscript", x, subscript, as.integer(min_load_count))
 }

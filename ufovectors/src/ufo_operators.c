@@ -541,13 +541,9 @@ R_xlen_t string_subscript_length(SEXP vector, SEXP subscript) {
 }
 
 R_xlen_t ufo_subscript_dimension_length(SEXP vector, SEXP subscript, SEXP min_load_count_sexp) {
-
-	int32_t min_load_count = (int32_t) __extract_int_or_die(min_load_count_sexp); // XXX do value checks
-
 	make_sure(isVector(vector) || isList(vector) || isLanguage(vector), Rf_error, "subscripting on non-vector");
 
 	SEXPTYPE subscript_type = TYPEOF(subscript);
-
 	switch(subscript_type) {
 	case INTSXP:  return integer_subscript_length(vector, subscript);
 	case REALSXP: return real_subscript_length(vector, subscript);
@@ -584,8 +580,8 @@ SEXP logical_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 		Rboolean value = LOGICAL_ELT(subscript, vector_index % subscript_length);
 
 		if (value == FALSE)		   continue;
-		if (result_vector_is_long) SET_REAL_ELT   (result, result_index, value == TRUE ? vector_index : NA_REAL);
-		else             		   SET_INTEGER_ELT(result, result_index, value == TRUE ? vector_index : NA_INTEGER);
+		if (result_vector_is_long) SET_REAL_ELT   (result, result_index, value == TRUE ? vector_index + 1: NA_REAL);
+		else             		   SET_INTEGER_ELT(result, result_index, value == TRUE ? vector_index + 1: NA_INTEGER);
 
 		result_index++;
 	}
@@ -601,8 +597,54 @@ SEXP logical_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 	return result;
 }
 
-SEXP integer_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
+SEXP positive_integer_subscript(SEXP vector, SEXP subscript, int32_t min_load_count, integer_vector_stats_t stats) {
 
+	R_xlen_t result_length = stats.positives + stats.nas;
+	R_xlen_t result_vector_is_long = result_length > R_SHORT_LEN_MAX;
+	SEXPTYPE result_type = result_vector_is_long ? REALSXP : INTSXP;
+	R_xlen_t subscript_length = XLENGTH(subscript);
+	R_xlen_t vector_length = XLENGTH(vector);
+
+	SEXP result = PROTECT(ufo_empty(result_type, result_length, min_load_count));
+	for (R_xlen_t result_index = 0, subscript_index = 0; subscript_index < subscript_length; subscript_index++) {
+		int value = INTEGER_ELT(subscript, subscript_index);
+
+		if (value == 0) continue;
+
+		bool na = (value == NA_INTEGER || value > vector_length);
+		if (result_vector_is_long) SET_REAL_ELT   (result, result_index, na ? NA_REAL    : (double) value);
+		else             		   SET_INTEGER_ELT(result, result_index, na ? NA_INTEGER :          value);
+
+		result_index++;
+	}
+	UNPROTECT(1);
+	return result;
+}
+
+// XXX There **has** to be a better way to do this.
+SEXP negative_integer_subscript(SEXP vector, SEXP subscript, int32_t min_load_count, integer_vector_stats_t stats) {
+	R_xlen_t vector_length = XLENGTH(vector);
+	R_xlen_t subscript_length = XLENGTH(subscript);
+	SEXP bitmap = PROTECT(ufo_empty(LGLSXP, vector_length, min_load_count));
+
+	for (R_xlen_t vector_index = 0; vector_index < vector_length; vector_index++) {
+		SET_LOGICAL_ELT(bitmap, vector_index, TRUE);
+	}
+
+	for (R_xlen_t subscript_index = 0; subscript_index < subscript_length; subscript_index++) {
+		int subscript_value = INTEGER_ELT(subscript, subscript_index);
+		if (subscript_value == 0) 		  	  continue;
+		if (subscript_value == NA_INTEGER)    continue;
+		if (-subscript_value > vector_length) continue;
+		SET_LOGICAL_ELT(bitmap, -subscript_value - 1, FALSE);
+	}
+
+	SEXP indices = logical_subscript(vector, bitmap, min_load_count);
+	UNPROTECT(1);
+	return indices;
+}
+
+SEXP integer_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 	integer_vector_stats_t stats = integer_subscript_stats(subscript);
 
 	if (stats.nas + stats.positives + stats.negatives == 0) {
@@ -613,86 +655,90 @@ SEXP integer_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 		Rf_error("only 0s may be mixed with negative subscripts");
 	}
 
-	R_xlen_t vector_length = XLENGTH(vector);
-	R_xlen_t result_length = stats.negatives == 0
-			               ? stats.positives + stats.nas
-			               : vector_length - stats.negatives;
+	if (stats.negatives != 0) {
+		return negative_integer_subscript(vector, subscript, min_load_count, stats);
+	} else {
+		return positive_integer_subscript(vector, subscript, min_load_count, stats);
+	}
+}
 
-	R_xlen_t subscript_length = XLENGTH(subscript);
+SEXP positive_real_subscript(SEXP vector, SEXP subscript, int32_t min_load_count, real_vector_stats_t stats) {
+
+	R_xlen_t result_length = stats.positives + stats.nas;
 	R_xlen_t result_vector_is_long = result_length > R_SHORT_LEN_MAX;
 	SEXPTYPE result_type = result_vector_is_long ? REALSXP : INTSXP;
-
-	if (result_length == 0) {
-		return allocVector(result_type, result_length);
-	}
-
-	if (stats.negatives != 0) { // XXX There **has** to be a better way to do this.
-		SEXP bitmap = PROTECT(ufo_empty(LGLSXP, vector_length, min_load_count));
-		for (R_xlen_t vector_index = 0; vector_index < vector_length; vector_index++) {
-			SET_LOGICAL_ELT(bitmap, vector_index, TRUE);
-		}
-		for (R_xlen_t subscript_index = 0; subscript_index < subscript_length; subscript_index++) {
-			int subscript_value = INTEGER_ELT(subscript, subscript_index);
-			if (subscript_value == 0) {
-				continue;
-			}
-			SET_LOGICAL_ELT(bitmap, -subscript_value, FALSE);
-		}
-		SEXP indices = logical_subscript(vector, bitmap, min_load_count);
-		UNPROTECT(1);
-		return indices;
-	}
+	R_xlen_t subscript_length = XLENGTH(subscript);
+	R_xlen_t vector_length = XLENGTH(vector);
 
 	SEXP result = PROTECT(ufo_empty(result_type, result_length, min_load_count));
 	for (R_xlen_t result_index = 0, subscript_index = 0; subscript_index < subscript_length; subscript_index++) {
-		int value = INTEGER_ELT(subscript, subscript_index);
+		double value = REAL_ELT(subscript, subscript_index);
 
-		if (value == 0)	     	   continue;
-		if (result_vector_is_long) SET_REAL_ELT   (result, result_index, value == NA_INTEGER ? NA_REAL : subscript_index);
-		else             		   SET_INTEGER_ELT(result, result_index, value == NA_INTEGER ? NA_INTEGER : subscript_index);
+		if (value >= 0 && value < 1) continue;
+
+		bool na = (ISNAN(value) || (R_xlen_t) value > vector_length);
+		if (result_vector_is_long) SET_REAL_ELT   (result, result_index, na ? NA_REAL    :       value);
+		else   		               SET_INTEGER_ELT(result, result_index, na ? NA_INTEGER : (int) value);
 
 		result_index++;
 	}
+
 	UNPROTECT(1);
 	return result;
 }
 
-SEXP real_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
+// XXX There **has** to be a better way to do this.
+SEXP negative_real_subscript(SEXP vector, SEXP subscript, int32_t min_load_count, real_vector_stats_t stats) {
 
 	R_xlen_t vector_length = XLENGTH(vector);
 	R_xlen_t subscript_length = XLENGTH(subscript);
+	SEXP bitmap = PROTECT(ufo_empty(LGLSXP, vector_length, min_load_count));
 
-	if (subscript_length == 0) {
+	for (R_xlen_t vector_index = 0; vector_index < vector_length; vector_index++) {
+		SET_LOGICAL_ELT(bitmap, vector_index, TRUE);
+	}
+
+	for (R_xlen_t subscript_index = 0; subscript_index < subscript_length; subscript_index++) {
+		double subscript_value = REAL_ELT(subscript, subscript_index);
+		if (subscript_value == 0) 			  continue;
+		if (ISNAN(subscript_value))           continue;
+		if (-subscript_value > vector_length) continue;
+		SET_LOGICAL_ELT(bitmap, (R_xlen_t) -subscript_value - 1, FALSE);
+	}
+
+	SEXP indices = logical_subscript(vector, bitmap, min_load_count);
+	UNPROTECT(1);
+	return indices;
+}
+
+SEXP real_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
+	real_vector_stats_t stats = real_subscript_stats(subscript);
+
+	if (stats.nas + stats.positives + stats.negatives == 0) {
 		return allocVector(INTSXP, 0);
 	}
 
-	Rf_error("not implemented");
-	return R_NilValue;
+	if (stats.negatives > 0 && (stats.positives > 0 || stats.nas > 0)) {
+		Rf_error("only 0s may be mixed with negative subscripts");
+	}
+
+	if (stats.negatives != 0) {
+		return negative_real_subscript(vector, subscript, min_load_count, stats);
+	} else {
+		return positive_real_subscript(vector, subscript, min_load_count, stats);
+	}
 }
 
 SEXP string_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
-
-	R_xlen_t vector_length = XLENGTH(vector);
-	R_xlen_t subscript_length = XLENGTH(subscript);
-
-	if (subscript_length == 0) {
-		return allocVector(INTSXP, 0);
-	}
-
 	Rf_error("not implemented");
 	return R_NilValue;
 }
 
-
 SEXP ufo_subscript(SEXP vector, SEXP subscript, SEXP min_load_count_sexp) {
-
-	int32_t min_load_count = (int32_t) __extract_int_or_die(min_load_count_sexp); // XXX do value checks
-
 	make_sure(isVector(vector) || isList(vector) || isLanguage(vector), Rf_error, "subscripting on non-vector");
 
+	int32_t min_load_count = (int32_t) __extract_int_or_die(min_load_count_sexp); // XXX do value checks
 	SEXPTYPE subscript_type   = TYPEOF(subscript);
-	R_xlen_t vector_length    = XLENGTH(vector);
-	R_xlen_t subscript_length = XLENGTH(subscript);
 
 	switch (subscript_type) {
 	case NILSXP:  return null_subscript(vector, subscript, min_load_count);
@@ -715,4 +761,6 @@ SEXP ufo_subset_assign(SEXP x, SEXP y, SEXP z, SEXP min_load_count_sexp) {
 	Rf_error("not implemented");
 	return R_NilValue;
 }
+
+// TODO always do a normal SEXP below a certain threshold and always do a UFO above a certain threshold
 
