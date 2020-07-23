@@ -411,48 +411,91 @@ SEXP __ufo_calculate_chunk_indices(SEXP x_length_sexp, SEXP y_length_sexp, SEXP 
 	return result;
 }
 
-R_xlen_t integer_subscript_length(SEXP vector, SEXP subscript) {
-	R_xlen_t nas = 0, negatives = 0, positives = 0;
-	R_xlen_t vector_length = XLENGTH(vector);
+typedef struct {
+	R_xlen_t nas;
+	R_xlen_t negatives;
+	R_xlen_t positives;
+	R_xlen_t zeros;
+} integer_vector_stats_t;
+
+integer_vector_stats_t integer_subscript_stats(SEXP subscript) {
+	integer_vector_stats_t stats = {
+			.nas           = 0,
+			.negatives     = 0,
+			.positives     = 0,
+			.zeros         = 0
+	};
+
 	R_xlen_t subscript_length = XLENGTH(subscript);
 
 	for (R_xlen_t i = 0; i < subscript_length; i++) {
 		int value = INTEGER_ELT(subscript, i);
-		if (value == NA_INTEGER) nas++;
-		else if (value < 0)		 negatives++;
-		else if (value > 0)      positives++;
-								 // ignore zeros
+		if (value == NA_INTEGER) stats.nas++;
+		else if (value < 0)		 stats.negatives++;
+		else if (value > 0)      stats.positives++;
+		else					 stats.zeros++;
 	}
 
-	if (positives > 0) return positives + nas;
-	if (positives > 0 || nas > 0) {
-		Rf_error("only 0s may be mixed with negative subscripts");
-	}
-	return vector_length - negatives;
+	return stats;
 }
 
-R_xlen_t real_subscript_length(SEXP vector, SEXP subscript) {
-	R_xlen_t nas = 0;
-	R_xlen_t negatives = 0;
-	R_xlen_t positives = 0;
-	R_xlen_t between_zero_and_ones = 0;
-	R_xlen_t vector_length = XLENGTH(vector);
+R_xlen_t integer_subscript_length(SEXP vector, SEXP subscript) {
+	if (XLENGTH(subscript) == 0) {
+		return 0;
+	}
+
+	integer_vector_stats_t stats = integer_subscript_stats(subscript);
+
+	if (stats.negatives == 0) {
+		return stats.positives + stats.nas;
+	}
+
+	if (stats.positives == 0 && stats.nas == 0) {
+		return XLENGTH(vector) - stats.negatives;
+	}
+
+	Rf_error("only 0s may be mixed with negative subscripts");
+	return 0; // unreachable
+}
+
+typedef struct {
+	R_xlen_t nas;
+	R_xlen_t negatives;
+	R_xlen_t positives;
+	R_xlen_t zeros;
+	R_xlen_t between_zero_and_ones;
+} real_vector_stats_t;
+
+real_vector_stats_t real_subscript_stats(SEXP subscript) {
 	R_xlen_t subscript_length = XLENGTH(subscript);
+	real_vector_stats_t stats = {
+			.nas = 0,
+			.negatives = 0,
+			.positives = 0,
+			.between_zero_and_ones = 0
+	};
 
 	for (R_xlen_t i = 0; i < subscript_length; i++) {
 		double value = REAL_ELT(subscript, i);
-		if (ISNAN(value)) 	    nas++;
-		else if (value < 0)	    negatives++;
-		else if (value >= 1)    positives++;
-		else if (value < 1)     between_zero_and_ones++;
+		if (ISNAN(value)) 	    stats.nas++;
+		else if (value < 0)	    stats.negatives++;
+		else if (value >= 1)    stats.positives++;
+		else if (value < 1)     stats.between_zero_and_ones++;
 							    // ignore zeros
 	}
 
-	if (positives > 0) return positives + nas;
-	if (positives > 0 || nas > 0 || between_zero_and_ones > 0) {
+	return stats;
+}
+
+R_xlen_t real_subscript_length(SEXP vector, SEXP subscript) {
+	real_vector_stats_t stats = real_subscript_stats(subscript);
+
+	if (stats.negatives == 0) return stats.positives + stats.nas;
+	if (stats.positives > 0 || stats.nas > 0 || stats.between_zero_and_ones > 0) {
 		Rf_error("only 0s may be mixed with negative subscripts");
 	}
-	return vector_length - negatives;
+
+	return XLENGTH(vector) - stats.negatives;
 }
 
 R_xlen_t null_subscript_length(SEXP vector, SEXP subscript) {
@@ -497,7 +540,9 @@ R_xlen_t string_subscript_length(SEXP vector, SEXP subscript) {
 	Rf_error("Not implemented yet.");
 }
 
-R_xlen_t ufo_subscript_dimension_length(SEXP vector, SEXP subscript) {
+R_xlen_t ufo_subscript_dimension_length(SEXP vector, SEXP subscript, SEXP min_load_count_sexp) {
+
+	int32_t min_load_count = (int32_t) __extract_int_or_die(min_load_count_sexp); // XXX do value checks
 
 	make_sure(isVector(vector) || isList(vector) || isLanguage(vector), Rf_error, "subscripting on non-vector");
 
@@ -516,11 +561,11 @@ R_xlen_t ufo_subscript_dimension_length(SEXP vector, SEXP subscript) {
 	return 0;
 }
 
-SEXP null_subscript(SEXP vector, SEXP subscript) {
+SEXP null_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 	return allocVector(TYPEOF(vector), 0);
 }
 
-SEXP logical_subscript(SEXP vector, SEXP subscript) {
+SEXP logical_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 
 	R_xlen_t vector_length    = XLENGTH(vector);
 	R_xlen_t subscript_length = XLENGTH(subscript);
@@ -532,7 +577,7 @@ SEXP logical_subscript(SEXP vector, SEXP subscript) {
 
 	R_xlen_t result_length         = logical_subscript_length(vector, subscript); // FIXME makes sure used only once
 	bool     result_vector_is_long = result_length > R_SHORT_LEN_MAX;
-	SEXP     result                = PROTECT(allocVector(result_vector_is_long ? REALSXP : INTSXP, result_length));
+	SEXP     result                = PROTECT(ufo_empty(result_vector_is_long ? REALSXP : INTSXP, result_length, min_load_count));
 	R_xlen_t result_index          = 0;
 
 	for (R_xlen_t vector_index = 0; vector_index < vector_length; vector_index++) { // XXX consider iterating by region
@@ -556,7 +601,63 @@ SEXP logical_subscript(SEXP vector, SEXP subscript) {
 	return result;
 }
 
-SEXP integer_subscript(SEXP vector, SEXP subscript) {
+SEXP integer_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
+
+	integer_vector_stats_t stats = integer_subscript_stats(subscript);
+
+	if (stats.nas + stats.positives + stats.negatives == 0) {
+		return allocVector(INTSXP, 0);
+	}
+
+	if (stats.negatives > 0 && (stats.positives > 0 || stats.nas > 0)) {
+		Rf_error("only 0s may be mixed with negative subscripts");
+	}
+
+	R_xlen_t vector_length = XLENGTH(vector);
+	R_xlen_t result_length = stats.negatives == 0
+			               ? stats.positives + stats.nas
+			               : vector_length - stats.negatives;
+
+	R_xlen_t subscript_length = XLENGTH(subscript);
+	R_xlen_t result_vector_is_long = result_length > R_SHORT_LEN_MAX;
+	SEXPTYPE result_type = result_vector_is_long ? REALSXP : INTSXP;
+
+	if (result_length == 0) {
+		return allocVector(result_type, result_length);
+	}
+
+	if (stats.negatives != 0) { // XXX There **has** to be a better way to do this.
+		SEXP bitmap = PROTECT(ufo_empty(LGLSXP, vector_length, min_load_count));
+		for (R_xlen_t vector_index = 0; vector_index < vector_length; vector_index++) {
+			SET_LOGICAL_ELT(bitmap, vector_index, TRUE);
+		}
+		for (R_xlen_t subscript_index = 0; subscript_index < subscript_length; subscript_index++) {
+			int subscript_value = INTEGER_ELT(subscript, subscript_index);
+			if (subscript_value == 0) {
+				continue;
+			}
+			SET_LOGICAL_ELT(bitmap, -subscript_value, FALSE);
+		}
+		SEXP indices = logical_subscript(vector, bitmap, min_load_count);
+		UNPROTECT(1);
+		return indices;
+	}
+
+	SEXP result = PROTECT(ufo_empty(result_type, result_length, min_load_count));
+	for (R_xlen_t result_index = 0, subscript_index = 0; subscript_index < subscript_length; subscript_index++) {
+		int value = INTEGER_ELT(subscript, subscript_index);
+
+		if (value == 0)	     	   continue;
+		if (result_vector_is_long) SET_REAL_ELT   (result, result_index, value == NA_INTEGER ? NA_REAL : subscript_index);
+		else             		   SET_INTEGER_ELT(result, result_index, value == NA_INTEGER ? NA_INTEGER : subscript_index);
+
+		result_index++;
+	}
+	UNPROTECT(1);
+	return result;
+}
+
+SEXP real_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 
 	R_xlen_t vector_length = XLENGTH(vector);
 	R_xlen_t subscript_length = XLENGTH(subscript);
@@ -569,20 +670,7 @@ SEXP integer_subscript(SEXP vector, SEXP subscript) {
 	return R_NilValue;
 }
 
-SEXP real_subscript(SEXP vector, SEXP subscript) {
-
-	R_xlen_t vector_length = XLENGTH(vector);
-	R_xlen_t subscript_length = XLENGTH(subscript);
-
-	if (subscript_length == 0) {
-		return allocVector(INTSXP, 0);
-	}
-
-	Rf_error("not implemented");
-	return R_NilValue;
-}
-
-SEXP string_subscript(SEXP vector, SEXP subscript) {
+SEXP string_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 
 	R_xlen_t vector_length = XLENGTH(vector);
 	R_xlen_t subscript_length = XLENGTH(subscript);
@@ -596,20 +684,22 @@ SEXP string_subscript(SEXP vector, SEXP subscript) {
 }
 
 
-SEXP ufo_subscript(SEXP vector, SEXP subscript) {
+SEXP ufo_subscript(SEXP vector, SEXP subscript, SEXP min_load_count_sexp) {
+
+	int32_t min_load_count = (int32_t) __extract_int_or_die(min_load_count_sexp); // XXX do value checks
 
 	make_sure(isVector(vector) || isList(vector) || isLanguage(vector), Rf_error, "subscripting on non-vector");
 
-	SEXPTYPE subscript_type = TYPEOF(subscript);
-	R_xlen_t vector_length = XLENGTH(vector);
+	SEXPTYPE subscript_type   = TYPEOF(subscript);
+	R_xlen_t vector_length    = XLENGTH(vector);
 	R_xlen_t subscript_length = XLENGTH(subscript);
 
 	switch (subscript_type) {
-	case NILSXP:  return null_subscript(vector, subscript);
-	case LGLSXP:  return logical_subscript(vector, subscript);
-	case INTSXP:  return integer_subscript(vector, subscript);
-	case REALSXP: return real_subscript(vector, subscript);
-	case STRSXP:  return string_subscript(vector, subscript);
+	case NILSXP:  return null_subscript(vector, subscript, min_load_count);
+	case LGLSXP:  return logical_subscript(vector, subscript, min_load_count);
+	case INTSXP:  return integer_subscript(vector, subscript, min_load_count);
+	case REALSXP: return real_subscript(vector, subscript, min_load_count);
+	case STRSXP:  return string_subscript(vector, subscript, min_load_count);
 	default:      Rf_error("invalid subscript type '%s'", type2char(subscript_type));
 	}
 
@@ -617,11 +707,11 @@ SEXP ufo_subscript(SEXP vector, SEXP subscript) {
 	return R_NilValue;
 }
 
-SEXP ufo_subset(SEXP x, SEXP y) {
+SEXP ufo_subset(SEXP x, SEXP y, SEXP min_load_count_sexp) {
 	return R_NilValue;
 }
 
-SEXP ufo_subset_assign(SEXP x, SEXP y, SEXP z) {
+SEXP ufo_subset_assign(SEXP x, SEXP y, SEXP z, SEXP min_load_count_sexp) {
 	Rf_error("not implemented");
 	return R_NilValue;
 }
