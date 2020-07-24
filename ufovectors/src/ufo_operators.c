@@ -729,9 +729,45 @@ SEXP real_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 	}
 }
 
-SEXP string_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
-	Rf_error("not implemented");
-	return R_NilValue;
+SEXP string_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) { // XXX There's probably a better way to do this one.
+
+	SEXP names = PROTECT(getAttrib(vector, R_NamesSymbol));
+	if (TYPEOF(names) == NILSXP) {
+		return R_NilValue;
+	}
+
+	R_xlen_t names_length = XLENGTH(names);
+	R_xlen_t subscript_length = XLENGTH(subscript);
+	R_xlen_t vector_length = XLENGTH(vector);
+	//bool use_hashing = (( (subscript_length > 1000 && vector_length)
+	//		           || (vector_length > 1000 && subscript_length))
+	//		           || (subscript_length * vector_length > 15 * vector_length + subscript_length));
+
+	SEXP integer_subscript = PROTECT(ufo_empty(INTSXP, subscript_length, min_load_count));
+	for (R_xlen_t subscript_index = 0; subscript_index < subscript_length; subscript_index++) { // TODO hashing implementation
+
+		SEXP subscript_element = STRING_ELT(subscript, subscript_index);
+		if (subscript_element == NA_STRING) {
+			SET_INTEGER_ELT(integer_subscript, subscript_index, NA_INTEGER);
+			continue;
+		}
+
+		for (R_xlen_t names_index = 0; names_index < names_length; names_index++) {
+			SEXP name = STRING_ELT(names, names_index);
+			if (NonNullStringMatch(subscript_element, name)) {
+				SET_INTEGER_ELT(integer_subscript, subscript_index, names_index + 1);
+				goto _found_something;
+			}
+		}
+
+		_found_nothing:
+		SET_INTEGER_ELT(integer_subscript, subscript_index, NA_INTEGER); // Neither NA nor an element of `names`
+
+		_found_something:
+		continue;
+	}
+
+	return integer_subscript;
 }
 
 SEXP ufo_subscript(SEXP vector, SEXP subscript, SEXP min_load_count_sexp) {
