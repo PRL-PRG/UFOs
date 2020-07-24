@@ -729,19 +729,214 @@ SEXP real_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 	}
 }
 
-SEXP string_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) { // XXX There's probably a better way to do this one.
+//struct _HashData {
+//    int K;
+//    hlen M;
+//    R_xlen_t nmax;
+//#ifdef LONG_VECTOR_SUPPORT
+//    Rboolean isLong;
+//#endif
+//    hlen (*hash)(SEXP, R_xlen_t, HashData *);
+//    int (*equal)(SEXP, R_xlen_t, SEXP, R_xlen_t);
+//    SEXP HashTable;
 
-	SEXP names = PROTECT(getAttrib(vector, R_NamesSymbol));
-	if (TYPEOF(names) == NILSXP) {
-		return R_NilValue;
+//    int nomatch;
+//    Rboolean useUTF8;
+//    Rboolean useCache;
+//};
+
+bool string_equal (SEXP/*CHARSXP*/ string_a, SEXP/*CHARSXP*/ string_b) {
+    if (string_a == string_b)  return true;
+    if (string_a == NA_STRING) return false;
+    if (string_b == NA_STRING) return false;
+
+    if (IS_CACHED(string_a) && IS_CACHED(string_b)
+        && ENC_KNOWN(string_a) == ENC_KNOWN(string_b)) {
+    	return false;
+    }
+
+    const void *vmax = vmaxget();
+	bool result = !strcmp(translateCharUTF8(string_a), translateCharUTF8(string_b));
+	vmaxset(vmax); /* discard any memory used by translateChar */
+
+	return result;
+}
+
+typedef struct {
+	bool use_bytes;
+	bool use_utf8;
+	bool use_cache;
+} string_vector_character_t;
+
+size_t scatter(unsigned int key, unsigned int senior_bits_in_hash)
+{
+    return 3141592653U * key >> (32 - senior_bits_in_hash);
+}
+
+size_t c_string_shash(SEXP/*CHARSXP*/ c_string, string_vector_character_t character, unsigned int senior_bits_in_hash)
+{
+    intptr_t c_string_as_pointer = (intptr_t) c_string;
+    unsigned int masked_pointer = (unsigned int)(c_string_as_pointer & 0xffffffff);
+#if SIZEOF_LONG == 8
+    unsigned int exponent = (unsigned int)(c_string_as_pointer/0x100000000L);
+#else
+    unsigned int exponent = 0;
+#endif
+    return scatter(masked_pointer ^ exponent, senior_bits_in_hash);
+}
+
+size_t string_hash (SEXP/*CHARSXP*/ string, string_vector_character_t character, unsigned int senior_bits_in_hash) {
+    if(!character->use_utf8 && character->use_cache) return cshash(string, senior_bits_in_hash);
+
+    const void *vmax = vmaxget();
+    const char *string_contents = translateCharUTF8(string);
+
+    unsigned int key = 0;
+    while (*string_contents++) {
+    	key = 11 * key + (unsigned int) *string_contents; /* was 8 but 11 isn't a power of 2 */
+    }
+    vmaxset(vmax); /* discard any memory used by translateChar */
+    return scatter(key, senior_bits_in_hash);
+}
+
+string_vector_character_t derive_string_vector_character(SEXP vector) {
+	R_xlen_t length = XLENGTH(vector);
+	string_vector_character_t character;
+
+	character.use_bytes = false;
+	character.use_utf8 = false;
+	character.use_cache = true;
+
+	for (R_xlen_t index = 0; index < length; index++) {
+		SEXP element = STRING_ELT(vector, index);
+
+		if (IS_BYTES(element)) {
+			character.use_bytes = true;
+			character.use_utf8  = false;
+			break;
+		}
+
+		if (ENC_KNOWN(element)) {
+			character.use_utf8  = true;
+		}
+
+		if(!IS_CACHED(element)) {
+			character.use_cache = false;
+			break;
+		}
 	}
 
+	return character;
+}
+
+int needle_index_in_int_haystack(SEXP/*STRSXP*/ haystack, SEXP/*INTSXP*/ hash_table, SEXP/*CHARSXP*/ needle, string_vector_character_t character, unsigned int senior_bits_in_hash) {
+
+	size_t hash = string_hash(needle, character, senior_bits_in_hash);
+	R_xlen_t hash_table_length = XLENGTH(hash_table);
+
+	for (int haystack_index = INTEGER_ELT(hash_table, hash);
+		 INTEGER_ELT(hash_table, haystack_index) != -1;
+		 hash = (haystack_index + 1) % hash_table_length) {
+
+		SEXP/*CHARSXP*/ hay = STRING_ELT(haystack, haystack_index);
+	    if (string_equal(hay, needle))
+		return haystack_index >= 0 ? haystack_index + 1 : NA_INTEGER;
+	}
+
+	return NA_INTEGER;
+}
+
+double needle_index_in_double_haystack(SEXP/*STRSXP*/ haystack, SEXP/*INTSXP*/ hash_table, SEXP/*CHARSXP*/ needle) {
+
+}
+
+SEXP string_lookup(SEXP haystack, SEXP needles, int32_t min_load_count) {
+
+	SEXPTYPE haystack_type = TYPEOF(haystack);
+
+	make_sure(haystack_type == STRSXP, Rf_error,
+			  "haystack vector is of type %s but must be of type %s",
+			  type2char(haystack_type), type2char(STRSXP));
+
+	make_sure(needles_type == STRSXP, Rf_error,
+			  "needles vector is of type %s but must be of type %s",
+			  type2char(needles_type), type2char(STRSXP));
+
+	R_xlen_t needles_length = XLENGTH(needles);
+	if (needles_length == 0) {
+		return allocVector(INTSXP, 0);
+	}
+
+	R_xlen_t haystack_length = XLENGTH(haystack);
+	if (haystack_length == 0) {
+		SEXP result = PROTECT(ufo_empty(INTSXP, needles_length, min_load_count));
+		for (R_xlen_t result_index = 0; result_index < needles_length; result_index++) {
+			SET_INTEGER_ELT(result, result_index, NA_INTEGER);
+		}
+		UNPROTECT(1);
+		return result;
+	}
+
+	// Derive the character of the vector.
+	string_vector_character_t character = derive_string_vector_character(needles);
+	if(!character.use_bytes || character.use_cache) {
+		string_vector_character_t haystack_character = derive_string_vector_character(haystack);
+
+		character.use_utf8  = haystack_character.use_utf8;
+		character.use_cache = haystack_character.use_cache;
+	}
+
+	bool use_long_vector = true; // FIXME
+
+	R_xlen_t hash_table_length = 2;
+    int senior_bits_in_hash = 1;
+    while (hash_table_length < 2U * haystack_length) {
+    	hash_table_length *= 2;
+    	senior_bits_in_hash++;
+    }
+    //d->nmax = haystack_length;
+
+    // Hashing
+    SEXP hash_table = PROTECT(ufo_empty(use_long_vector ? REALSXP : INTSXP, hash_table_length, min_load_count));
+    if (use_long_vector) {
+    	for (R_xlen_t hash_table_index = 0; hash_table_index < hash_table_length; hash_table_index++)  {
+    		REAL0(hash_table)[hash_table_index] = -1;
+    	}
+    } else {
+    	for (R_xlen_t hash_table_index = 0; hash_table_index < hash_table_length; hash_table_index++) {
+    		INTEGER0(hash_table)[hash_table_index] = -1;
+    	}
+    }
+
+    // FIXME something missing here
+    // FIXME long vectors?
+    SEXP result = PROTECT(ufo_empty(use_long_vector ? REALSXP : INTSXP, hash_table_length, min_load_count));
+	for (R_xlen_t needles_index = 0; needles_index < needles_length; needles_index++) {
+
+
+
+
+	    SET_INTEGER_ELT(result, hash_table_index, sLookup(table, x, i, d));
+	}
+
+}
+
+SEXP hash_string_subscript(SEXP vector, SEXP names, SEXP subscript, int32_t min_load_count) {
+
+	SEXP indices = string_lookup(names, subscript); /**** guaranteed to be fresh???*/
+
+//	int *pindx = INTEGER(indx);
+//	for (i = 0; i < ns; i++)
+//	    if(STRING_ELT(s, i) == NA_STRING || !CHAR(STRING_ELT(s, i))[0])
+//		pindx[i] = 0;
+//	}
+
+	Rf_error("not implemented");
+}
+
+SEXP looped_string_subscript(SEXP vector, SEXP names, SEXP subscript, int32_t min_load_count) {
 	R_xlen_t names_length = XLENGTH(names);
 	R_xlen_t subscript_length = XLENGTH(subscript);
-	R_xlen_t vector_length = XLENGTH(vector);
-	//bool use_hashing = (( (subscript_length > 1000 && vector_length)
-	//		           || (vector_length > 1000 && subscript_length))
-	//		           || (subscript_length * vector_length > 15 * vector_length + subscript_length));
 
 	SEXP integer_subscript = PROTECT(ufo_empty(INTSXP, subscript_length, min_load_count));
 	for (R_xlen_t subscript_index = 0; subscript_index < subscript_length; subscript_index++) { // TODO hashing implementation
@@ -768,6 +963,21 @@ SEXP string_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) { // 
 	}
 
 	return integer_subscript;
+}
+
+SEXP string_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) { // XXX There's probably a better way to do this one.
+
+	SEXP names = PROTECT(getAttrib(vector, R_NamesSymbol));
+	if (TYPEOF(names) == NILSXP) return R_NilValue;
+
+	R_xlen_t subscript_length = XLENGTH(subscript);
+	R_xlen_t vector_length = XLENGTH(vector);
+	bool use_hashing = (( (subscript_length > 1000 && vector_length)
+			           || (vector_length > 1000 && subscript_length))
+			           || (subscript_length * vector_length > 15 * vector_length + subscript_length));
+
+	if (use_hashing) return hash_string_subscript  (vector, names, subscript, min_load_count);
+	else             return looped_string_subscript(vector, names, subscript, min_load_count);
 }
 
 SEXP ufo_subscript(SEXP vector, SEXP subscript, SEXP min_load_count_sexp) {
@@ -799,4 +1009,4 @@ SEXP ufo_subset_assign(SEXP x, SEXP y, SEXP z, SEXP min_load_count_sexp) {
 }
 
 // TODO always do a normal SEXP below a certain threshold and always do a UFO above a certain threshold
-
+// TODO rename arguments called "subscript" to "indices" and results to "subscript"
