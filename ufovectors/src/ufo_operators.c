@@ -8,6 +8,46 @@
 #include "make_sure.h"
 #include "ufo_empty.h"
 
+//-----------------------------------------------------------------------------
+// Problem children
+//-----------------------------------------------------------------------------
+
+#ifndef IS_CACHED
+#ifndef CACHED_MASK
+#define CACHED_MASK (1<<5)
+#endif
+#define IS_CACHED(x) (((x)->sxpinfo.gp) & CACHED_MASK)
+#endif
+
+#ifndef IS_BYTES
+#ifndef BYTES_MASK
+#define BYTES_MASK (1<<1)
+#endif
+#define IS_BYTES(x) ((x)->sxpinfo.gp & BYTES_MASK)
+#endif
+
+#ifndef ENC_KNOWN
+#ifndef LATIN1_MASK
+#define LATIN1_MASK (1<<2)
+#endif
+#ifndef UTF8_MASK
+#define UTF8_MASK (1<<3)
+#endif
+#define ENC_KNOWN(x) ((x)->sxpinfo.gp & (LATIN1_MASK | UTF8_MASK))
+#endif
+
+#ifndef SET_COMPLEX_ELT
+void SET_COMPLEX_ELT(SEXP x, R_xlen_t i, Rcomplex v);
+#endif
+
+#ifndef SET_RAW_ELT
+void SET_RAW_ELT(SEXP x, R_xlen_t i, Rbyte v);
+#endif
+
+//-----------------------------------------------------------------------------
+// Chunked binary and unary operators
+//-----------------------------------------------------------------------------
+
 // Good for: + - * / ^ < > <= >= == != | &
 R_xlen_t ufo_vector_size_to_fit_both(SEXPTYPE x_type, SEXPTYPE y_type, R_xlen_t x_length, R_xlen_t y_length) {
 	if (x_type == NILSXP || y_type == NILSXP) {
@@ -411,6 +451,10 @@ SEXP __ufo_calculate_chunk_indices(SEXP x_length_sexp, SEXP y_length_sexp, SEXP 
 	return result;
 }
 
+//-----------------------------------------------------------------------------
+// Subscript generation
+//-----------------------------------------------------------------------------
+
 typedef struct {
 	R_xlen_t nas;
 	R_xlen_t negatives;
@@ -773,7 +817,7 @@ size_t scatter(unsigned int key, unsigned int senior_bits_in_hash)
     return 3141592653U * key >> (32 - senior_bits_in_hash);
 }
 
-size_t c_string_shash(SEXP/*CHARSXP*/ c_string, string_vector_character_t character, unsigned int senior_bits_in_hash)
+size_t c_string_hash(SEXP/*CHARSXP*/ c_string, string_vector_character_t character, unsigned int senior_bits_in_hash)
 {
     intptr_t c_string_as_pointer = (intptr_t) c_string;
     unsigned int masked_pointer = (unsigned int)(c_string_as_pointer & 0xffffffff);
@@ -786,7 +830,9 @@ size_t c_string_shash(SEXP/*CHARSXP*/ c_string, string_vector_character_t charac
 }
 
 size_t string_hash (SEXP/*CHARSXP*/ string, string_vector_character_t character, unsigned int senior_bits_in_hash) {
-    if(!character->use_utf8 && character->use_cache) return cshash(string, senior_bits_in_hash);
+    if(!character.use_utf8 && character.use_cache) {
+    	return c_string_hash(string, character, senior_bits_in_hash);
+    }
 
     const void *vmax = vmaxget();
     const char *string_contents = translateCharUTF8(string);
@@ -850,9 +896,11 @@ double needle_index_in_double_haystack(SEXP/*STRSXP*/ haystack, SEXP/*INTSXP*/ h
 
 }
 
+// reimplements match5 but just for strings
 SEXP string_lookup(SEXP haystack, SEXP needles, int32_t min_load_count) {
 
 	SEXPTYPE haystack_type = TYPEOF(haystack);
+	SEXPTYPE needles_type = TYPEOF(needles);
 
 	make_sure(haystack_type == STRSXP, Rf_error,
 			  "haystack vector is of type %s but must be of type %s",
@@ -916,14 +964,14 @@ SEXP string_lookup(SEXP haystack, SEXP needles, int32_t min_load_count) {
 
 
 
-	    SET_INTEGER_ELT(result, hash_table_index, sLookup(table, x, i, d));
+//	    SET_INTEGER_ELT(result, hash_table_index, sLookup(table, x, i, d));
 	}
 
 }
 
 SEXP hash_string_subscript(SEXP vector, SEXP names, SEXP subscript, int32_t min_load_count) {
 
-	SEXP indices = string_lookup(names, subscript); /**** guaranteed to be fresh???*/
+	SEXP indices = string_lookup(names, subscript, min_load_count); /**** guaranteed to be fresh???*/
 
 //	int *pindx = INTEGER(indx);
 //	for (i = 0; i < ns; i++)
