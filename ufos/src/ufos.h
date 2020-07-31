@@ -13,6 +13,7 @@ typedef enum {
     UFO_CPLX = CPLXSXP,
     UFO_RAW  = RAWSXP,
     UFO_STR  = STRSXP,
+	UFO_VEC  = VECSXP,
 } ufo_vector_type_t;
 
 // Function types for ufo_source_t

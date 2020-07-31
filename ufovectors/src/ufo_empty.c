@@ -30,56 +30,62 @@ int __populate_empty(uint64_t start, uint64_t end, ufPopulateCallout cf, ufUserD
 
 	size_t size = end - start;
 	switch (type) {
-	case UFO_STR:
-	/* case UFO_VEC:*/ {
-    		SEXP *sexp_vector = (SEXP *) target;
-    		for (size_t i = 0; i < size; i++) {
-    			sexp_vector[i] = R_BlankString;
-    		}
-    		return 0;
-    	}
+	case UFO_VEC: {
+		SEXP *sexp_vector = (SEXP *) target;
+		for (size_t i = 0; i < size; i++) {
+			sexp_vector[i] = R_NilValue;
+		}
+		return 0;
+	}
+
+	case UFO_STR: {
+		SEXP *sexp_vector = (SEXP *) target;
+		for (size_t i = 0; i < size; i++) {
+			sexp_vector[i] = R_BlankString;
+		}
+		return 0;
+	}
 
 	case UFO_LGL: {
-    		Rboolean *boolean_vector = (Rboolean *) target;
-    	    for (size_t i = 0; i < size; i++) {
-    	    	boolean_vector[i] = 0;
-    	    }
-    	    return 0;
-    	}
+		Rboolean *boolean_vector = (Rboolean *) target;
+		for (size_t i = 0; i < size; i++) {
+			boolean_vector[i] = 0;
+		}
+		return 0;
+	}
 
 	case UFO_INT: {
-    		int *integer_vector = (int *) target;
-    	    for (size_t i = 0; i < size; i++) {
-    	     	integer_vector[i] = 0;
-    	    }
-    	    return 0;
-    	}
+		int *integer_vector = (int *) target;
+		for (size_t i = 0; i < size; i++) {
+			integer_vector[i] = 0;
+		}
+		return 0;
+	}
 
 	case UFO_REAL: {
-    		double *double_vector = (double *) target;
-    	    for (size_t i = 0; i < size; i++) {
-    	     	double_vector[i] = 0;
-    	    }
-    	    return 0;
-    	}
+		double *double_vector = (double *) target;
+		for (size_t i = 0; i < size; i++) {
+			double_vector[i] = 0;
+		}
+		return 0;
+	}
 
 	case UFO_RAW: {
-    	    Rbyte *byte_vector = (Rbyte *) target;
-    	    for (size_t i = 0; i < size; i++) {
-    	      	byte_vector[i] = 0;
-    	    }
-    		return 0;
-    	}
+		Rbyte *byte_vector = (Rbyte *) target;
+		for (size_t i = 0; i < size; i++) {
+			byte_vector[i] = 0;
+		}
+		return 0;
+	}
 
 	case UFO_CPLX: {
-    		Rcomplex *complex_vector = (Rcomplex *) target;
-    		for (size_t i = 0; i < size; i++) {
-    		   	complex_vector[i].r = 0;
-    		   	complex_vector[i].i = 0;
-    		}
-    		return 0;
-    	}
-	}
+		Rcomplex *complex_vector = (Rcomplex *) target;
+		for (size_t i = 0; i < size; i++) {
+			complex_vector[i].r = 0;
+			complex_vector[i].i = 0;
+		}
+		return 0;
+	}}
 
 	REprintf("Unknown vector type %i", type);
 	return 1;
