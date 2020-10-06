@@ -21,6 +21,8 @@ This repository contains four R packages:
 
 ```bash
 git clone https://github.com/PRL-PRG/UFOs.git
+git clone https://github.com/PRL-PRG/viewports.git
+R CMD INSTALL viewports                       ## Dependency for UFOs/ufovectors
 R CMD INSTALL UFOs/ufos                       ## UFO framework
 R CMD INSTALL UFOs/ufoseq                     ## example/tutorial implementation: sequences
 R CMD INSTALL UFOs/ufovectors                 ## example implementation: file-backed vectors and matrices
