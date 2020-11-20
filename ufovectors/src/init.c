@@ -2,6 +2,7 @@
 #include "ufo_vectors.h"
 #include "ufo_empty.h"
 #include "ufo_csv.h"
+#include "ufo_operators.h"
 
 #include <R_ext/Rdynload.h>
 #include <R_ext/Visibility.h>
@@ -41,6 +42,23 @@ static const R_CallMethodDef CallEntries[] = {
 
     // Turn on debug mode.
     {"ufo_vectors_set_debug_mode",  (DL_FUNC) &ufo_vectors_set_debug_mode,      1},
+
+	// Artihmetic operators result constructors.
+	{"ufo_fit_result", 				(DL_FUNC) &ufo_fit_result,					3},
+	{"ufo_div_result",				(DL_FUNC) &ufo_div_result,					3},
+	{"ufo_mod_result",				(DL_FUNC) &ufo_mod_result,					3},
+	{"ufo_rel_result",				(DL_FUNC) &ufo_rel_result,					3},
+	{"ufo_log_result",				(DL_FUNC) &ufo_log_result,					3},
+	{"ufo_neg_result",				(DL_FUNC) &ufo_neg_result,					2},
+
+	// Subsetting operators.
+	{"ufo_subset",					(DL_FUNC) &ufo_subset,						2},
+	{"ufo_subset_assign",			(DL_FUNC) &ufo_subset_assign,				3},
+
+	// Chunking.
+	//{"ufo_calculate_chunk_indices", (DL_FUNC) &ufo_calculate_chunk_indices,     4},
+	//{"ufo_calculate_chunk_indices", (DL_FUNC) &ufo_calculate_chunk_indices,     4},
+	{"ufo_get_chunk",               (DL_FUNC) &ufo_get_chunk,					4},
 
     // Terminates the function list. Necessary.
     {NULL,                          NULL,                                       0}

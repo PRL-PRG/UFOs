@@ -120,10 +120,10 @@ static void handlerShutdown(ufInstance* i, bool selfFree){
   void nullObject(entry* e){
     ufObject* ufo = asUfo(e->valuePtr);
     if(NULL != ufo) {
-      printf("shtdn: %p (%li) \n", ufo->start, ufo->trueSize);
+      //printf("shtdn: %p (%li) \n", ufo->start, ufo->trueSize);
       munmap(ufo->start, ufo->trueSize);
 
-      printf("shtdw: %p (%li) \n", ufo->writebackMmapBase, ufoWritebackTotalSize(ufo));
+      //printf("shtdw: %p (%li) \n", ufo->writebackMmapBase, ufoWritebackTotalSize(ufo));
       munmap(ufo->writebackMmapBase, ufoWritebackTotalSize(ufo));
       close(ufo->writebackMmapFd); // temp file is destroyed when the last handle to it is closed
     } else
@@ -386,7 +386,7 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
   // allocate a memory region to be managed by userfaultfd
   /* With writeback files we can allow writes! */
   tryPerr(ufo->start, ufo->start == (void*)-1, mmap(NULL, ufo->trueSize, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0), "error allocating ufo memory", callerErr);
-  printf("alloc: %p (%li) \n", ufo->start, ufo->trueSize);
+  //printf("alloc: %p (%li) \n", ufo->start, ufo->trueSize);
 
   /* With writeback files the whole mapping is already writeable */
   //  tryPerrInt(res, mprotect(ufo->start, ufo->config.headerSzWithPadding, PROT_READ|PROT_WRITE), "error changing header write protections", mprotectErr); // make the header writeable
@@ -474,7 +474,7 @@ static int freeUfo(ufInstance* i, ufAsyncMsg* msg){
   ufObject ufo;
   memcpy(&ufo, ufoRawPtr, sizeof(ufObject));
 
-  printf(" free: %p (%li) \n", ufo.start, ufo.trueSize);
+  //printf(" free: %p (%li) \n", ufo.start, ufo.trueSize);
 
   struct uffdio_register ufM;
 
@@ -505,7 +505,7 @@ static int freeUfo(ufInstance* i, ufAsyncMsg* msg){
   }
   oroboros_for_each(i->chunkRecord, mark, NULL);
 
-  printf("wb un: %p (%li) \n", ufo.writebackMmapBase, writebackSize);
+  //printf("wb un: %p (%li) \n", ufo.writebackMmapBase, writebackSize);
   munmap(ufo.writebackMmapBase, writebackSize);
   close(ufo.writebackMmapFd); // temp file is destroyed when the last handle to it is closed
 
@@ -827,7 +827,7 @@ static int createWriebackFile(ufInstance* instance, ufObject* o){
   o->writebackMmapFd = fd;
   o->writebackMmapBase = writebackMmapPtr;
   o->writebackMmapBitmapLength = bitmapSize;
-  printf("   wb: %p (%li) \n", o->writebackMmapBase, ufoWritebackTotalSize(o));
+  //printf("   wb: %p (%li) \n", o->writebackMmapBase, ufoWritebackTotalSize(o));
 //  o->writebackFileName = filename;
 
   return 0;
@@ -896,6 +896,13 @@ int ufCreateObject(ufInstance_t instance, ufObjectConfig_t objectConfig, ufObjec
   errAlloc:
 
   return res;
+}
+
+int ufIsObject(ufInstance_t instance, void* ptr){
+  ufInstance* i = asUfInstance(instance);
+  entry e;
+  int res = listFind(i->objects, &e, ptr);
+  return 0 == res;
 }
 
 int ufResetObject(ufObject_t object_p){

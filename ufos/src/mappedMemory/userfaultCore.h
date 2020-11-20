@@ -191,5 +191,8 @@ char* ufGetHeaderPointer(ufObject_t object);
  */
 char* ufGetValuePointer(ufObject_t object);
 
-
+/*
+ * Check if a memory address is a UFO belonging to this instance
+ */
+int ufIsObject(ufInstance_t instance, void* ptr);
 

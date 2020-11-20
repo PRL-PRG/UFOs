@@ -78,7 +78,9 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
     size_t sexp_header_size = sizeof(SEXPREC_ALIGN);
     size_t sexp_metadata_size = sizeof(R_allocator_t);
 
-    make_sure((size - sexp_header_size - sexp_metadata_size) == (source->vector_size *  source->element_size), Rf_error, "Sizes don't match at ufo_alloc.");
+    make_sure((size - sexp_header_size - sexp_metadata_size) >= (source->vector_size *  source->element_size), Rf_error,
+    		  "Sizes don't match at ufo_alloc (%li vs expected %li).", size - sexp_header_size - sexp_metadata_size,
+			  	  	  	  	  	  	  	  	  	  	  	  	  	  	   source->vector_size *  source->element_size);
 
     ufObjectConfig_t cfg = makeObjectConfig0(sexp_header_size + sexp_metadata_size,
                                              source->vector_size,
@@ -120,7 +122,7 @@ SEXPTYPE ufo_type_to_vector_type (ufo_vector_type_t ufo_type) {
         case UFO_CPLX: return CPLXSXP;
         case UFO_RAW:  return RAWSXP;
         case UFO_STR:  return STRSXP;
-        default:       printf("Cannot convert ufo_type_t=%i to SEXPTYPE", ufo_type);
+        default:       Rf_error("Cannot convert ufo_type_t=%i to SEXPTYPE", ufo_type);
                        return -1;
     }
 }
@@ -167,6 +169,19 @@ void __prepopulate_scalar(SEXP scalar, ufo_source_t* source) {
                                 source->data, DATAPTR(scalar));
 }
 
+void __reset_vector(SEXP vector) {
+	 ufObject_t object = ufLookupObjectByMemberAddress(__ufo_system, vector);
+	 if (object == NULL) {
+	     Rf_error("Tried reseting a UFO, "
+	              "but the provided address is not a UFO header address.");
+	 }
+
+	 int result = ufResetObject(object);
+	 if (result != 0) {
+		 Rf_error("Tried reseting a UFO, but something went wrong.");
+	 }
+}
+
 SEXP ufo_new(ufo_source_t* source) {
     // Check type.
     SEXPTYPE type = ufo_type_to_vector_type(source->vector_type);
@@ -184,6 +199,12 @@ SEXP ufo_new(ufo_source_t* source) {
     // Pre-load the data in, at least it'll work as read-only.
     if (__vector_will_be_scalarized(type, source->vector_size)) {
         __prepopulate_scalar(ufo, source);
+    }
+
+    // Workaround for strings being populated with empty string pointers in vectorAlloc3.
+    // Reset will remove all values from the vector and get rid of the temporary files on disk.
+    if (type == STRSXP) {
+    	__reset_vector(ufo);
     }
 
     UNPROTECT(1);
@@ -210,6 +231,23 @@ SEXP ufo_new_multidim(ufo_source_t* source) {
         __prepopulate_scalar(ufo, source);
     }
 
+    // Workaround for strings being populated with empty string pointers in vectorAlloc3.
+    // Reset will remove all values from the vector and get rid of the temporary files on disk.
+    if (type == STRSXP) {
+    	__reset_vector(ufo);
+    }
+
     UNPROTECT(1);
     return ufo;
+}
+
+SEXP is_ufo(SEXP x) {
+	SEXP/*LGLSXP*/ response = PROTECT(allocVector(LGLSXP, 1));
+	if(ufIsObject(__ufo_system, x)) {
+		SET_LOGICAL_ELT(response, 0, 1);
+	} else {
+		SET_LOGICAL_ELT(response, 0, 0);
+	}
+	UNPROTECT(1);
+	return response;
 }

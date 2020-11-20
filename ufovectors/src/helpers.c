@@ -37,8 +37,8 @@ int __extract_boolean_or_die(SEXP/*LGLSXP*/ sexp) {
     return element == 1;
 }
 
-R_xlen_t __extract_R_xlen_t_or_die(SEXP/*REALSXP*/ sexp) {
-	if (TYPEOF(sexp) != REALSXP) {
+R_xlen_t __extract_R_xlen_t_or_die(SEXP/*REALSXP|INTSXP*/ sexp) {
+	if (TYPEOF(sexp) != REALSXP &&  TYPEOF(sexp) != INTSXP) {
         Rf_error("Invalid type for R_xlen_t vector: %d\n", TYPEOF(sexp));
     }
 
@@ -56,7 +56,8 @@ R_xlen_t __extract_R_xlen_t_or_die(SEXP/*REALSXP*/ sexp) {
         		   sizeof(int64_t), sizeof(double));
     }
 
-    int64_t value = (int64_t) REAL_ELT(sexp, 0);
+    int64_t value = TYPEOF(sexp) == REALSXP ? (int64_t) REAL_ELT(sexp, 0)
+    		                                : (int64_t) INTEGER_ELT(sexp, 0);
 
     if (value > SIZE_MAX) {
     	Rf_error("Cannot convert REALSXP to R_xlen_t, value %li is larger than SIZE_MAX=%li", value, SIZE_MAX);

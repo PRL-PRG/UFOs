@@ -1,5 +1,7 @@
 useDynLib(ufovectors, .registration = TRUE, .fixes = "")
 
+export(ufo_set_debug_mode)
+
 export(ufo_integer_bin)
 export(ufo_numeric_bin)
 export(ufo_complex_bin)
@@ -23,6 +25,70 @@ export(ufo_matrix_bin)
 
 export(ufo_csv)
 
-export(ufo_store_bin)
+# Operators as custom functions
+export(ufo_add)
+export(ufo_subtract)
+export(ufo_multiply)
+export(ufo_divide)
+export(ufo_power)
+export(ufo_modulo)
+export(ufo_int_divide)
+export(ufo_less)
+export(ufo_less_equal)
+export(ufo_greater)
+export(ufo_greater_equal)
+export(ufo_equal)
+export(ufo_unequal)
+export(ufo_or)
+export(ufo_and)
+export(ufo_not)
+#export(`[.ufo`)
+#export(`[<-.ufo`)
 
-export(ufo_set_debug_mode)
+# Operators as S3
+if (isTRUE(getOption("ufovectors.add_class"))) {
+  S3method(`+`,   ufo)
+  S3method(`-`,   ufo)
+  S3method(`*`,   ufo)
+  S3method(`/`,   ufo)
+  S3method(`%%`,  ufo)
+  S3method(`%/%`, ufo)
+  S3method(`^`,   ufo)
+  S3method(`<`,   ufo)
+  S3method(`>`,   ufo)
+  S3method(`<=`,  ufo)
+  S3method(`>=`,  ufo)
+  S3method(`==`,  ufo)
+  S3method(`!=`,  ufo)
+  S3method(`|`,   ufo)
+  S3method(`&`,   ufo)
+  S3method(`!`,   ufo)
+  #S3method(`[`,   ufo)
+  #S3method(`[<-`, ufo)
+}
+
+# Operators overloaded 
+# XXX could not get it to work, went with onLoad + eval
+#if (isTRUE(getOption("ufovectors.overload_operators"))) {
+  #export(`+`)
+  #export(`-`)
+  #export(`*`)
+  #export(`/`)
+  #export(`%%`)
+  #export(`%/%`)
+  #export(`^`)
+  #export(`<`)
+  #export(`>`)
+  #export(`<=`)
+  #export(`>=`)
+  #export(`==`)
+  #export(`!=`)
+  #export(`|`)
+  #export(`&`)
+  #export(`!`)
+  #export(`[`)
+  #export(`[<-`)
+#}
+
+# Helpers
+export(ufo_store_bin)

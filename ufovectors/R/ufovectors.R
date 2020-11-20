@@ -1,3 +1,7 @@
+ufo_set_debug_mode <- function(debug=TRUE) {
+  invisible(.Call("ufo_vectors_set_debug_mode", .expect_exactly_one(.expect_type(debug, "logical"))))
+}
+
 .check_path <- function(path) {
     name <- substitute(path)
     if (typeof(path) != "character") {
@@ -42,101 +46,121 @@
     vector
 }
 
-ufo_integer_bin <- function(path, min_load_count = 0) {
-  .Call("ufo_vectors_intsxp_bin",
-        path.expand(.check_path(.expect_exactly_one(path))),
-        as.integer(.expect_exactly_one(min_load_count)))
+.add_class <- function(vector, cls, add_class, preserve_previous = TRUE) {
+  if(add_class) {
+    class(vector) <- if(preserve_previous) c(cls, attr(vector, "class")) else cls
+  }
+  return(vector)
 }
 
-ufo_numeric_bin <- function(path, min_load_count = 0) {
-  .Call("ufo_vectors_realsxp_bin",
-        path.expand(.check_path(.expect_exactly_one(path))),
-        as.integer(.expect_exactly_one(min_load_count)))
+.check_add_class <- function () isTRUE(getOption("ufovectors.add_class"))
+
+ufo_integer_bin <- function(path, min_load_count = 0, add_class = .check_add_class()) {
+  .add_class(.Call("ufo_vectors_intsxp_bin",
+                    path.expand(.check_path(.expect_exactly_one(path))),
+                    as.integer(.expect_exactly_one(min_load_count))),
+             "ufo", add_class)
 }
 
-ufo_complex_bin <- function(path, min_load_count = 0) {
-  .Call("ufo_vectors_cplxsxp_bin",
-        path.expand(.check_path(.expect_exactly_one(path))),
-        as.integer(.expect_exactly_one(min_load_count)))
+ufo_numeric_bin <- function(path, min_load_count = 0, add_class = .check_add_class()) {
+  .add_class(.Call("ufo_vectors_realsxp_bin",
+                    path.expand(.check_path(.expect_exactly_one(path))),
+                    as.integer(.expect_exactly_one(min_load_count))),
+             "ufo", add_class)
 }
 
-ufo_logical_bin <- function(path, min_load_count = 0) {
-  .Call("ufo_vectors_lglsxp_bin",
-        path.expand(.check_path(.expect_exactly_one(path))),
-        as.integer(.expect_exactly_one(min_load_count)))
+ufo_complex_bin <- function(path, min_load_count = 0, add_class = .check_add_class()) {
+  .add_class(.Call("ufo_vectors_cplxsxp_bin",
+                    path.expand(.check_path(.expect_exactly_one(path))),
+                    as.integer(.expect_exactly_one(min_load_count))),
+             "ufo", add_class)
 }
 
-ufo_raw_bin <- function(path, min_load_count = 0) {
-  .Call("ufo_vectors_rawsxp_bin",
-        path.expand(.check_path(.expect_exactly_one(path))),
-        as.integer(.expect_exactly_one(min_load_count)))
+ufo_logical_bin <- function(path, min_load_count = 0, add_class = .check_add_class()) {
+  .add_class(.Call("ufo_vectors_lglsxp_bin",
+                    path.expand(.check_path(.expect_exactly_one(path))),
+                    as.integer(.expect_exactly_one(min_load_count))),
+             "ufo", add_class)
 }
 
-ufo_matrix_integer_bin <- function(path, rows, cols, min_load_count = 0) {
-  .Call("ufo_matrix_intsxp_bin",
-        path.expand(.check_path(.expect_exactly_one(path))),
-        as.integer(.expect_exactly_one(rows)),
-        as.integer(.expect_exactly_one(cols)),
-        as.integer(.expect_exactly_one(min_load_count)))
+ufo_raw_bin <- function(path, min_load_count = 0, add_class = .check_add_class()) {
+  .add_class(.Call("ufo_vectors_rawsxp_bin",
+                    path.expand(.check_path(.expect_exactly_one(path))),
+                    as.integer(.expect_exactly_one(min_load_count))),
+             "ufo", add_class)
 }
 
-ufo_matrix_numeric_bin <- function(path, rows, cols, min_load_count = 0) {
-  .Call("ufo_matrix_realsxp_bin",
-        path.expand(.check_path(.expect_exactly_one(path))),
-        as.integer(.expect_exactly_one(rows)),
-        as.integer(.expect_exactly_one(cols)),
-        as.integer(.expect_exactly_one(min_load_count)))
+ufo_matrix_integer_bin <- function(path, rows, cols, min_load_count = 0, add_class = .check_add_class()) {
+  .add_class(.Call("ufo_matrix_intsxp_bin",
+                    path.expand(.check_path(.expect_exactly_one(path))),
+                    as.integer(.expect_exactly_one(rows)),
+                    as.integer(.expect_exactly_one(cols)),
+                    as.integer(.expect_exactly_one(min_load_count))),
+             "ufo", add_class, preserve_previous = TRUE)
 }
 
-ufo_matrix_complex_bin <- function(path, rows, cols, min_load_count = 0) {
-  .Call("ufo_matrix_cplxsxp_bin",
-        path.expand(.check_path(.expect_exactly_one(path))),
-        as.integer(.expect_exactly_one(rows)),
-        as.integer(.expect_exactly_one(cols)),
-        as.integer(.expect_exactly_one(min_load_count)))
+ufo_matrix_numeric_bin <- function(path, rows, cols, min_load_count = 0, add_class = .check_add_class()) {
+  .add_class(.Call("ufo_matrix_realsxp_bin",
+                    path.expand(.check_path(.expect_exactly_one(path))),
+                    as.integer(.expect_exactly_one(rows)),
+                    as.integer(.expect_exactly_one(cols)),
+                    as.integer(.expect_exactly_one(min_load_count))),
+             "ufo", add_class, preserve_previous = TRUE)
 }
 
-ufo_matrix_logical_bin <- function(path, rows, cols, min_load_count = 0) {
-  .Call("ufo_matrix_lglsxp_bin",
-        path.expand(.check_path(.expect_exactly_one(path))),
-        as.integer(.expect_exactly_one(rows)),
-        as.integer(.expect_exactly_one(cols)),
-        as.integer(.expect_exactly_one(min_load_count)))
+ufo_matrix_complex_bin <- function(path, rows, cols, min_load_count = 0, add_class = .check_add_class()) {
+  .add_class(.Call("ufo_matrix_cplxsxp_bin",
+                  path.expand(.check_path(.expect_exactly_one(path))),
+                  as.integer(.expect_exactly_one(rows)),
+                  as.integer(.expect_exactly_one(cols)),
+                  as.integer(.expect_exactly_one(min_load_count))),
+             "ufo", add_class, preserve_previous = TRUE)
 }
 
-ufo_matrix_raw_bin <- function(path, rows, cols, min_load_count = 0) {
-  .Call("ufo_matrix_rawsxp_bin",
-        path.expand(.check_path(.expect_exactly_one(path))),
-        as.integer(.expect_exactly_one(rows)),
-        as.integer(.expect_exactly_one(cols)),
-        as.integer(.expect_exactly_one(min_load_count)))
+ufo_matrix_logical_bin <- function(path, rows, cols, min_load_count = 0, add_class = .check_add_class()) {
+  .add_class(.Call("ufo_matrix_lglsxp_bin",
+                  path.expand(.check_path(.expect_exactly_one(path))),
+                  as.integer(.expect_exactly_one(rows)),
+                  as.integer(.expect_exactly_one(cols)),
+                  as.integer(.expect_exactly_one(min_load_count))),
+             "ufo", add_class, preserve_previous = TRUE)
 }
 
-ufo_vector_bin <- function(type, path, min_load_count = 0) {
+ufo_matrix_raw_bin <- function(path, rows, cols, min_load_count = 0, add_class = .check_add_class()) {
+  .add_class(.Call("ufo_matrix_rawsxp_bin",
+                    path.expand(.check_path(.expect_exactly_one(path))),
+                    as.integer(.expect_exactly_one(rows)),
+                    as.integer(.expect_exactly_one(cols)),
+                    as.integer(.expect_exactly_one(min_load_count))),
+             "ufo", add_class, preserve_previous = TRUE)
+}
+
+ufo_vector_bin <- function(type, path, min_load_count = 0, add_class = .check_add_class()) {
   if (missing(type)) stop("Missing vector type.")
 
-  if (type == "integer") return(ufo_integer_bin(path, min_load_count))
-  if (type == "numeric") return(ufo_numeric_bin(path, min_load_count))
-  if (type == "complex") return(ufo_complex_bin(path, min_load_count))
-  if (type == "logical") return(ufo_logical_bin(path, min_load_count))
+  if (type == "integer") return(ufo_integer_bin(path, min_load_count, add_class))
+  if (type == "numeric") return(ufo_numeric_bin(path, min_load_count, add_class))
+  if (type == "complex") return(ufo_complex_bin(path, min_load_count, add_class))
+  if (type == "logical") return(ufo_logical_bin(path, min_load_count, add_class))
   if (type == "raw")     return(ufo_raw_bin(path))
 
   stop(paste0("Unknown UFO vector type: ", type))
 }
 
-ufo_matrix_bin <- function(type, path, rows, cols, min_load_count = 0) {
+ufo_matrix_bin <- function(type, path, rows, cols, min_load_count = 0, add_class = .check_add_class()) {
   if (missing(type)) stop("Missing matrix type.")
 
-  if (type == "integer") return(ufo_matrix_integer_bin(path), rows, cols, min_load_count)
-  if (type == "numeric") return(ufo_matrix_numeric_bin(path), rows, cols, min_load_count)
-  if (type == "complex") return(ufo_matrix_complex_bin(path), rows, cols, min_load_count)
-  if (type == "logical") return(ufo_matrix_logical_bin(path), rows, cols, min_load_count)
-  if (type == "raw")     return(ufo_matrix_raw_bin(path), rows, cols, min_load_count)
+  if (type == "integer") return(ufo_matrix_integer_bin(path), rows, cols, min_load_count, add_class)
+  if (type == "numeric") return(ufo_matrix_numeric_bin(path), rows, cols, min_load_count, add_class)
+  if (type == "complex") return(ufo_matrix_complex_bin(path), rows, cols, min_load_count, add_class)
+  if (type == "logical") return(ufo_matrix_logical_bin(path), rows, cols, min_load_count, add_class)
+  if (type == "raw")     return(ufo_matrix_raw_bin(path), rows, cols, min_load_count, add_class)
 
   stop(paste0("Unknown UFO matrix type: ", type))
 }
 
-ufo_csv <- function(path, min_load_count = 0, check_names=T, header=T, record_row_offsets_at_interval=1000, initial_buffer_size=32, col_names) {
+ufo_csv <- function(path, min_load_count = 0, check_names=T, header=T, record_row_offsets_at_interval=1000, 
+                    initial_buffer_size=32, col_names, add_class = .check_add_class()) {
 
   .expect_exactly_one(min_load_count)
   .expect_exactly_one(header)
@@ -161,48 +185,56 @@ ufo_csv <- function(path, min_load_count = 0, check_names=T, header=T, record_ro
   if(check_names) {
     names(df) <- make.names(names(df), unique=T)
   }
+  
+  if (add_class) for(col_name in names(df)) {
+    attr(df[[col_name]], "class") <- "ufo"
+  }
+  
   df
 }
 # todo row.names
 
-ufo_integer <- function(size, min_load_count = 0) {
-  .Call("ufo_intsxp_empty",
-        as.numeric(size),
-        as.integer(.expect_exactly_one(min_load_count)))
+ufo_integer <- function(size, min_load_count = 0, add_class = .check_add_class()) {
+  .add_class(.Call("ufo_intsxp_empty",
+                  as.numeric(size),
+                  as.integer(.expect_exactly_one(min_load_count))),
+             "ufo", add_class)
 }
 
-ufo_numeric <- function(size, min_load_count = 0) {
-  .Call("ufo_realsxp_empty",
-        as.numeric(size),
-        as.integer(.expect_exactly_one(min_load_count)))
+ufo_numeric <- function(size, min_load_count = 0, add_class = .check_add_class()) {
+  .add_class(.Call("ufo_realsxp_empty",
+                  as.numeric(size),
+                  as.integer(.expect_exactly_one(min_load_count))),
+             "ufo", add_class)
 }
 
-ufo_complex <- function(size, min_load_count = 0) {
-  .Call("ufo_cplxsxp_empty",
-        as.numeric(size),
-        as.integer(.expect_exactly_one(min_load_count)))
+ufo_complex <- function(size, min_load_count = 0, add_class = .check_add_class()) {
+  .add_class(.Call("ufo_cplxsxp_empty",
+                  as.numeric(size),
+                  as.integer(.expect_exactly_one(min_load_count))),
+             "ufo", add_class)
 }
 
-ufo_logical <- function(size, min_load_count = 0) {
-  .Call("ufo_lglsxp_empty",
-        as.numeric(size),
-        as.integer(.expect_exactly_one(min_load_count)))
+ufo_logical <- function(size, min_load_count = 0, add_class = .check_add_class()) {
+  .add_class(.Call("ufo_lglsxp_empty",
+                  as.numeric(size),
+                  as.integer(.expect_exactly_one(min_load_count))),
+             "ufo", add_class)
 }
 
-ufo_raw <- function(size, min_load_count = 0) {
-  .Call("ufo_rawsxp_empty",
-        as.numeric(size),
-        as.integer(.expect_exactly_one(min_load_count)))
+ufo_raw <- function(size, min_load_count = 0, add_class = .check_add_class()) {
+  .add_class(.Call("ufo_rawsxp_empty",
+                  as.numeric(size),
+                  as.integer(.expect_exactly_one(min_load_count))),
+             "ufo", add_class)
 }
 
-ufo_character <- function(size, min_load_count = 0) {
-  .Call("ufo_strsxp_empty",
-        as.numeric(size),
-        as.integer(.expect_exactly_one(min_load_count)))
-}
-
-ufo_set_debug_mode <- function(debug=TRUE) {
-  invisible(.Call("ufo_vectors_set_debug_mode", .expect_exactly_one(.expect_type(debug, "logical"))))
+ufo_character <- function(size, min_load_count = 0, add_class = .check_add_class()) {
+  .add_class(.Call("ufo_strsxp_empty",
+                  as.numeric(size),
+                  as.integer(.expect_exactly_one(min_load_count))),
+             "ufo", add_class)
+  result
 }
 
 ufo_store_bin <- function(path, vector) {
