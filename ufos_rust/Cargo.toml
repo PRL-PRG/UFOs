@@ -7,11 +7,17 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-userfaultfd = "0.2.0" # requires libclang1 installed
+# userfaultfd = "0.2.0" # requires libclang1 installed
+userfaultfd = { git = "https://github.com/electroCutie/userfaultfd-rs", branch = "readwrite_fix" }
 libc = "0.2.80"
 segment-map = "0.1.1" # for maps over ranges
 blake3 = "0.3.7"
-num = "0.3.1"
+num = "0.3.1" # for One
+crossbeam = "0.8.0"
+promissory = { git = "https://github.com/electroCutie/promissory", branch = "main" }
+# if_present = { path = "/home/ckerr/workspace/rust/ifPresent" }
+anyhow = "1.0.38"
+
 
 [build]
 target_os = "linux"

@@ -1,32 +1,19 @@
-use std::alloc;
-use std::cell::RefCell;
-
 use libc;
 use std::io::Error;
-use std::lazy::SyncLazy;
-use std::num::NonZeroUsize;
-use std::ops::Deref;
-use std::ptr::NonNull;
-use std::rc::{Rc, Weak};
 use std::result::Result;
 
-// #[cfg(target_os = "linux")]
 use std::os::unix::io::RawFd;
 
-fn check_return_zero(result: i32) -> Result<(), Error> {
-    match result {
-        0 => Ok(()),
-        -1 => Err(Error::last_os_error()),
-        _ => panic!("return other than 0 or -1 ({})", result),
-    }
-}
+use super::return_checks::*;
 
-fn check_return_nonneg(result: i32) -> Result<i32, Error> {
-    match result {
-        -1 => Err(Error::last_os_error()),
-        x if x < -1 => panic!("return other than 0 or -1 ({})", result),
-        x => Ok(x),
-    }
+static PAGE_SIZE: std::lazy::SyncOnceCell<usize> = std::lazy::SyncOnceCell::new();
+
+pub fn get_page_size() -> usize {
+    *PAGE_SIZE.get_or_init(|| {
+        let ps = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
+        assert!(ps > 0);
+        ps as usize
+    })
 }
 
 pub trait Mmap {
@@ -99,6 +86,9 @@ pub struct BaseMmap {
     base: *mut u8,
     len: usize,
 }
+
+unsafe impl Send for BaseMmap {}
+unsafe impl Sync for BaseMmap {}
 
 impl BaseMmap {
     fn new0(
@@ -175,11 +165,11 @@ impl Drop for BaseMmap {
 }
 
 pub struct OpenFile {
-    fd: RawFd
+    fd: RawFd,
 }
 
 impl OpenFile {
-    pub unsafe fn temp(path: &str, size: usize) -> Result<Self, Error>{
+    pub unsafe fn temp(path: &str, size: usize) -> Result<Self, Error> {
         let tmp = std::ffi::CString::new(path)?;
 
         let fd = check_return_nonneg(libc::open64(
@@ -189,7 +179,7 @@ impl OpenFile {
         ))?;
 
         // make this before we truncate to a larger size so the file is closed even on error
-        let f = OpenFile{fd};
+        let f = OpenFile { fd };
 
         // truncate the file to the needed size
         check_return_zero(libc::ftruncate64(fd, size as i64))?;
@@ -197,7 +187,7 @@ impl OpenFile {
         Ok(f)
     }
 
-    pub fn as_fd(&self) -> RawFd{
+    pub fn as_fd(&self) -> RawFd {
         self.fd
     }
 }
@@ -229,7 +219,7 @@ impl MmapFd {
             huge_pagesize_log2,
             Some((fd.as_fd(), offset)),
         )?;
-        Ok(MmapFd { mmap, fd })
+        Ok(MmapFd { mmap, _fd: fd })
     }
 }
 
@@ -242,4 +232,3 @@ impl Mmap for MmapFd {
         self.mmap.length()
     }
 }
-
