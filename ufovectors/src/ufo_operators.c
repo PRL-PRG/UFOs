@@ -9,6 +9,8 @@
 #include "ufo_empty.h"
 #include "rash.h"
 
+#include <assert.h>
+
 //-----------------------------------------------------------------------------
 // Problem children
 //
@@ -540,7 +542,7 @@ R_xlen_t logical_subscript_length(SEXP vector, SEXP subscript) {
 		return elements;
 	}
 
-	if (subscript_length == 1) return LOGICAL_ELT(subscript, 0) == 0 ? 0 : 1;
+	if (subscript_length == 1) return LOGICAL_ELT(subscript, 0) == 0 ? 0 : vector_length;
 	if (subscript_length == 0) return 0;
 
 	R_xlen_t whole_fits_this_many_times = vector_length / subscript_length;
@@ -600,11 +602,21 @@ SEXP logical_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 	SEXP     result                = PROTECT(ufo_empty(result_vector_is_long ? REALSXP : INTSXP, result_length, min_load_count));
 	R_xlen_t result_index          = 0;
 
+	if (result_length == 0) {
+		return allocVector(vector_type, 0);
+	}
+
 	for (R_xlen_t vector_index = 0; vector_index < vector_length; vector_index++) { // XXX consider iterating by region
+		//assert(vector_index % subscript_length < subscript_length);
+
 		Rboolean value = LOGICAL_ELT(subscript, vector_index % subscript_length);
 
+		if(!(result_index < result_length)) {
+			Rf_error("Attempting to index vector with an out-of-range index %d (length: %d).", result_index);
+		}
+
 		if (value == FALSE)		   continue;
-		if (result_vector_is_long) SET_REAL_ELT   (result, result_index, value == TRUE ? vector_index + 1: NA_REAL);
+		if (result_vector_is_long) SET_REAL_ELT   (result, result_index, value == TRUE ? vector_index + 1: NA_REAL); // assert
 		else             		   SET_INTEGER_ELT(result, result_index, value == TRUE ? vector_index + 1: NA_INTEGER);
 
 		result_index++;
@@ -834,6 +846,7 @@ SEXP ufo_subscript(SEXP vector, SEXP subscript, SEXP min_load_count_sexp) {
 }
 
 SEXP ufo_subset(SEXP x, SEXP y, SEXP min_load_count_sexp) {
+	Rf_error("not implemented");
 	return R_NilValue;
 }
 

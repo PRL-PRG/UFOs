@@ -185,11 +185,11 @@ ufo_csv <- function(path, min_load_count = 0, check_names=T, header=T, record_ro
   if(check_names) {
     names(df) <- make.names(names(df), unique=T)
   }
-  
+
   if (add_class) for(col_name in names(df)) {
     attr(df[[col_name]], "class") <- "ufo"
   }
-  
+
   df
 }
 # todo row.names
