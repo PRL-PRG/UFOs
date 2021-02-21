@@ -194,3 +194,162 @@ test_that("ufo integer subscript length=all negative", {
 
   expect_equal(result, reference)
 })
+
+test_that("ufo numeric subscript a zero", {
+  ufo <- ufo_integer(100000)
+  ufo[1:100000] <- 1:100000
+
+  subscript <- 0
+
+  reference <- numeric(0)
+  result <- ufovectors::subscript(ufo, subscript)
+
+  expect_equal(result, reference)
+})
+
+test_that("ufo numeric subscript a couple of zeros", {
+  ufo <- ufo_integer(100000)
+  ufo[1:100000] <- 1:100000
+
+  subscript <- c(0, 0)
+
+  reference <- numeric(0)
+  result <- ufovectors::subscript(ufo, subscript)
+
+  expect_equal(result, reference)
+})
+
+test_that("ufo numeric subscript a couple of zeros mixed in with non-zeros", {
+  ufo <- ufo_integer(100000)
+  ufo[1:100000] <- 1:100000
+
+  subscript <- c(0, 1, 0, 100000)
+
+  reference <- c(1, 100000)
+  result <- ufovectors::subscript(ufo, subscript)
+
+  expect_equal(result, reference)
+})
+
+test_that("ufo numeric subscript length=0", {
+  ufo <- ufo_integer(100000)
+  ufo[1:100000] <- 1:100000
+
+  subscript <- as.numeric(0)
+
+  reference <- numeric(0)
+  result <- ufovectors::subscript(ufo, subscript)
+
+  expect_equal(result, reference)
+})
+
+test_that("ufo numeric subscript length=1", {
+  ufo <- ufo_integer(100000)
+  ufo[1:100000] <- 1:100000
+
+  subscript <- as.numeric(42)
+
+  reference <- as.numeric(42)
+  result <- ufovectors::subscript(ufo, subscript)
+
+  expect_equal(result, reference)
+})
+
+test_that("ufo numeric subscript length=small subset", {
+  ufo <- ufo_integer(100000)
+  ufo[1:100000] <- 1:100000
+
+  subscript <- c(4, 10, 7, 100)
+
+  reference <- c(4, 10, 7, 100)
+  result <- ufovectors::subscript(ufo, subscript)
+
+  expect_equal(result, reference)
+})
+
+test_that("ufo numeric subscript length=large subset", {
+  ufo <- ufo_integer(100000)
+  ufo[1:100000] <- 1:100000
+
+  subscript <- c(1:1000, 2000:5000, 10:1000, 6000:10000)
+
+  reference <- c(1:1000, 2000:5000, 10:1000, 6000:10000)
+  result <- ufovectors::subscript(ufo, subscript)
+
+  expect_equal(result, reference)
+})
+
+test_that("ufo numeric subscript length=one negative", {
+  ufo <- ufo_integer(100000)
+  ufo[1:100000] <- 1:100000
+
+  subscript <- as.numeric(-10)
+
+  reference <- (1:100000)[-10]
+  result <- ufovectors::subscript(ufo, subscript)
+
+  expect_equal(result, reference)
+})
+
+
+test_that("ufo numeric subscript length=a few negative", {
+  ufo <- ufo_integer(100000)
+  ufo[1:100000] <- 1:100000
+
+  subscript <- c(-10, -100, -1000)
+
+  reference <- (1:100000)[c(-10, -100, -1000)]
+  result <- ufovectors::subscript(ufo, subscript)
+
+  expect_equal(result, reference)
+})
+
+
+test_that("ufo numeric subscript length=many negative", {
+  ufo <- ufo_integer(100000)
+  ufo[1:100000] <- 1:100000
+
+  subscript <- -c(1:1000, 2000:5000, 10:1000, 6000:10000)
+
+  reference <- (1:100000)[-c(1:1000, 2000:5000, 10:1000, 6000:10000)]
+  result <- ufovectors::subscript(ufo, subscript)
+
+  expect_equal(result, reference)
+})
+
+
+test_that("ufo numeric subscript length=all negative", {
+  ufo <- ufo_integer(100000)
+  ufo[1:100000] <- 1:100000
+
+  subscript <- -as.numeric(1:100000)
+
+  reference <- numeric(0)
+  result <- ufovectors::subscript(ufo, subscript)
+
+  expect_equal(result, reference)
+})
+
+test_that("ufo string subscript no names one element", {
+  ufo <- ufo_integer(100000)
+  ufo[1:100000] <- 1:100000
+
+  subscript <- "butts"
+
+  reference <- as.integer(NA)
+  result <- ufovectors::subscript(ufo, subscript)
+
+  expect_equal(result, reference)
+})
+
+test_that("ufo string subscript not found", {
+  ufo <- ufo_integer(100000)
+  ufo[1:100000] <- 1:100000
+
+  subscript <- c("a", "b", "c")
+
+  reference <- as.integer(c(NA, NA, NA))
+  result <- ufovectors::subscript(ufo, subscript)
+
+  expect_equal(result, reference)
+})

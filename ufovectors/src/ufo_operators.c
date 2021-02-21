@@ -810,11 +810,17 @@ SEXP hash_string_subscript(SEXP vector, SEXP/*STRSXP*/ names, SEXP/*STRSXP*/ sub
 	return indices;
 }
 
+SEXP null_string_subscript(SEXP vector, SEXP/*STRSXP*/ names, SEXP/*STRSXP*/ subscript, int32_t min_load_count) {
+	R_xlen_t subscript_lenth = XLENGTH(subscript);
+	SEXP result = ufo_empty(INTSXP, subscript_lenth, min_load_count);
+	for (R_xlen_t i = 0; i < subscript_lenth; i++) {
+		SET_INTEGER_ELT(result, i, NA_INTEGER);
+	}
+	return result;
+}
+
 
 SEXP string_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) { // XXX There's probably a better way to do this one.
-
-	SEXP names = PROTECT(getAttrib(vector, R_NamesSymbol));
-	if (TYPEOF(names) == NILSXP) return R_NilValue;
 
 	R_xlen_t subscript_length = XLENGTH(subscript);
 	R_xlen_t vector_length = XLENGTH(vector);
@@ -822,8 +828,19 @@ SEXP string_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) { // 
 			           || (vector_length > 1000 && subscript_length))
 			           || (subscript_length * vector_length > 15 * vector_length + subscript_length));
 
-	if (use_hashing) return hash_string_subscript  (vector, names, subscript, min_load_count);
-	else             return looped_string_subscript(vector, names, subscript, min_load_count);
+	SEXP names = PROTECT(getAttrib(vector, R_NamesSymbol));					   
+
+	SEXP result;
+	if (TYPEOF(names) == NILSXP) {
+		result = null_string_subscript(vector, names, subscript, min_load_count);
+	} else if (use_hashing) {
+		result = hash_string_subscript(vector, names, subscript, min_load_count);
+	} else {
+        result = looped_string_subscript(vector, names, subscript, min_load_count);
+	}   
+
+	UNPROTECT(1);
+	return result;
 }
 
 SEXP ufo_subscript(SEXP vector, SEXP subscript, SEXP min_load_count_sexp) {
