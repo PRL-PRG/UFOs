@@ -83,7 +83,7 @@ static searchResult binarySearch(sparseList* list, uint64_t i){
     return (searchResult){0, 0};
   entryI* e;
   // (M)edian, (L)ow, (H)igh
-  uint64_t m, l, h;
+  int64_t m, l, h;
   int cmp;
   l = 0; h = list->usedSlots - 1;
   do{
