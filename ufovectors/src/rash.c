@@ -328,7 +328,11 @@ irash_t irash_from(examined_string_vector_t strings, int32_t min_load_count) {
 	R_xlen_t senior_bits_in_hash = calculate_rash_senior_bits_in_hash(strings);
 
 	irash_t irash;
-	irash.hash_to_index_table = PROTECT(ufo_empty(REALSXP, size, true, min_load_count));
+	irash.hash_to_index_table = //PROTECT(allocVector(REALSXP, size));
+		PROTECT(ufo_empty(REALSXP, size, true, min_load_count));
+
+	//for (R_xlen_t i = 0; i < size; i++) { SET_REAL_ELT(irash.hash_to_index_table, i, NA_REAL); }
+
 	irash.origin = strings;
 	irash.available_space = size;
 	irash.size = size;
@@ -370,7 +374,7 @@ bool irash_add(irash_t irash, R_xlen_t index_of_element_in_origin) {
 			          index, hash_to_index_table_length);
 		}
 
-		R_xlen_t incumbent_index = (R_xlen_t) REAL_ELT(irash.hash_to_index_table, index);
+		R_xlen_t incumbent_index = (R_xlen_t) REAL_ELT(irash.hash_to_index_table, index); // seggy ix: 134446
 
 		R_xlen_t butts = (R_xlen_t) NA_REAL;
 		if (incumbent_index == butts) break;

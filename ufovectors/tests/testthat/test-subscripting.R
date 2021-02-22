@@ -146,7 +146,7 @@ test_that("ufo integer subscript length=small subset", {
 
   subscript <- as.integer(c(4, 10, 7, 100))
 
-  reference <- as.integer(c(4, 10, 7 , 100))
+  reference <- as.integer(c(4, 10, 7, 100))
   result <- ufovectors::subscript(ufo, subscript)
 
   expect_equal(result, reference)
@@ -412,7 +412,7 @@ test_that("ufo string hash subscript one element", {
   expect_equal(result, reference)
 })
 
-test_that("ufo string hash subscript lentgth=zero", {
+test_that("ufo string subscript length=zero", {
   ufo <- ufo_integer(100000)
   ufo[1:100000] <- 1:100000
   ufo_names <- paste0("N", 1:100000)
@@ -446,7 +446,7 @@ test_that("ufo string hash subscript length=small subset with NAs", {
   ufo_names <- paste0("N", 1:100000)
   ufo <- setNames(ufo, ufo_names)
 
-  subscript <- c("N4", NA, "N10", NA, "N7", "N100", "N100", NA)
+  subscript <- c("N4", NA, "N10", NA, "N7", "N100", "N100", NA) # exposes the segfault! i ran it in sequence with all the previous ones though, gc-related?
 
   reference <- c(4, NA, 10, NA, 7, 100, 100, NA)
   result <- ufovectors::subscript(ufo, subscript)
@@ -455,13 +455,9 @@ test_that("ufo string hash subscript length=small subset with NAs", {
 
   expect_equal(result, reference) # !!!
 })
-# ── Failure (test-subscripting.R:443:3): ufo numeric subscript length=small subset with NAs ──
-# `result` not equal to `reference`.
-# 4/7 mismatches (average diff: NaN)
-# [1] NA -   4 == NA
-# [3] NA -  10 == NA
-# [5] NA -   7 == NA
-# [6] NA - 100 == NA
+# rash.c:372
+# R_xlen_t incumbent_index = (R_xlen_t) REAL_ELT(irash.hash_to_index_table, index);
+
 
 test_that("ufo string hash subscript length=large subset", {
   ufo <- ufo_integer(100000)

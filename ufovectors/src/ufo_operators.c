@@ -603,6 +603,7 @@ SEXP logical_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 	R_xlen_t result_index          = 0;
 
 	if (result_length == 0) {
+		UNPROTECT(1);
 		return allocVector(vector_type, 0);
 	}
 
@@ -612,6 +613,7 @@ SEXP logical_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 		Rboolean value = LOGICAL_ELT(subscript, vector_index % subscript_length);
 
 		if(!(result_index < result_length)) {
+			UNPROTECT(1);
 			Rf_error("Attempting to index vector with an out-of-range index %d (length: %d).", result_index);
 		}
 
@@ -794,6 +796,7 @@ SEXP looped_string_subscript(SEXP vector, SEXP names, SEXP subscript, int32_t mi
 		continue;
 	}
 
+	UNPROTECT(1);
 	return integer_subscript;
 }
 
