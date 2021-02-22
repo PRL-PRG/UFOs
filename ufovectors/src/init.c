@@ -26,12 +26,12 @@ static const R_CallMethodDef CallEntries[] = {
     {"ufo_matrix_rawsxp_bin",       (DL_FUNC) &ufo_matrix_rawsxp_bin,           4},
 
 	// Constructors for empty vectors.
-	{"ufo_intsxp_empty",      		(DL_FUNC) &ufo_intsxp_empty,          		2},
-	{"ufo_realsxp_empty",     		(DL_FUNC) &ufo_realsxp_empty,         		2},
-	{"ufo_cplxsxp_empty",     		(DL_FUNC) &ufo_cplxsxp_empty,         		2},
-	{"ufo_lglsxp_empty",      		(DL_FUNC) &ufo_lglsxp_empty,          		2},
+	{"ufo_intsxp_empty",      		(DL_FUNC) &ufo_intsxp_empty,          		3},
+	{"ufo_realsxp_empty",     		(DL_FUNC) &ufo_realsxp_empty,         		3},
+	{"ufo_cplxsxp_empty",     		(DL_FUNC) &ufo_cplxsxp_empty,         		3},
+	{"ufo_lglsxp_empty",      		(DL_FUNC) &ufo_lglsxp_empty,          		3},
 	{"ufo_rawsxp_empty",      		(DL_FUNC) &ufo_rawsxp_empty,          		2},
-	{"ufo_strsxp_empty",      		(DL_FUNC) &ufo_strsxp_empty,          		2},
+	{"ufo_strsxp_empty",      		(DL_FUNC) &ufo_strsxp_empty,          		3},
 	{"ufo_vecsxp_empty",      		(DL_FUNC) &ufo_vecsxp_empty,          		2},
     
     // CSV support

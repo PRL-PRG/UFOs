@@ -202,7 +202,7 @@ int32_t calculate_rash_senior_bits_in_hash(examined_string_vector_t strings) {
 rash_t rash_new(R_xlen_t size,  int32_t senior_bits_in_hash, int32_t min_load_count) {
 
 	rash_t rash;
-	rash.hash_table = PROTECT(ufo_empty(VECSXP, size, min_load_count));
+	rash.hash_table = PROTECT(ufo_empty(VECSXP, size, true, min_load_count));
 	rash.available_space = size;
 	rash.size = size;
 	rash.senior_bits_in_hash = senior_bits_in_hash;
@@ -309,7 +309,7 @@ SEXP/*LGLSXP*/ rash_member_all(rash_t rash, examined_string_vector_t strings, in
 	ensure_type(strings.sexp, STRSXP);
 
 	R_xlen_t strings_length = strings.length;
-	SEXP/*LGLSXP*/ result = PROTECT(ufo_empty(LGLSXP, strings_length, min_load_count));
+	SEXP/*LGLSXP*/ result = PROTECT(ufo_empty(LGLSXP, strings_length, false, min_load_count));
 
 	for (R_xlen_t i = 0; i < strings_length; i++) {
 		examined_string_t string = make_examined_string_from(strings, i);
@@ -328,7 +328,7 @@ irash_t irash_from(examined_string_vector_t strings, int32_t min_load_count) {
 	R_xlen_t senior_bits_in_hash = calculate_rash_senior_bits_in_hash(strings);
 
 	irash_t irash;
-	irash.hash_to_index_table = PROTECT(ufo_empty(REALSXP, size, min_load_count));
+	irash.hash_to_index_table = PROTECT(ufo_empty(REALSXP, size, true, min_load_count));
 	irash.origin = strings;
 	irash.available_space = size;
 	irash.size = size;
@@ -360,11 +360,22 @@ bool irash_add(irash_t irash, R_xlen_t index_of_element_in_origin) {
 
 	ensure_type(new_element.sexp, CHARSXP);
 
+	R_xlen_t hash_to_index_table_length = XLENGTH(irash.hash_to_index_table);
 	R_xlen_t new_element_hash = generate_string_hash(new_element, irash.senior_bits_in_hash);
 
 	R_xlen_t index = new_element_hash;
 	for (;; ) {
-		SEXP/*CHARSXP*/ incumbent_element = VECTOR_ELT(irash.hash_to_index_table, index);
+		if (index >= hash_to_index_table_length) {
+			Rf_error("String hash %i exceeds the size of the hash table %i.", 
+			          index, hash_to_index_table_length);
+		}
+
+		R_xlen_t incumbent_index = (R_xlen_t) REAL_ELT(irash.hash_to_index_table, index);
+
+		R_xlen_t butts = (R_xlen_t) NA_REAL;
+		if (incumbent_index == butts) break;
+
+       	SEXP/*CHARSXP*/ incumbent_element = VECTOR_ELT(irash.origin.sexp, incumbent_index);
 
 		if (incumbent_element == R_NilValue) break;
 		if (strings_are_equal(incumbent_element, new_element.sexp)) return false;
@@ -379,6 +390,9 @@ bool irash_add(irash_t irash, R_xlen_t index_of_element_in_origin) {
 		irash.available_space--;
 	}
 
+	if (index >= XLENGTH(irash.hash_to_index_table)) {
+		Rf_error("Hash table index out of bounds.");
+	}
 	SET_REAL_ELT(irash.hash_to_index_table, index, index_of_element_in_origin);
 	return true;
 }
@@ -418,14 +432,31 @@ bool irash_member(irash_t irash, examined_string_t outside_element, R_xlen_t *ou
 	ensure_type(outside_element.sexp, CHARSXP);
 
 	R_xlen_t outside_element_hash = generate_string_hash(outside_element, irash.senior_bits_in_hash);
+	R_xlen_t hash_to_index_table_length = XLENGTH(irash.hash_to_index_table);
 
 	for (R_xlen_t index = outside_element_hash;; index = (index + 1) % irash.size) {
-		SEXP/*CHARSXP*/ incumbent_element = VECTOR_ELT(irash.hash_to_index_table, index);
+
+		if (index >= hash_to_index_table_length) {
+			Rf_error("String hash %i exceeds the size of the hash table (size=%i).", 
+			          index, hash_to_index_table_length);
+		}
+
+		R_xlen_t incumbent_index = (R_xlen_t) REAL_ELT(irash.hash_to_index_table, index);
+
+		R_xlen_t butts = (R_xlen_t) NA_REAL;
+		if (incumbent_index == butts) return false;
+
+		if (incumbent_index >= irash.origin.length) {
+			Rf_error("No string at index %i in the hash table (size=%i).", 
+			          incumbent_index, irash.origin.length);
+		}
+
+		SEXP/*CHARSXP*/ incumbent_element = VECTOR_ELT(irash.origin.sexp, incumbent_index);
 
 		if (incumbent_element == R_NilValue) return false;
 		if (!strings_are_equal(incumbent_element, outside_element.sexp)) continue;
 
-		*out_index = index;
+		*out_index = incumbent_index;
 		return true;
 	}
 
@@ -433,7 +464,7 @@ bool irash_member(irash_t irash, examined_string_t outside_element, R_xlen_t *ou
 }
 
 /*
- * Counts the number of elements from strings tyhat are found in the
+ * Counts the number of elements from strings that are found in the
  * index-based hash table.
  */
 R_xlen_t irash_count_members(irash_t irash, examined_string_vector_t strings) {
@@ -465,21 +496,28 @@ R_xlen_t irash_count_members(irash_t irash, examined_string_vector_t strings) {
  * The returned indices are ONE-based.
  */
 SEXP/*REALSXP:R_xlen_t*/ irash_all_member_indices(irash_t irash, examined_string_vector_t strings, int32_t min_load_count) {
-	ensure_type(irash.hash_to_index_table, VECSXP);
+	ensure_type(irash.hash_to_index_table, REALSXP);
 	ensure_type(strings.sexp, STRSXP);
 
-	R_xlen_t result_length = irash_count_members(irash, strings);
-	SEXP/*REALSXP:R_xlen_t*/ result = PROTECT(ufo_empty(REALSXP, result_length, min_load_count));
+	//R_xlen_t result_length = irash_count_members(irash, strings);
+	R_xlen_t result_length = strings.length; // because this just is positional, right?
+	SEXP/*REALSXP:R_xlen_t*/ result = PROTECT(ufo_empty(REALSXP, result_length, false, min_load_count));
 
 	for (R_xlen_t si = 0, ri = 0; si < strings.length; si++) {
 		examined_string_t string = make_examined_string_from(strings, si);
+
+		if (string.sexp == R_NaString) {
+			SET_REAL_ELT(result, ri, NA_REAL);
+			ri++;
+			continue;
+		}
 
 		R_xlen_t index;
 		bool is_member = irash_member(irash, string, &index);
 
 		if (!is_member) continue;
 
-		SET_REAL_ELT(result, ri, index + 1);
+		SET_REAL_ELT(result, ri, index + 1); // FIXME this +1 stuff will lead tor overflows, must fix
 		ri++;
 	}
 

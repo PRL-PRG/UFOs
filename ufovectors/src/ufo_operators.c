@@ -234,7 +234,7 @@ SEXP ufo_fit_result (SEXP x, SEXP y, SEXP min_load_count) {
 	SEXPTYPE result_type = ufo_vector_type_to_fit_both(x_type, y_type);
 	R_xlen_t result_size = ufo_vector_size_to_fit_both(x_type, y_type, x_size, y_size);
 
-	return ufo_empty(result_type, result_size, __extract_int_or_die(min_load_count));
+	return ufo_empty(result_type, result_size, false, __extract_int_or_die(min_load_count));
 }
 
 // Good for: / ^
@@ -247,7 +247,7 @@ SEXP ufo_div_result (SEXP x, SEXP y, SEXP min_load_count) {
 	SEXPTYPE result_type = ufo_vector_type_to_div_both(x_type, y_type);
 	R_xlen_t result_size = ufo_vector_size_to_fit_both(x_type, y_type, x_size, y_size);
 
-	return ufo_empty(result_type, result_size, __extract_int_or_die(min_load_count));
+	return ufo_empty(result_type, result_size, false, __extract_int_or_die(min_load_count));
 }
 
 // Good for: %% %/%
@@ -260,7 +260,7 @@ SEXP ufo_mod_result (SEXP x, SEXP y, SEXP min_load_count) {
 	SEXPTYPE result_type = ufo_vector_type_to_mod_both(x_type, y_type);
 	R_xlen_t result_size = ufo_vector_size_to_mod_both(x_type, y_type, x_size, y_size);
 
-	return ufo_empty(result_type, result_size, __extract_int_or_die(min_load_count));
+	return ufo_empty(result_type, result_size, false, __extract_int_or_die(min_load_count));
 }
 
 // Good for: < > <= >=
@@ -273,7 +273,7 @@ SEXP ufo_rel_result (SEXP x, SEXP y, SEXP min_load_count) {
 	SEXPTYPE result_type = ufo_vector_type_to_rel_both(x_type, y_type);
 	R_xlen_t result_size = ufo_vector_size_to_fit_both(x_type, y_type, x_size, y_size);
 
-	return ufo_empty(result_type, result_size, __extract_int_or_die(min_load_count));
+	return ufo_empty(result_type, result_size, false, __extract_int_or_die(min_load_count));
 }
 
 // Good for: == != | &
@@ -286,7 +286,7 @@ SEXP ufo_log_result (SEXP x, SEXP y, SEXP min_load_count) {
 	SEXPTYPE result_type = ufo_vector_type_to_log_both(x_type, y_type);
 	R_xlen_t result_size = ufo_vector_size_to_fit_both(x_type, y_type, x_size, y_size);
 
-	return ufo_empty(result_type, result_size, __extract_int_or_die(min_load_count));
+	return ufo_empty(result_type, result_size, false, __extract_int_or_die(min_load_count));
 }
 
 // Good for: unary + and -
@@ -296,7 +296,7 @@ SEXP ufo_neg_result (SEXP x, SEXP min_load_count) {
 
 	SEXPTYPE result_type = ufo_vector_type_to_neg(x_type);
 
-	return ufo_empty(result_type, x_size, __extract_int_or_die(min_load_count));
+	return ufo_empty(result_type, x_size, false, __extract_int_or_die(min_load_count));
 }
 
 #define MAX(x, y) (x >= y ? x : y)
@@ -599,7 +599,7 @@ SEXP logical_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 
 	R_xlen_t result_length         = logical_subscript_length(vector, subscript); // FIXME makes sure used only once
 	bool     result_vector_is_long = result_length > R_SHORT_LEN_MAX;
-	SEXP     result                = PROTECT(ufo_empty(result_vector_is_long ? REALSXP : INTSXP, result_length, min_load_count));
+	SEXP     result                = PROTECT(ufo_empty(result_vector_is_long ? REALSXP : INTSXP, result_length, false, min_load_count));
 	R_xlen_t result_index          = 0;
 
 	if (result_length == 0) {
@@ -641,7 +641,7 @@ SEXP positive_integer_subscript(SEXP vector, SEXP subscript, int32_t min_load_co
 	R_xlen_t subscript_length = XLENGTH(subscript);
 	R_xlen_t vector_length = XLENGTH(vector);
 
-	SEXP result = PROTECT(ufo_empty(result_type, result_length, min_load_count));
+	SEXP result = PROTECT(ufo_empty(result_type, result_length, false, min_load_count));
 	for (R_xlen_t result_index = 0, subscript_index = 0; subscript_index < subscript_length; subscript_index++) {
 		int value = INTEGER_ELT(subscript, subscript_index);
 
@@ -661,7 +661,7 @@ SEXP positive_integer_subscript(SEXP vector, SEXP subscript, int32_t min_load_co
 SEXP negative_integer_subscript(SEXP vector, SEXP subscript, int32_t min_load_count, integer_vector_stats_t stats) {
 	R_xlen_t vector_length = XLENGTH(vector);
 	R_xlen_t subscript_length = XLENGTH(subscript);
-	SEXP bitmap = PROTECT(ufo_empty(LGLSXP, vector_length, min_load_count));
+	SEXP bitmap = PROTECT(ufo_empty(LGLSXP, vector_length, false, min_load_count));
 
 	for (R_xlen_t vector_index = 0; vector_index < vector_length; vector_index++) {
 		SET_LOGICAL_ELT(bitmap, vector_index, TRUE);
@@ -706,7 +706,7 @@ SEXP positive_real_subscript(SEXP vector, SEXP subscript, int32_t min_load_count
 	R_xlen_t subscript_length = XLENGTH(subscript);
 	R_xlen_t vector_length = XLENGTH(vector);
 
-	SEXP result = PROTECT(ufo_empty(result_type, result_length, min_load_count));
+	SEXP result = PROTECT(ufo_empty(result_type, result_length, false, min_load_count));
 	for (R_xlen_t result_index = 0, subscript_index = 0; subscript_index < subscript_length; subscript_index++) {
 		double value = REAL_ELT(subscript, subscript_index);
 
@@ -728,7 +728,7 @@ SEXP negative_real_subscript(SEXP vector, SEXP subscript, int32_t min_load_count
 
 	R_xlen_t vector_length = XLENGTH(vector);
 	R_xlen_t subscript_length = XLENGTH(subscript);
-	SEXP bitmap = PROTECT(ufo_empty(LGLSXP, vector_length, min_load_count));
+	SEXP bitmap = PROTECT(ufo_empty(LGLSXP, vector_length, false, min_load_count));
 
 	for (R_xlen_t vector_index = 0; vector_index < vector_length; vector_index++) {
 		SET_LOGICAL_ELT(bitmap, vector_index, TRUE);
@@ -769,7 +769,7 @@ SEXP looped_string_subscript(SEXP vector, SEXP names, SEXP subscript, int32_t mi
 	R_xlen_t names_length = XLENGTH(names);
 	R_xlen_t subscript_length = XLENGTH(subscript);
 
-	SEXP integer_subscript = PROTECT(ufo_empty(INTSXP, subscript_length, min_load_count));
+	SEXP integer_subscript = PROTECT(ufo_empty(INTSXP, subscript_length, false, min_load_count));
 	for (R_xlen_t subscript_index = 0; subscript_index < subscript_length; subscript_index++) { // TODO hashing implementation
 
 		SEXP subscript_element = STRING_ELT(subscript, subscript_index);
@@ -787,7 +787,8 @@ SEXP looped_string_subscript(SEXP vector, SEXP names, SEXP subscript, int32_t mi
 		}
 
 		//_found_nothing:
-		SET_INTEGER_ELT(integer_subscript, subscript_index, NA_INTEGER); // Neither NA nor an element of `names`
+		// SET_INTEGER_ELT(integer_subscript, subscript_index, NA_INTEGER); // Neither NA nor an element of `names`
+		// Actually we can pre-pop the vector with NAs now
 
 		_found_something:
 		continue;
@@ -812,11 +813,7 @@ SEXP hash_string_subscript(SEXP vector, SEXP/*STRSXP*/ names, SEXP/*STRSXP*/ sub
 
 SEXP null_string_subscript(SEXP vector, SEXP/*STRSXP*/ names, SEXP/*STRSXP*/ subscript, int32_t min_load_count) {
 	R_xlen_t subscript_lenth = XLENGTH(subscript);
-	SEXP result = ufo_empty(INTSXP, subscript_lenth, min_load_count);
-	for (R_xlen_t i = 0; i < subscript_lenth; i++) {
-		SET_INTEGER_ELT(result, i, NA_INTEGER);
-	}
-	return result;
+	return ufo_empty(INTSXP, subscript_lenth, true, min_load_count);
 }
 
 
@@ -828,7 +825,7 @@ SEXP string_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) { // 
 			           || (vector_length > 1000 && subscript_length))
 			           || (subscript_length * vector_length > 15 * vector_length + subscript_length));
 
-	SEXP names = PROTECT(getAttrib(vector, R_NamesSymbol));					   
+	SEXP names = PROTECT(getAttrib(vector, R_NamesSymbol));
 
 	SEXP result;
 	if (TYPEOF(names) == NILSXP) {
