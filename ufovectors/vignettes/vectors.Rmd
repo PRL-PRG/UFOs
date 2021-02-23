@@ -24,6 +24,15 @@ library(ufovectors)
 
 Note, that the package loads *ufos* as a dependency.
 
+## Basic usage
+
+Before we do anything, let's turn on debug mode to see what happens under the hood.
+
+```{r ufovectors-turn-on-debug}
+ufo_set_debug_mode(T)
+```
+
+
 The *ufovectors* package provides constructors for various types of vectors:
 
 * `ufo_integer_bin (path)`
@@ -51,16 +60,20 @@ iv <- ufo_integer_bin("example_int.bin")
 
 When we execute this function the R interpreter asks the UF engine to allocate some memory using a custom allocator that will be used to store a vector. However, instead of allocating any real memory for this vector, UF engine allocates some virtual memory for it, thus rendering it a UFO. Whenever that memory is accesed, the operating system passes on a request to the UF system to allocate and populate some real memory. At this time, since we did not ask for any data from `iv`, the vector does not load any memory.
 
-Before we do anything, let's turn on debug mode to see what happens under the hood.
-
-```{r ufovectors-turn-on-debug}
-ufo_set_debug_mode(T)
-```
-
 Now, let's try accessing an element of the vector.
+
+```{r echo=FALSE, results='hide'}
+# this is just a hack to capture stderr and show it in a vignette, pt. 1
+stdout <- capture.output(iv[4], type = "message")
+```
 
 ```{r ufovectors-poke-int-vector}
 iv[4]
+```
+
+```{r, echo=FALSE}
+# this is just a hack to capture stderr and show it in a vignette, pt. 2
+cat(paste0(stdout, sep="\n"))
 ```
 
 Once we access an element, the UF engine prepares a region of actual memory and asks its source to populate it. Since the source is a binary file, a chunk of the file is read into memory. We see exactly which chunk of the file is loaded into memory in the debug message. The size of the chunk depends on the UF engine, but it's at least a page fo memory.
@@ -74,10 +87,108 @@ iv[5]
 
 If we access elements outside of the loaded chunk, the source will be asked to provide another chunk.
 
+```{r echo=FALSE, results='hide'}
+# this is just a hack to capture stderr and show it in a vignette, pt. 1
+stdout <- capture.output(iv[10000], type = "message")
+```
+
 ```{r ufovectors-poke-int-vector-load-another-chunk}
 iv[10000]
 ```
 
+```{r, echo=FALSE}
+# this is just a hack to capture stderr and show it in a vignette, pt. 2
+cat(paste0(stdout, sep="\n"))
+```
+
 We see again through the debug message that another chunk was loaded into memory.
 
+## Operators
 
+UFOs attempt to be feature complete and as transparent as possible. A typical use of vectors involves setting and getting values form them as well as performing vectorized operations:
+
+```{r}
+v <- iv + 1
+```
+
+This will work, but R will create `v` as an ordinary vector, not a UFO. This means that for larger-than-memory vectors, this operation will fail.
+
+### Class
+
+To prevent this, they provide a set of operators that return file-backed UFOs.
+These operator implementations are a separate, optional feature of UFO vectors, so they need to be turned on before loading the package:
+
+```{r}
+options(ufovectors.add_class = TRUE)
+library(ufovectors)
+iv <- ufo_integer_bin("example_int.bin")
+```
+
+First of all, this adds a class attribute to all UFO vectors: 
+
+```{r}
+class(iv)
+```
+
+The now class-conscious UFO implements a set of useful operators that return larger-than-memory--capable UFOs via the S3 object system.
+
+```{r}
+v <- iv + 1
+class(v)
+```
+
+```{r}
+v <- iv + 42
+v <- iv - 42
+v <- iv * 42
+v <- iv / 42
+v <- iv ^ 42
+v <- iv %% 42
+v <- iv %/% 42
+v <- iv < 42
+v <- iv > 42
+v <- iv >= 42
+v <- iv <= 42
+v <- iv == 42
+v <- iv != 42
+v <- !iv
+v <- iv & TRUE
+v <- iv | TRUE
+#v <- iv[1:10]
+#v <- iv[1:10] <- 42
+```
+
+### Alternative: operator overloading
+
+If adding a class to the UFO breaks the transparency too much, UFOs can also be made to override default operators instead of being plugged into the S3 system. 
+
+```{r}
+options(ufovectors.overload_operators = TRUE)
+```
+
+While we attempt to mitigate any potential problems, this approach is more dangerous than the S3 approach, since the override will apply to all operators and may lead to unexpected problems down the line for other objects.
+
+### UFO API
+
+UFOs also expose an API that replicates the capabilities of the operators as ordinary R functions.
+
+```{r}
+v <- ufo_add(iv, 42)
+v <- ufo_subtract(iv, 42)
+v <- ufo_multiply(iv, 42)
+v <- ufo_divide(iv, 42)
+v <- ufo_power(iv, 42)
+v <- ufo_modulo(iv, 42)
+v <- ufo_int_divide(iv, 42)
+v <- ufo_less(iv, 42)
+v <- ufo_less_equal(iv, 42)
+v <- ufo_greater(iv, 42)
+v <- ufo_greater_equal(iv, 42)
+v <- ufo_equal(iv, 42)
+v <- ufo_unequal(iv, 42)
+v <- ufo_not(iv)
+v <- ufo_or(iv, TRUE)
+v <- ufo_and(iv, TRUE)
+#v <- ufo_subset(iv, 1:10)
+#v <- ufo_subset_assign(iv, 1:10, 42)
+```
