@@ -824,6 +824,7 @@ SEXP string_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) { // 
 
 	R_xlen_t subscript_length = XLENGTH(subscript);
 	R_xlen_t vector_length = XLENGTH(vector);
+
 	bool use_hashing = (( (subscript_length > 1000 && vector_length)
 			           || (vector_length > 1000 && subscript_length))
 			           || (subscript_length * vector_length > 15 * vector_length + subscript_length));
@@ -835,7 +836,7 @@ SEXP string_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) { // 
 		result = null_string_subscript(vector, names, subscript, min_load_count);
 	} else if (use_hashing) {
 		result = hash_string_subscript(vector, names, subscript, min_load_count);
-	} else {
+	} else { // XXX Is there a point to this? The maximum size is a 16 length ufo and a 16 length subscript.
         result = looped_string_subscript(vector, names, subscript, min_load_count);
 	}   
 
