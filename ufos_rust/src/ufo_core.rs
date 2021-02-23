@@ -294,7 +294,7 @@ impl UfoCore {
             state.objects_by_id.insert(id, ufo.clone());
             state.objects_by_segment.insert(segment, ufo.clone());
 
-            Ok(UfoHandle { id, ptr: c_ptr })
+            Ok(UfoHandle {core: Arc::downgrade(this), id, ptr: c_ptr })
         }
 
         fn reset_impl(this: &Arc<UfoCore>, ufo_id: UfoId) -> anyhow::Result<()> {

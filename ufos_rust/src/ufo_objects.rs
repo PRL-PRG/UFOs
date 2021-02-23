@@ -4,6 +4,7 @@ use std::num::NonZeroUsize;
 use std::result::Result;
 use std::sync::{Arc, Mutex, Weak};
 
+use anyhow::{Context, format_err};
 use blake3;
 use libc;
 use num::Integer;
@@ -242,6 +243,7 @@ impl UfoFileWriteback {
 
 //TODO: self destruct on drop, needs a weak link to the core
 pub struct UfoHandle {
+    pub(crate) core: Weak<UfoCore>,
     pub(crate) id: UfoId,
     pub(crate) ptr: *mut std::ffi::c_void,
 }
@@ -250,6 +252,49 @@ impl UfoHandle {
     pub fn as_ptr(&self) -> *mut std::ffi::c_void {
         self.ptr
     }
+
+    pub fn reset(&self) -> anyhow::Result<()>{
+        let wait_group = crossbeam::sync::WaitGroup::new();
+        let core = match self.core.upgrade(){
+            None => anyhow::bail!("Ufo Core shutdown"),
+            Some(x) => x,
+        };
+
+        core
+            .msg_send
+            .send(UfoInstanceMsg::Reset(wait_group.clone(), self.id))
+            .map_err(|_| anyhow::anyhow!("Cannot reset UFO, pipe broken"))?;
+
+        Ok(wait_group.wait())
+    }
+
+    fn free_impl(&self) -> anyhow::Result<()>{
+        let wait_group = crossbeam::sync::WaitGroup::new();
+        let core = match self.core.upgrade(){
+            None => anyhow::bail!("Ufo Core shutdown"),
+            Some(x) => x,
+        };
+
+        core
+            .msg_send
+            .send(UfoInstanceMsg::Free(wait_group.clone(), self.id))
+            .map_err(|_| anyhow::anyhow!("Cannot free UFO, pipe broken"))?;
+
+        Ok(wait_group.wait())
+    }
+
+    pub fn free(self) -> anyhow::Result<()>{
+        self.free_impl()
+    }
+}
+
+impl Drop for UfoHandle {
+    fn drop(&mut self) {
+        match self.free_impl() {
+            Err(e) => {debug_assert!(false, format_err!(e))},
+            _ => {}
+        };
+    }
 }
 
 unsafe impl Send for UfoHandle {}
@@ -257,7 +302,6 @@ unsafe impl Send for UfoHandle {}
 pub(crate) struct UfoObject {
     pub(crate) id: UfoId,
     pub(crate) config: UfoObjectConfig,
-    // pub(crate) core: Weak<UfoCore>,
     pub(crate) mmap: BaseMmap,
     pub(crate) writeback_util: UfoFileWriteback,
 }
