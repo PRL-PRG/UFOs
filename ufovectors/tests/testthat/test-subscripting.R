@@ -412,19 +412,33 @@ test_that("ufo string hash subscript one element", {
   expect_equal(result, reference)
 })
 
-test_that("ufo string subscript length=zero", {
+test_that("ufo string hash subscript one NA element", {
   ufo <- ufo_integer(100000)
   ufo[1:100000] <- 1:100000
   ufo_names <- paste0("N", 1:100000)
   ufo <- setNames(ufo, ufo_names)
 
-  subscript <- character(0)
+  subscript <- as.character(NA)
 
-  reference <- integer(0)
+  reference <- as.integer(NA)
   result <- ufovectors::subscript(ufo, subscript)
 
   expect_equal(result, reference)
 })
+
+# test_that("ufo hash string subscript length=zero", {
+#   ufo <- ufo_integer(100000)
+#   ufo[1:100000] <- 1:100000
+#   ufo_names <- paste0("N", 1:100000)
+#   ufo <- setNames(ufo, ufo_names)
+
+#   subscript <- character(0)
+
+#   reference <- integer(0)
+#   result <- ufovectors::subscript(ufo, subscript)
+
+#   expect_equal(result, reference)
+# })
 
 test_that("ufo string hash subscript length=small subset", {
   ufo <- ufo_integer(100000)
@@ -437,7 +451,7 @@ test_that("ufo string hash subscript length=small subset", {
   reference <- c(4, 10, 7, 100, 100)
   result <- ufovectors::subscript(ufo, subscript)
 
-  expect_equal(result, reference) # !!!
+  expect_equal(result, reference)
 })
 
 test_that("ufo string hash subscript length=small subset with NAs", {
@@ -446,17 +460,15 @@ test_that("ufo string hash subscript length=small subset with NAs", {
   ufo_names <- paste0("N", 1:100000)
   ufo <- setNames(ufo, ufo_names)
 
-  subscript <- c("N4", NA, "N10", NA, "N7", "N100", "N100", NA) # exposes the segfault! i ran it in sequence with all the previous ones though, gc-related?
+  subscript <- c("N4", NA, "N10", NA, "N7", "N100", "N100", NA)
 
   reference <- c(4, NA, 10, NA, 7, 100, 100, NA)
   result <- ufovectors::subscript(ufo, subscript)
 
   print(result)
 
-  expect_equal(result, reference) # !!!
+  expect_equal(result, reference)
 })
-# rash.c:372
-# R_xlen_t incumbent_index = (R_xlen_t) REAL_ELT(irash.hash_to_index_table, index);
 
 
 test_that("ufo string hash subscript length=large subset", {
@@ -470,16 +482,91 @@ test_that("ufo string hash subscript length=large subset", {
   reference <- c(1:1000, 2000:5000, 10:1000, 6000:10000)
   result <- ufovectors::subscript(ufo, subscript)
 
-  expect_equal(result, reference) # !!!
+  expect_equal(result, reference)
 })
 
-# TODO text NAs in integers and numerics
+test_that("ufo string loop subscript one element", {
+  ufo <- ufo_integer(16)
+  ufo[1:16] <- 1:16
+  ufo_names <- paste0("N", 1:16)
+  ufo <- setNames(ufo, ufo_names)
 
-# Warning: stack imbalance in '<-', 77 then 78
-# Warning: stack imbalance in '{', 73 then 74
-# Warning: stack imbalance in '<-', 77 then 78
-# Warning: stack imbalance in '{', 73 then 74
-# Warning: stack imbalance in '<-', 77 then 78
-# Warning: stack imbalance in '{', 73 then 74
-# Warning: stack imbalance in '<-', 77 then 78
-# Warning: stack imbalance in '{', 73 then 74
+  subscript <- "N7"
+
+  reference <- as.integer(7)
+  result <- ufovectors::subscript(ufo, subscript)
+
+  expect_equal(result, reference)
+})
+
+test_that("ufo string loop subscript NA element", {
+  ufo <- ufo_integer(16)
+  ufo[1:16] <- 1:16
+  ufo_names <- paste0("N", 1:16)
+  ufo <- setNames(ufo, ufo_names)
+
+  subscript <- as.character(NA)
+
+  reference <- as.integer(NA)
+  result <- ufovectors::subscript(ufo, subscript)
+
+  expect_equal(result, reference)
+})
+
+test_that("ufo string loop subscript length=zero", {
+  ufo <- ufo_integer(16)
+  ufo[1:16] <- 1:16
+  ufo_names <- paste0("N", 1:16)
+  ufo <- setNames(ufo, ufo_names)
+
+  subscript <- character(0)
+
+  reference <- integer(0)
+  result <- ufovectors::subscript(ufo, subscript)
+
+  expect_equal(result, reference)
+})
+
+test_that("ufo string loop subscript length=small subset", {
+  ufo <- ufo_integer(16)
+  ufo[1:16] <- 1:16
+  ufo_names <- paste0("N", 1:16)
+  ufo <- setNames(ufo, ufo_names)
+
+  subscript <- c("N4", "N10", "N7", "N7")
+
+  reference <- c(4, 10, 7, 7)
+  result <- ufovectors::subscript(ufo, subscript)
+
+  expect_equal(result, reference)
+})
+
+test_that("ufo string loop subscript length=small subset with NAs", {
+  ufo <- ufo_integer(16)
+  ufo[1:16] <- 1:16
+  ufo_names <- paste0("N", 1:16)
+  ufo <- setNames(ufo, ufo_names)
+
+  subscript <- c("N4", NA, "N10", NA, "N7", "N7", NA)
+
+  reference <- c(4, NA, 10, NA, 7, 7, NA)
+  result <- ufovectors::subscript(ufo, subscript)
+
+  print(result)
+
+  expect_equal(result, reference)
+})
+
+test_that("ufo string loop subscript length=large subset", {
+  ufo <- ufo_integer(16)
+  ufo[1:16] <- 1:16
+  ufo_names <- paste0("N", 1:16)
+  ufo <- setNames(ufo, ufo_names)
+
+  subscript <- paste0("N", c(1:8, 12:16, 9:11))
+
+  reference <- c(1:8, 12:16, 9:11)
+  result <- ufovectors::subscript(ufo, subscript)
+
+  expect_equal(result, reference)
+})
