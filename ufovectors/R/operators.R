@@ -22,7 +22,14 @@ ufo_unequal       <- function(x, y)   .ufo_binary(.base_unequal,       "ufo_log_
 ufo_or            <- function(x, y)   .ufo_binary(.base_or,            "ufo_log_result", x, y)
 ufo_and           <- function(x, y)   .ufo_binary(.base_and,           "ufo_log_result", x, y)
 ufo_not           <- function(x)      .ufo_unary (.base_not,           "ufo_neg_result", x)
-#ufo_subset        <- function(x, i) 
+
+ufo_subset <- function(x, i, ..., drop=TRUE) {
+  cat("[...]\n")
+
+  result <- .Call(result_inference, x, y, as.integer(min_load_count))
+  result_size <- length(result);
+  number_of_chunks <- ceiling(result_size / chunk_size)
+}
 #ufo_subset_assign <- function(x, i, v)
 
 #-----------------------------------------------------------------------------
@@ -34,31 +41,33 @@ ufo_not           <- function(x)      .ufo_unary (.base_not,           "ufo_neg_
   if (!is_ufo(x) && !is_ufo(y)) return(operation(x, y))
 
   result <- .Call(result_inference, x, y, as.integer(min_load_count))
-  result_size <- length(result);    
+  result_size <- length(result);
   number_of_chunks <- ceiling(result_size / chunk_size)
-            
+
   for (chunk in 0:(.base_subtract(number_of_chunks, 1))) {
     x_chunk <- .Call("ufo_get_chunk", x, chunk, chunk_size, result_size)
     y_chunk <- .Call("ufo_get_chunk", y, chunk, chunk_size, result_size)
     result[attr(x_chunk, 'start_index'):attr(x_chunk, 'end_index')] <- operation(x_chunk, y_chunk)
   }
-  
+
+  # TODO copy attributes`
   return(.add_class(result, "ufo", .check_add_class()))
 }
 
 .ufo_unary <- function(operation, result_inference, x, min_load_count=0, chunk_size=100000) {
   #cat("...\n")
   if (!is_ufo(x)) return(operation(x))
-  
+
   result <- .Call(result_inference, x, as.integer(min_load_count))
-  result_size <- length(result);    
+  result_size <- length(result);
   number_of_chunks <- ceiling(result_size / chunk_size)
-  
+
   for (chunk in 0:(.base_subtract(number_of_chunks, 1))) {
     x_chunk <- .Call("ufo_get_chunk", x, chunk, chunk_size, result_size)
     result[attr(x_chunk, 'start_index'):attr(x_chunk, 'end_index')] <- operation(x_chunk)
   }
-  
+
+  # TODO copy attributes
   return(.add_class(result, "ufo", .check_add_class()))
 }
 
@@ -111,8 +120,8 @@ overload_operators <- function() {
     #"`[` <- ufovectors:::ufo_subset",
     #"`[<-` <- ufovectors:::ufo_subset_assign"
   )
-  
-  eval(parse(text=operator_overload_statements), envir=globalenv())
+
+  eval(parse(text = operator_overload_statements), envir = globalenv())
 }
 
 unload_operators <- function() {
@@ -136,7 +145,7 @@ unload_operators <- function() {
     #"`[` <- ufovectors:::.base_subset",
     #"`[<-`	<- ufovectors:::.base_subset_assign"
   )
-  
+
   eval(parse(text=operator_overload_statements), envir=globalenv())
 }
 
@@ -144,29 +153,31 @@ unload_operators <- function() {
 # options(ufovectors.overload_operators = TRUE)
 .onLoad <- function(...) {
   if (isTRUE(getOption("ufovectors.add_class"))) {
-    registerS3method("+",   "ufo", ufo_add)
-    registerS3method("-",   "ufo", ufo_subtract)
-    registerS3method("*",   "ufo", ufo_multiply)
-    registerS3method("/",   "ufo", ufo_divide)
-    registerS3method("^",   "ufo", ufo_power)
-    registerS3method("%%",  "ufo", ufo_modulo)
-    registerS3method("%/%", "ufo", ufo_int_divide)
-    registerS3method("<",   "ufo", ufo_less)
-    registerS3method("<=",  "ufo", ufo_less_equal)
-    registerS3method(">",   "ufo", ufo_greater)
-    registerS3method(">=",  "ufo", ufo_greater_equal)
-    registerS3method("==",  "ufo", ufo_equal)
-    registerS3method("!=",  "ufo", ufo_unequal)
-    registerS3method("!",   "ufo", ufo_not)
-    registerS3method("|",   "ufo", ufo_or)
-    registerS3method("&",   "ufo", ufo_and)
-    #registerS3method("[",   "ufo", ufo_subset)
-    #registerS3method("[<-", "ufo", ufo_subset_assign)	
+    registerS3method("+",   "ufo", ufovectors:::ufo_add)
+    registerS3method("-",   "ufo", ufovectors:::ufo_subtract)
+    registerS3method("*",   "ufo", ufovectors:::ufo_multiply)
+    registerS3method("/",   "ufo", ufovectors:::ufo_divide)
+    registerS3method("^",   "ufo", ufovectors:::ufo_power)
+    registerS3method("%%",  "ufo", ufovectors:::ufo_modulo)
+    registerS3method("%/%", "ufo", ufovectors:::ufo_int_divide)
+    registerS3method("<",   "ufo", ufovectors:::ufo_less)
+    registerS3method("<=",  "ufo", ufovectors:::ufo_less_equal)
+    registerS3method(">",   "ufo", ufovectors:::ufo_greater)
+    registerS3method(">=",  "ufo", ufovectors:::ufo_greater_equal)
+    registerS3method("==",  "ufo", ufovectors:::ufo_equal)
+    registerS3method("!=",  "ufo", ufovectors:::ufo_unequal)
+    registerS3method("!",   "ufo", ufovectors:::ufo_not)
+    registerS3method("|",   "ufo", ufovectors:::ufo_or)
+    registerS3method("&",   "ufo", ufovectors:::ufo_and)
+    registerS3method("[",   "ufo", ufovectors:::ufo_subset)
+    #registerS3method("[<-", "ufo", ufovectors:::ufo_subset_assign)	
   }
-  
+
   if (isTRUE(getOption("ufovectors.overload_operators"))) {
     ufovectors:::overload_operators()
   }
 }
 
-
+subscript <- function(x, subscript, min_load_count=0) {
+  .Call("ufo_subscript", x, subscript, as.integer(min_load_count))
+}

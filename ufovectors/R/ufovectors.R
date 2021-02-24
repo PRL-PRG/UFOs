@@ -185,39 +185,43 @@ ufo_csv <- function(path, min_load_count = 0, check_names=T, header=T, record_ro
   if(check_names) {
     names(df) <- make.names(names(df), unique=T)
   }
-  
+
   if (add_class) for(col_name in names(df)) {
     attr(df[[col_name]], "class") <- "ufo"
   }
-  
+
   df
 }
 # todo row.names
 
-ufo_integer <- function(size, min_load_count = 0, add_class = .check_add_class()) {
+ufo_integer <- function(size, populate_with_NAs = FALSE, min_load_count = 0, add_class = .check_add_class()) {
   .add_class(.Call("ufo_intsxp_empty",
                   as.numeric(size),
+                  as.logical(populate_with_NAs),
                   as.integer(.expect_exactly_one(min_load_count))),
              "ufo", add_class)
 }
 
-ufo_numeric <- function(size, min_load_count = 0, add_class = .check_add_class()) {
+ufo_numeric <- function(size, populate_with_NAs = FALSE, min_load_count = 0, add_class = .check_add_class()) {
   .add_class(.Call("ufo_realsxp_empty",
                   as.numeric(size),
+                  as.logical(populate_with_NAs),
                   as.integer(.expect_exactly_one(min_load_count))),
              "ufo", add_class)
 }
 
-ufo_complex <- function(size, min_load_count = 0, add_class = .check_add_class()) {
+ufo_complex <- function(size, populate_with_NAs = FALSE, min_load_count = 0, add_class = .check_add_class()) {
   .add_class(.Call("ufo_cplxsxp_empty",
                   as.numeric(size),
+                  as.logical(populate_with_NAs),
                   as.integer(.expect_exactly_one(min_load_count))),
              "ufo", add_class)
 }
 
-ufo_logical <- function(size, min_load_count = 0, add_class = .check_add_class()) {
+ufo_logical <- function(size, populate_with_NAs = FALSE, min_load_count = 0, add_class = .check_add_class()) {
   .add_class(.Call("ufo_lglsxp_empty",
                   as.numeric(size),
+                  as.logical(populate_with_NAs),
                   as.integer(.expect_exactly_one(min_load_count))),
              "ufo", add_class)
 }
@@ -229,9 +233,10 @@ ufo_raw <- function(size, min_load_count = 0, add_class = .check_add_class()) {
              "ufo", add_class)
 }
 
-ufo_character <- function(size, min_load_count = 0, add_class = .check_add_class()) {
+ufo_character <- function(size, populate_with_NAs = FALSE, min_load_count = 0, add_class = .check_add_class()) {
   .add_class(.Call("ufo_strsxp_empty",
                   as.numeric(size),
+                  as.logical(populate_with_NAs),
                   as.integer(.expect_exactly_one(min_load_count))),
              "ufo", add_class)
   result

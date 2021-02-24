@@ -4,7 +4,7 @@
 
 int __extract_int_or_die(SEXP/*INTSXP*/ sexp) {
     if (TYPEOF(sexp) != INTSXP) {
-        Rf_error("Invalid type for integer vector: %d\n", TYPEOF(sexp));
+        Rf_error("Invalid type for integer vector: %s\n", type2char(TYPEOF(sexp)));
     }
 
     if (LENGTH(sexp) == 0) {
@@ -21,7 +21,7 @@ int __extract_int_or_die(SEXP/*INTSXP*/ sexp) {
 
 int __extract_boolean_or_die(SEXP/*LGLSXP*/ sexp) {
     if (TYPEOF(sexp) != LGLSXP) {
-        Rf_error("Invalid type for boolean vector: %d\n", TYPEOF(sexp));
+        Rf_error("Invalid type for boolean vector: %s\n", type2char(TYPEOF(sexp)));
     }
 
     if (LENGTH(sexp) == 0) {
@@ -39,7 +39,7 @@ int __extract_boolean_or_die(SEXP/*LGLSXP*/ sexp) {
 
 R_xlen_t __extract_R_xlen_t_or_die(SEXP/*REALSXP|INTSXP*/ sexp) {
 	if (TYPEOF(sexp) != REALSXP &&  TYPEOF(sexp) != INTSXP) {
-        Rf_error("Invalid type for R_xlen_t vector: %d\n", TYPEOF(sexp));
+        Rf_error("Invalid type for R_xlen_t vector: %s\n", type2char(TYPEOF(sexp)));
     }
 
     if (LENGTH(sexp) == 0) {
@@ -84,7 +84,7 @@ R_xlen_t __extract_R_xlen_t_or_die(SEXP/*REALSXP|INTSXP*/ sexp) {
  */
 const char* __extract_path_or_die(SEXP/*STRSXP*/ path) {
     if (TYPEOF(path) != STRSXP) {
-        Rf_error("Invalid type for paths: %d\n", TYPEOF(path));
+        Rf_error("Invalid type for paths: %s\n", type2char(TYPEOF(path)));
     }
 
     if (LENGTH(path) == 0) {
@@ -92,7 +92,7 @@ const char* __extract_path_or_die(SEXP/*STRSXP*/ path) {
     }
 
     if (TYPEOF(STRING_ELT(path, 0)) != CHARSXP) {
-        Rf_error("Invalid type for path: %d\n", TYPEOF(STRING_ELT(path, 0)));
+        Rf_error("Invalid type for path: %s\n", type2char(TYPEOF(STRING_ELT(path, 0))));
     }
 
     if (LENGTH(path) > 2) {
@@ -130,7 +130,7 @@ size_t __get_element_size(SEXPTYPE vector_type) {
         case RAWSXP:
             return sizeof(Rbyte);
         default:
-            Rf_error("Unrecognized vector type: %d\n", vector_type);
+            Rf_error("Unrecognized vector type: %s\n", type2char(vector_type));
     }
 }
 

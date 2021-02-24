@@ -29,7 +29,14 @@
 
 set(TEMP_CMAKE_FIND_APPBUNDLE ${CMAKE_FIND_APPBUNDLE})
 set(CMAKE_FIND_APPBUNDLE "NEVER")
-find_program(R_COMMAND R DOC "R executable.")
+if(NOT R_COMMAND)
+  if(DEFINED ENV{R_COMMAND}) 
+    set(R_COMMAND $ENV{R_COMMAND})
+  else()
+    message(FATAL_ERROR "Define the R_COMMAND environment variable to point to the R executable (*/bin/R) and make sure to export it.")
+  endif() 
+  find_program(R_COMMAND R DOC "R executable.")
+endif()
 set(CMAKE_FIND_APPBUNDLE ${TEMP_CMAKE_FIND_APPBUNDLE})
 
 if(NOT R_LIB_ARCH)
@@ -37,10 +44,13 @@ if(NOT R_LIB_ARCH)
 endif()
 
 if(R_COMMAND)
+  #message("R_COMMAND = " ${R_COMMAND})
   execute_process(WORKING_DIRECTORY .
                   COMMAND ${R_COMMAND} RHOME
                   OUTPUT_VARIABLE R_ROOT_DIR
                   OUTPUT_STRIP_TRAILING_WHITESPACE)
+  # nasty hack to prevent R's warning message from messing up the path:
+  string(REPLACE "WARNING: ignoring environment value of R_HOME\n" "" R_ROOT_DIR ${R_ROOT_DIR}) 
   # deprecated
   if(VTK_R_HOME)
     set(R_HOME ${VTK_R_HOME} CACHE PATH "R home directory obtained from R RHOME")
@@ -52,11 +62,13 @@ if(R_COMMAND)
   # the following command does nothing currently, but will be used when deprecated code is removed
   set(R_HOME ${R_ROOT_DIR} CACHE PATH "R home directory obtained from R RHOME")
 
+  #message("R_ROOT_DIR = " ${R_ROOT_DIR})
   find_path(R_INCLUDE_DIR R.h
             HINTS ${R_ROOT_DIR}
-            PATHS /usr/local/lib /usr/local/lib64 /usr/share
+            PATHS /opt /usr/local/lib /usr/local/lib64 /usr/share
             PATH_SUFFIXES include R/include
             DOC "Path to file R.h")
+  #message("R_INCLUDE_DIR = " ${R_INCLUDE_DIR})
   if(NOT R_INCLUDE_DIR)
     message(
         FATAL_ERROR

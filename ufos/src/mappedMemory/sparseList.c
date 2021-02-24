@@ -67,18 +67,22 @@ void freeList(sparseList_t list){
   free(l);
 }
 
-static inline int eCompare(bool overlapEq, uint64_t i, entryI* e){
-  const bool ltP = i < e->ptrI;
-  const bool gt  = overlapEq ? i >= (e->ptrI + e->length) : i > e->ptrI;
+static inline int eCompare(const bool overlapEq, const bool skipUnoccupied, const uint64_t i, const entryI* e){
+  if(i < e->ptrI) // less than the pointer
+    return -1;
 
-   if(ltP) // less than the pointer
-     return -1;
-   if(gt) // greater than either the pointer or the end
-     return 1;
-   return 0; // between ptr and the end or exactly eqal to ptr
+  // When skipping unoccupied slots they are less than anything they are not greater than
+  if(skipUnoccupied && !e->occupied)
+      return 1;
+
+  // Normal comparison, possibly with overlap
+  const bool gt = overlapEq ? i >= e->ptrI + e->length : i > e->ptrI;
+  if(gt) // Strictly greater
+    return 1;
+  return 0; // between ptr and the end or exactly eqal to ptr
 }
 
-static searchResult binarySearch(sparseList* list, uint64_t i){
+static searchResult binarySearch(sparseList* list, bool skipUnoccupied, uint64_t i){
   if(0 == list->usedSlots)
     return (searchResult){0, 0};
   entryI* e;
@@ -89,13 +93,13 @@ static searchResult binarySearch(sparseList* list, uint64_t i){
   do{
     assert(l >= 0);
     assert(h < list->usedSlots);
-    // https://web.archive.org/web/20190513121937/https://ai.googleblog.com/2006/06/extra-extra-read-all-about-it-nearly.html
-    m = (l+h) >> 1; // find median
+
+    m = (int64_t) (((uint64_t)l+(uint64_t)h) >> 1); // find median
     assert(m >= l);
     assert(m <= h);
 
     e = list->list+m;
-    switch(cmp = eCompare(e->occupied, i, e)){
+    switch(cmp = eCompare(e->occupied, skipUnoccupied, i, e)){
       case -1:
         h = m - 1;
         break;
@@ -270,10 +274,10 @@ static void assertListInvariants(sparseList* l){
 
     // Make sure that the element below i is smaller
     if(i != 0)
-      assert(-1 == eCompare(true, l->list[i-1].ptrI, e));
+      assert(-1 == eCompare(true, false, l->list[i-1].ptrI, e));
     // and the element above is higher
     if(i+1 < u)
-      assert(+1 == eCompare(l->list[i+1].occupied, l->list[i+1].ptrI, e));
+      assert(+1 == eCompare(l->list[i+1].occupied, false, l->list[i+1].ptrI, e));
   }
 
   // We saw the correct number of elements, right?
@@ -292,7 +296,7 @@ int listAdd(sparseList_t list_t, void* ptr, uint64_t length, dataPtr value){
    *  • the idx of an overlaping element, and will also flag the return as "contains"
    *  • give us the index one past the end of the list because we are adding an element larger than the rest of the list
    */
-  const searchResult insertionPoint = binarySearch(l, (uint64_t) ptr);
+  const searchResult insertionPoint = binarySearch(l, false, (uint64_t) ptr);
   entryI* e;
 
   if(insertionPoint.contains){
@@ -321,8 +325,18 @@ int listAdd(sparseList_t list_t, void* ptr, uint64_t length, dataPtr value){
     if(err) return err;
   }
 
-  //Always re-read e with the new index
-  e = l->list + actualIdx;
+  // find the lowest entry possible in case we are in the middle of a bunch of displaced garbage entries
+  do {
+    //Always re-read e with the new index
+    e = l->list + actualIdx;
+    if(actualIdx == 0)
+      break; // Already the lowest entry
+    entryI* pred = e - 1;
+    if(!pred->occupied && pred->ptrI != e->ptrI)
+      actualIdx--; // We can go down by 1
+    else
+      break; // we're in the perfect slot
+  }while(true);
 
   // the entry will be marked as a tombstone upon grow, or was a tombstone
   if(e->occupied){
@@ -337,13 +351,28 @@ int listAdd(sparseList_t list_t, void* ptr, uint64_t length, dataPtr value){
 
   l->size++;
 
+  // Change successor garbage slots so they are strictly larger than us
+  const uint64_t eEndPtr = e->ptrI + e->length;
+  for(uint64_t testIdx = actualIdx + 1; testIdx < l->allocatedSlots; testIdx++){
+    entryI* testE = l->list + testIdx;
+    if(testE->occupied){
+      break; // No longer dealing with garbage
+      //Ensure that the next non-garbage entry doesn't overlap with us
+      assert(1 ==  eCompare(testE->occupied, false, testE->ptrI, e));
+    }
+    
+    assert(!testE->occupied);
+    // Finagle the garbage entry so it is strictly larger than us
+    testE->ptrI = eEndPtr;
+  }
+
   // Ensure the element just added is greater than its predecessor and less than its sucessor
   // This holds true even if those slots are no longer "occupied"
   assert(actualIdx < l->usedSlots);
-  assert(actualIdx == 0 || -1 == eCompare(true, l->list[actualIdx-1].ptrI, e));
+  assert(actualIdx == 0 || -1 == eCompare(true, false, l->list[actualIdx-1].ptrI, e));
   // Check if the next slot it strictly larger than us. If it is occupied check for overlap too
   if(actualIdx+1 < l->usedSlots)
-    assert(1 ==  eCompare(l->list[actualIdx+1].occupied, l->list[actualIdx+1].ptrI, e));
+    assert(1 == eCompare(l->list[actualIdx+1].occupied, false, l->list[actualIdx+1].ptrI, e));
 
   // Expensive assertion of all list invariants that we can think of
   // Will be a nop if turned off
@@ -362,7 +391,7 @@ int listRemove(sparseList_t list, void* ptr){
   sparseList* l = (sparseList*) list;
   const uint32_t modCt = incGetModCt(l);
 
-  searchResult r = binarySearch(l, (uint64_t) ptr);
+  searchResult r = binarySearch(l, false, (uint64_t) ptr);
 
   if(!r.contains)
     return NotRemoved;
@@ -386,7 +415,7 @@ int listRemove(sparseList_t list, void* ptr){
 
 int listFind(sparseList_t list, entry* entry,  void* ptr){
   sparseList* l = (sparseList*) list;
-  searchResult r = binarySearch(l, (uint64_t) ptr);
+  searchResult r = binarySearch(l, true, (uint64_t) ptr);
 
   if(r.contains){ // Something found
     entryI* e = l->list + r.idx;

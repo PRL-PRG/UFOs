@@ -6,7 +6,7 @@ context("Make segfault")
 #    for (i in 1:repeats) { writeBin(template, handle) }
 #    close(handle)
 #    path
-#} 
+#}
 
 #destroy_bin_file <- function(path) {
 #	unlink(path)
@@ -25,11 +25,10 @@ context("Make segfault")
 #})
 
 test_that("sum 1G int ones", {
-	a <- ufo_integer(100000000)
-	rm(a);
-	 
-    v <- ufo_integer(1000000) 
+    a <- ufo_integer(100000000)
+    rm(a);
+
+    v <- ufo_integer(1000000)
     s <- sum(v)
     expect_equal(s, 0)
 })
-

@@ -24,15 +24,15 @@ set(UNSTDLIB_SRC
                 src/unstdLib/math.h
                 src/unstdLib/vars.h)
 
-set(R_SRC       src/ufos.h
-                src/ufos.c
-                src/init.c)
+# set(R_SRC       src/ufos.h
+#                 src/ufos.c
+#                 src/init.c)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-find_package(R REQUIRED)
-message("R libraries: ${R_LIBRARIES}")
-message("R include dirs: ${R_INCLUDE_DIR}")
+# find_package(R REQUIRED)
+# message("R libraries: ${R_LIBRARIES}")
+# message("R include dirs: ${R_INCLUDE_DIR}")
 
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)

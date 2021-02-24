@@ -371,6 +371,11 @@ static bool nonOverlapping(ufInstance* i, ufObject* ufo){
   return isOverlapping;
 }
 
+#define UFFD_IOCTLS_NEEDED      \
+	((__u64)1 << _UFFDIO_WAKE |		\
+	 (__u64)1 << _UFFDIO_COPY |		\
+	 (__u64)1 << _UFFDIO_ZEROPAGE)
+
 static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
   assert(ufAllocateMsg == msg->msgType);
   int res;
@@ -394,10 +399,10 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
   // register with the kernel
   struct uffdio_register ufM;
   ufM = (struct uffdio_register) {.range = {.start = ufo->startI, .len = ufo->trueSize}, .mode = UFFDIO_REGISTER_MODE_MISSING, .ioctls = 0};
-  tryPerrInt(res, ioctl(i->ufFd, UFFDIO_REGISTER, &ufM), "error registering ufo with UF", callerErr);
+  tryPerrInt(res, ioctl(i->ufFd, UFFDIO_REGISTER, &ufM), "error registering ufo with kernel", callerErr);
 
-  if((ufM.ioctls & UFFD_API_RANGE_IOCTLS) != UFFD_API_RANGE_IOCTLS) {
-    perror("unexpected userfaultfd ioctl set\n");
+  if((ufM.ioctls & UFFD_IOCTLS_NEEDED) != UFFD_IOCTLS_NEEDED) {
+    perror("missing userfaultfd ioctl\n");
     goto error;
   }
 
