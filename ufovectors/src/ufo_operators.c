@@ -584,7 +584,7 @@ R_xlen_t ufo_subscript_dimension_length(SEXP vector, SEXP subscript, SEXP min_lo
 }
 
 SEXP null_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
-	return allocVector(TYPEOF(vector), 0);
+	return allocVector(INTSXP, 0);
 }
 
 SEXP logical_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {

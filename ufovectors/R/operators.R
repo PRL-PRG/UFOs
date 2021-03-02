@@ -181,3 +181,24 @@ unload_operators <- function() {
 subscript <- function(x, subscript, min_load_count=0) {
   .Call("ufo_subscript", x, subscript, as.integer(min_load_count))
 }
+
+# Notes on subsetting:
+#
+# +-------------------+-------------------+----------+
+# | capture method    | works from C code | hygene   |
+# +-------------------+-------------------+----------+
+# | ALTREP            | Y                 | good     |
+# | S3                | N                 | good     |
+# | redefine operator | N                 | criminal |
+# +-------------------+-------------------+----------+
+#
+# +-------------------+-------------+-------------+--------------------+
+# | store result in   | disk use    | memory use  | overhead on access |
+# +-------------------+-------------+-------------+--------------------+
+# | ALTREP / viewport | none        | index size  | some               |
+# | UFO copy          | result size | negligible  | negligible         |
+# | R copy            | none        | result size | none               |
+# +-------------------+-------------+-------------+--------------------+
+# | UFO viewport      |             currently not possible             |
+# +-------------------+------------------------------------------------+
+#
