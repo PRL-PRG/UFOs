@@ -883,7 +883,7 @@ SEXP copy_selected_values_according_to_integer_indices(SEXP source, SEXP target,
 	switch (TYPEOF(source))	{
 	case INTSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			R_xlen_t index_in_source = INTEGER_ELT(indices_into_source, i);
+			R_xlen_t index_in_source = INTEGER_ELT(indices_into_source, i) - 1;
 			make_sure(index_in_source < source_length, Rf_error, 
 			  		  "Index out of bounds %d >= %d.", 
 					  index_in_source, index_length);
@@ -893,7 +893,7 @@ SEXP copy_selected_values_according_to_integer_indices(SEXP source, SEXP target,
 	
 	case REALSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			R_xlen_t index_in_source = INTEGER_ELT(indices_into_source, i);
+			R_xlen_t index_in_source = INTEGER_ELT(indices_into_source, i) - 1;
 			make_sure(index_in_source < source_length, Rf_error, 
 			  		  "Index out of bounds %d >= %d.", 
 					  index_in_source, index_length);
@@ -903,7 +903,7 @@ SEXP copy_selected_values_according_to_integer_indices(SEXP source, SEXP target,
 
 	case CPLXSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			R_xlen_t index_in_source = INTEGER_ELT(indices_into_source, i);
+			R_xlen_t index_in_source = INTEGER_ELT(indices_into_source, i) - 1;
 			make_sure(index_in_source < source_length, Rf_error, 
 			  		  "Index out of bounds %d >= %d.", 
 					  index_in_source, index_length);
@@ -913,7 +913,7 @@ SEXP copy_selected_values_according_to_integer_indices(SEXP source, SEXP target,
 
 	case LGLSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			R_xlen_t index_in_source = INTEGER_ELT(indices_into_source, i);
+			R_xlen_t index_in_source = INTEGER_ELT(indices_into_source, i) - 1;
 			make_sure(index_in_source < source_length, Rf_error, 
 			  		  "Index out of bounds %d >= %d.", 
 					  index_in_source, index_length);
@@ -923,7 +923,7 @@ SEXP copy_selected_values_according_to_integer_indices(SEXP source, SEXP target,
 
 	case RAWSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			R_xlen_t index_in_source = INTEGER_ELT(indices_into_source, i);
+			R_xlen_t index_in_source = INTEGER_ELT(indices_into_source, i) - 1;
 			make_sure(index_in_source < source_length, Rf_error, 
 			  		  "Index out of bounds %d >= %d.", 
 					  index_in_source, index_length);

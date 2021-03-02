@@ -28,7 +28,7 @@ ufo_not           <- function(x)      .ufo_unary (.base_not,           "ufo_neg_
 # Subsetting
 #-----------------------------------------------------------------------------
 
-ufo_subset <- function(x, subscript, ..., drop=FALSE, min_load_count=0) { # drop ignored for ordinary vectors, it seems?
+subset <- function(x, subscript, ..., drop=FALSE, min_load_count=0) { # drop ignored for ordinary vectors, it seems?
   cat("[...]\n")
   # choice of output type goes here? or inside
   .Call("ufo_subset", x, subscript, as.integer(min_load_count))
@@ -36,7 +36,7 @@ ufo_subset <- function(x, subscript, ..., drop=FALSE, min_load_count=0) { # drop
 
 #ufo_subset_assign <- function(x, i, v)
 
-ufo_subscript <- function(x, subscript, min_load_count=0) {
+subscript <- function(x, subscript, min_load_count=0) {
   .Call("ufo_subscript", x, subscript, as.integer(min_load_count))
 }
 
