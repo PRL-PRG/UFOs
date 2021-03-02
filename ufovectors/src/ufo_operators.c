@@ -563,7 +563,7 @@ R_xlen_t logical_subscript_length(SEXP vector, SEXP subscript) {
 }
 
 R_xlen_t string_subscript_length(SEXP vector, SEXP subscript) {
-	Rf_error("Not implemented yet.");
+	return XLENGTH(subscript);
 }
 
 R_xlen_t ufo_subscript_dimension_length(SEXP vector, SEXP subscript, SEXP min_load_count_sexp) {
@@ -863,9 +863,109 @@ SEXP ufo_subscript(SEXP vector, SEXP subscript, SEXP min_load_count_sexp) {
 	return R_NilValue;
 }
 
-SEXP ufo_subset(SEXP x, SEXP y, SEXP min_load_count_sexp) {
-	Rf_error("not implemented");
+// XXX Can copy by region for contiguous, ordered areas of memory
+SEXP copy_selected_values_according_to_integer_indices(SEXP source, SEXP target, SEXP indices_into_source) {
+	make_sure(TYPEOF(source) == TYPEOF(target), Rf_error, 
+			  "Source and target vector must have the same type to copy "
+			  "selected values from one to the other.");
+
+	make_sure(TYPEOF(indices_into_source) == INTSXP, Rf_error, 
+	 		  "Index vector was expected to be of type INTSXP, but found %i.",
+	 		  TYPEOF(indices_into_source)); // TODO pretty print
+
+	R_xlen_t index_length = XLENGTH(indices_into_source);
+	R_xlen_t source_length = XLENGTH(source);
+
+	make_sure(XLENGTH(target) == index_length, Rf_error, 
+			  "The target vector must be the same size as the index vector "
+			  "when copying selected values between two vectors.");
+
+	switch (TYPEOF(source))	{
+	case INTSXP:
+		for (R_xlen_t i = 0; i < index_length; i++) {
+			R_xlen_t index_in_source = INTEGER_ELT(indices_into_source, i);
+			make_sure(index_in_source < source_length, Rf_error, 
+			  		  "Index out of bounds %d >= %d.", 
+					  index_in_source, index_length);
+			SET_INTEGER_ELT(target, i, INTEGER_ELT(source, index_in_source));
+		}
+		break;
+	
+	case REALSXP:
+		for (R_xlen_t i = 0; i < index_length; i++) {
+			R_xlen_t index_in_source = INTEGER_ELT(indices_into_source, i);
+			make_sure(index_in_source < source_length, Rf_error, 
+			  		  "Index out of bounds %d >= %d.", 
+					  index_in_source, index_length);
+			SET_REAL_ELT(target, i, REAL_ELT(source, index_in_source));
+		}
+		break;
+
+	case CPLXSXP:
+		for (R_xlen_t i = 0; i < index_length; i++) {
+			R_xlen_t index_in_source = INTEGER_ELT(indices_into_source, i);
+			make_sure(index_in_source < source_length, Rf_error, 
+			  		  "Index out of bounds %d >= %d.", 
+					  index_in_source, index_length);
+			SET_REAL_ELT(target, i, REAL_ELT(source, index_in_source));
+		}
+		break;
+
+	case LGLSXP:
+		for (R_xlen_t i = 0; i < index_length; i++) {
+			R_xlen_t index_in_source = INTEGER_ELT(indices_into_source, i);
+			make_sure(index_in_source < source_length, Rf_error, 
+			  		  "Index out of bounds %d >= %d.", 
+					  index_in_source, index_length);
+			SET_LOGICAL_ELT(target, i, LOGICAL_ELT(source, index_in_source));
+		}
+		break;
+
+	case RAWSXP:
+		for (R_xlen_t i = 0; i < index_length; i++) {
+			R_xlen_t index_in_source = INTEGER_ELT(indices_into_source, i);
+			make_sure(index_in_source < source_length, Rf_error, 
+			  		  "Index out of bounds %d >= %d.", 
+					  index_in_source, index_length);
+			SET_RAW_ELT(target, i, RAW_ELT(source, index_in_source));
+		}
+		break;
+
+		// TODO potentially others
+	
+	default:
+		Rf_error("Cannot copy selected values from vector of type %i to "
+		         "vector of type %i", 
+		         TYPEOF(source), TYPEOF(target)); // TODO pretty print
+	}
+
+	return target;
+}
+
+SEXP copy_selected_values_according_to_real_indices(SEXP source, SEXP target, SEXP indices_into_source) {
+	Rf_error("Not implemented."); // TODO
 	return R_NilValue;
+}
+
+SEXP ufo_subset_copy_into_new_ufo(SEXP vector, SEXP/*INT|REAL*/ indices, int32_t min_load_count) {	
+	R_xlen_t result_length = XLENGTH(indices);
+	SEXP result = ufo_empty(TYPEOF(vector), result_length, false, min_load_count);
+
+	switch (TYPEOF(indices)) {
+	case INTSXP:
+		return copy_selected_values_according_to_integer_indices(vector, result, indices);
+	case REALSXP:
+		return copy_selected_values_according_to_real_indices(vector, result, indices);
+	default:
+		Rf_error("unreachable");
+		return R_NilValue;
+	}
+}
+
+SEXP ufo_subset(SEXP vector, SEXP subscript, SEXP min_load_count_sexp) {
+	int32_t min_load_count = (int32_t) __extract_int_or_die(min_load_count_sexp);
+	SEXP indices = ufo_subscript(vector, subscript, min_load_count_sexp);
+	return ufo_subset_copy_into_new_ufo(vector, indices, min_load_count); // TODO other mechanisms
 }
 
 SEXP ufo_subset_assign(SEXP x, SEXP y, SEXP z, SEXP min_load_count_sexp) {

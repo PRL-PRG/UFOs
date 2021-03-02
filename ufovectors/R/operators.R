@@ -23,14 +23,22 @@ ufo_or            <- function(x, y)   .ufo_binary(.base_or,            "ufo_log_
 ufo_and           <- function(x, y)   .ufo_binary(.base_and,           "ufo_log_result", x, y)
 ufo_not           <- function(x)      .ufo_unary (.base_not,           "ufo_neg_result", x)
 
-ufo_subset <- function(x, i, ..., drop=TRUE) {
-  cat("[...]\n")
 
-  result <- .Call(result_inference, x, y, as.integer(min_load_count))
-  result_size <- length(result);
-  number_of_chunks <- ceiling(result_size / chunk_size)
+#-----------------------------------------------------------------------------
+# Subsetting
+#-----------------------------------------------------------------------------
+
+ufo_subset <- function(x, subscript, ..., drop=FALSE, min_load_count=0) { # drop ignored for ordinary vectors, it seems?
+  cat("[...]\n")
+  # choice of output type goes here? or inside
+  .Call("ufo_subset", x, subscript, as.integer(min_load_count))
 }
+
 #ufo_subset_assign <- function(x, i, v)
+
+ufo_subscript <- function(x, subscript, min_load_count=0) {
+  .Call("ufo_subscript", x, subscript, as.integer(min_load_count))
+}
 
 #-----------------------------------------------------------------------------
 # Helper functions that do the actual chunking
@@ -50,7 +58,7 @@ ufo_subset <- function(x, i, ..., drop=TRUE) {
     result[attr(x_chunk, 'start_index'):attr(x_chunk, 'end_index')] <- operation(x_chunk, y_chunk)
   }
 
-  # TODO copy attributes`
+  # TODO copy attributes
   return(.add_class(result, "ufo", .check_add_class()))
 }
 
@@ -178,27 +186,25 @@ unload_operators <- function() {
   }
 }
 
-subscript <- function(x, subscript, min_load_count=0) {
-  .Call("ufo_subscript", x, subscript, as.integer(min_load_count))
-}
-
 # Notes on subsetting:
 #
-# +-------------------+-------------------+----------+
-# | capture method    | works from C code | hygene   |
-# +-------------------+-------------------+----------+
-# | ALTREP            | Y                 | good     |
-# | S3                | N                 | good     |
-# | redefine operator | N                 | criminal |
-# +-------------------+-------------------+----------+
+# +-------------------+-------------------+----------+------+
+# | capture method    | works from C code | hygene   | done |
+# +-------------------+-------------------+----------+------+
+# | ALTREP            | Y                 | good     |      |
+# | S3                | N                 | good     |      |
+# | redefine operator | N                 | criminal |      |
+# +-------------------+-------------------+----------+------+
 #
-# +-------------------+-------------+-------------+--------------------+
-# | store result in   | disk use    | memory use  | overhead on access |
-# +-------------------+-------------+-------------+--------------------+
-# | ALTREP / viewport | none        | index size  | some               |
-# | UFO copy          | result size | negligible  | negligible         |
-# | R copy            | none        | result size | none               |
-# +-------------------+-------------+-------------+--------------------+
-# | UFO viewport      |             currently not possible             |
-# +-------------------+------------------------------------------------+
+# +-------------------+-------------+-------------+--------------------+------+
+# | store result in   | disk use    | memory use  | overhead on access |      |
+# +-------------------+-------------+-------------+--------------------+------+
+# | ALTREP / viewport | none        | index size  | some               |      |
+# | UFO copy          | result size | negligible  | negligible         |      |
+# | R copy            | none        | result size | none               |      |
+# +-------------------+-------------+-------------+--------------------+------+
+# | UFO viewport      |             currently not possible             |      |
+# +-------------------+------------------------------------------------+------+
 #
+
+# TODO parameterize minloadcount globally

@@ -90,7 +90,8 @@ if (isTRUE(getOption("ufovectors.add_class"))) {
   #export(`[<-`)
 #}
 
-export(subscript)
+export(ufo_subscript)
+export(ufo_subset)
 
 # Helpers
 export(ufo_store_bin)
