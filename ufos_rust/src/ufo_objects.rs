@@ -1,10 +1,13 @@
-use std::io::Error;
-use std::lazy::SyncLazy;
+use std::{lazy::SyncLazy, sync::MutexGuard};
 use std::num::NonZeroUsize;
 use std::result::Result;
 use std::sync::{Arc, Mutex, Weak};
+use std::{
+    io::Error,
+    marker::{PhantomData, PhantomPinned},
+};
 
-use anyhow::{Context, format_err};
+use anyhow::{format_err, Context};
 use blake3;
 use libc;
 use num::Integer;
@@ -112,8 +115,8 @@ impl UfoObjectConfig {
 
         /* loading quanta */
         let min_load_bytes = num::integer::lcm(page_size, stride * min_load_ct);
-        let elements_loaded_at_once = min_load_bytes / page_size;
-        assert!(elements_loaded_at_once == min_load_bytes * page_size);
+        let elements_loaded_at_once = min_load_bytes / stride;
+        assert!(elements_loaded_at_once * stride == min_load_bytes);
 
         UfoObjectConfig {
             header_size,
@@ -139,10 +142,10 @@ pub(crate) struct UfoChunk {
 }
 
 impl UfoChunk {
-    pub fn new(object: &WrappedUfoObject, offset: usize, initial_data: &[u8]) -> UfoChunk {
+    pub fn new(arc: &WrappedUfoObject, object: &MutexGuard<UfoObject>, offset: usize, initial_data: &[u8]) -> UfoChunk {
         UfoChunk {
-            ufo_id: object.lock().expect("lock error").id,
-            object: Arc::downgrade(object),
+            ufo_id: object.id,
+            object: Arc::downgrade(arc),
             offset,
             length: NonZeroUsize::new(initial_data.len()),
             hash: blake3::hash(initial_data),
@@ -253,37 +256,36 @@ impl UfoHandle {
         self.ptr
     }
 
-    pub fn reset(&self) -> anyhow::Result<()>{
+    pub fn reset(&self) -> anyhow::Result<()> {
         let wait_group = crossbeam::sync::WaitGroup::new();
-        let core = match self.core.upgrade(){
+        let core = match self.core.upgrade() {
             None => anyhow::bail!("Ufo Core shutdown"),
             Some(x) => x,
         };
 
-        core
-            .msg_send
+        core.msg_send
             .send(UfoInstanceMsg::Reset(wait_group.clone(), self.id))
             .map_err(|_| anyhow::anyhow!("Cannot reset UFO, pipe broken"))?;
 
         Ok(wait_group.wait())
     }
 
-    fn free_impl(&self) -> anyhow::Result<()>{
+    fn free_impl(&self) -> anyhow::Result<()> {
         let wait_group = crossbeam::sync::WaitGroup::new();
-        let core = match self.core.upgrade(){
+        let core = match self.core.upgrade() {
             None => anyhow::bail!("Ufo Core shutdown"),
             Some(x) => x,
         };
 
-        core
-            .msg_send
+        core.msg_send
             .send(UfoInstanceMsg::Free(wait_group.clone(), self.id))
             .map_err(|_| anyhow::anyhow!("Cannot free UFO, pipe broken"))?;
 
-        Ok(wait_group.wait())
+        // Ok(wait_group.wait())
+        Ok(())
     }
 
-    pub fn free(self) -> anyhow::Result<()>{
+    pub fn free(self) -> anyhow::Result<()> {
         self.free_impl()
     }
 }
@@ -291,7 +293,9 @@ impl UfoHandle {
 impl Drop for UfoHandle {
     fn drop(&mut self) {
         match self.free_impl() {
-            Err(e) => {debug_assert!(false, format_err!(e))},
+            Err(e) => {
+                debug_assert!(false, format_err!(e))
+            }
             _ => {}
         };
     }

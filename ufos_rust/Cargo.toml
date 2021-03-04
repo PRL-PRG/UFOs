@@ -8,11 +8,13 @@ edition = "2018"
 
 [dependencies]
 # userfaultfd = "0.2.0" # requires libclang1 installed
-userfaultfd = { git = "https://github.com/electroCutie/userfaultfd-rs", branch = "readwrite_fix" }
+#userfaultfd = { git = "https://github.com/electroCutie/userfaultfd-rs", branch = "readwrite_fix" }
+userfaultfd = { path = "/home/ckerr/workspace/userfaultfd-rs/" }
 libc = "0.2.80"
 segment-map = "0.1.1" # for maps over ranges
 blake3 = "0.3.7"
 num = "0.3.1" # for One
+nix = "0.17"
 crossbeam = "0.8.0"
 promissory = { git = "https://github.com/electroCutie/promissory", branch = "main" }
 # if_present = { path = "/home/ckerr/workspace/rust/ifPresent" }

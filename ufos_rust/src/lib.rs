@@ -14,7 +14,6 @@ pub use ufo_objects::{UfoHandle, UfoObjectConfig, UfoObjectConfigPrototype, UfoP
 use std::io::Error;
 use std::sync::Arc;
 
-//TODO: wrapper instead of sending out an Arc
 pub struct UfoCore {
     core: Arc<ufo_core::UfoCore>,
 }
@@ -43,28 +42,6 @@ impl UfoCore {
         awaiter.await_value()
     }
 
-    pub fn reset_ufo(&self, ufo: &UfoHandle) {
-        let wait_group = crossbeam::sync::WaitGroup::new();
-
-        self.core
-            .msg_send
-            .send(UfoInstanceMsg::Reset(wait_group.clone(), ufo.id))
-            .expect("Messages pipe broken");
-
-        wait_group.wait();
-    }
-
-    pub fn free_ufo(&self, ufo: UfoHandle) {
-        let wait_group = crossbeam::sync::WaitGroup::new();
-
-        self.core
-            .msg_send
-            .send(UfoInstanceMsg::Free(wait_group.clone(), ufo.id))
-            .expect("Messages pipe broken");
-
-        wait_group.wait();
-    }
-
     pub fn shutdown(self) {
         self.core.shutdown();
     }
@@ -72,8 +49,61 @@ impl UfoCore {
 
 #[cfg(test)]
 mod tests {
+    use std::mem::size_of;
+
+    use crate::{UfoCore, UfoCoreConfig, UfoObjectConfig};
+
+    #[test]
+    fn core_starts() {
+        let config = UfoCoreConfig {
+            writeback_temp_path: "/tmp",
+            high_watermark: 1024 * 1024 * 1024,
+            low_watermark: 512 * 1024 * 1024,
+        };
+        let core = UfoCore::new_ufo_core(config).expect("error getting core");
+
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        core.shutdown();
+    }
+
     #[test]
     fn it_works() {
-        assert_eq!(2 + 2, 4);
+        let config = UfoCoreConfig {
+            writeback_temp_path: "/tmp",
+            high_watermark: 1024 * 1024 * 1024,
+            low_watermark: 512 * 1024 * 1024,
+        };
+        let core = UfoCore::new_ufo_core(config).expect("error getting core");
+
+        let obj_cfg = UfoObjectConfig::new_config(
+            0,
+            1000 * 1000,
+            size_of::<u32>(),
+            Some(4096),
+            Box::new(|start, end, fill| {
+                let slice = unsafe {
+                    std::slice::from_raw_parts_mut(fill.cast(), size_of::<u32>() * (end - start))
+                };
+                for idx in start..end {
+                    slice[idx-start] = idx as u32;
+                }
+            }),
+        );
+
+        let o = core.allocate_ufo(obj_cfg);
+        println!("object");
+
+        let arr = unsafe {
+            std::slice::from_raw_parts_mut(o.as_ptr().cast::<u32>(), size_of::<u32>() * 1000*1000)
+        };
+
+        for x in 0..1000*1000 {
+            assert_eq!(x as u32, arr[x]);
+        }
+
+        drop(o);
+
+        core.shutdown();
     }
 }

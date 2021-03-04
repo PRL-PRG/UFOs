@@ -1,4 +1,4 @@
-use std::io::Error;
+use std::{cmp::min, io::Error};
 use std::result::Result;
 use std::sync::{Arc, Mutex};
 use std::{alloc, ffi::c_void};
@@ -12,6 +12,7 @@ use anyhow;
 
 use crossbeam::channel::{Receiver, Sender};
 use crossbeam::sync::WaitGroup;
+use nix::errno::Errno;
 use segment_map::{Segment, SegmentMap};
 use userfaultfd::{ReadWrite, Uffd};
 
@@ -22,7 +23,7 @@ use super::mmap_wrapers::*;
 use super::ufo_objects::*;
 
 pub(crate) enum UfoInstanceMsg {
-    Shutdown,
+    Shutdown(WaitGroup),
     Allocate(promissory::Fulfiller<UfoHandle>, UfoObjectConfig),
     Reset(WaitGroup, UfoId),
     Free(WaitGroup, UfoId),
@@ -111,9 +112,9 @@ impl UfoChunks {
 }
 
 pub struct UfoCoreConfig {
-    pub writeback_temp_path: Box<str>,
-    high_watermark: usize,
-    low_watermark: usize,
+    pub writeback_temp_path: &'static str,
+    pub high_watermark: usize,
+    pub low_watermark: usize,
 }
 
 pub(crate) type WrappedUfoObject = Arc<Mutex<UfoObject>>;
@@ -132,7 +133,7 @@ pub(crate) struct UfoCore {
     pub config: Arc<UfoCoreConfig>,
 
     pub msg_send: Sender<UfoInstanceMsg>,
-    msg_recv: Receiver<UfoInstanceMsg>,
+    // msg_recv: Receiver<UfoInstanceMsg>,
 
     state: Mutex<UfoCoreState>,
 }
@@ -147,7 +148,9 @@ impl UfoCore {
             .unwrap();
 
         let config = Arc::new(config);
-        let (send, recv) = crossbeam::channel::bounded(2);
+        // We want zero capacity so that when we shut down there isn't a chance of any messages being lost
+        // TODO CMYK 2021.03.04: find a way to close the channel but still clear the queue
+        let (send, recv) = crossbeam::channel::bounded(0);
 
         let state = Mutex::new(UfoCoreState {
             object_id_gen: UfoIdGen::new(),
@@ -161,7 +164,7 @@ impl UfoCore {
             uffd,
             config,
             msg_send: send,
-            msg_recv: recv,
+            // msg_recv: recv,
             state,
         });
 
@@ -169,7 +172,7 @@ impl UfoCore {
         std::thread::spawn(move || UfoCore::populate_loop(pop_core));
 
         let msg_core = Arc::clone(&core);
-        std::thread::spawn(move || UfoCore::msg_loop(msg_core));
+        std::thread::spawn(move || UfoCore::msg_loop(msg_core, recv));
 
         // TODO: seems like we should pass back something wrapping the Arc that can shutdown the core?
         Ok(core)
@@ -191,6 +194,7 @@ impl UfoCore {
 
     //TODO: this loop won't shutdown as it stands, it needs to be given a signal or such that it should exit
     fn populate_loop(this: Arc<UfoCore>) {
+        println!("Started pop loop");
         fn populate_impl(core: &UfoCore, buffer: &mut UfoWriteBuffer, addr: *mut c_void) {
             let state = &mut *core.get_locked_state().unwrap();
 
@@ -206,29 +210,34 @@ impl UfoCore {
             let load_size = config.elements_loaded_at_once * config.stride;
 
             let base_int = ufo.mmap.as_ptr() as usize;
-            assert!(ptr_int > base_int);
+            assert!(ptr_int >= base_int);
             let base_after_header = base_int + config.header_size_with_padding;
-            assert!(ptr_int > base_after_header);
+            assert!(ptr_int >= base_after_header);
             let fault_offset = ptr_int - base_after_header;
             let fault_segment_start = down_to_nearest(fault_offset, load_size);
 
             let start = fault_segment_start / config.stride;
             let end = start + config.elements_loaded_at_once;
+            let pop_end = min(end, config.element_ct);
+
+            let copy_size = min(load_size, config.true_size - fault_segment_start);
 
             // Before we perform the load ensure that there is capacity
             UfoCore::ensure_capcity(&core.config, state, load_size);
 
+            let fault_segment_start_addr = (base_int +fault_segment_start) as *mut c_void;
+
             unsafe {
                 let buffer_ptr = buffer.ensure_capcity(load_size);
-                (config.populate)(start, end, buffer.ptr);
+                (config.populate)(start, pop_end, buffer.ptr);
                 core.uffd
-                    .copy(buffer_ptr.cast(), addr, load_size, true)
+                    .copy(buffer_ptr.cast(), fault_segment_start_addr, copy_size, true)
                     .expect("unable to populate range");
             }
 
             let raw_data = unsafe { &buffer.slice()[0..load_size] };
             assert!(raw_data.len() == load_size);
-            let chunk = UfoChunk::new(&ufo_arc, fault_segment_start, raw_data);
+            let chunk = UfoChunk::new(&ufo_arc, &ufo, fault_segment_start, raw_data);
             state.loaded_chunks.add(chunk);
         }
 
@@ -244,8 +253,17 @@ impl UfoCore {
                     },
                     e => panic!("Recieved an event we did not register for {:?}", e),
                 },
-                Ok(None) => { /*huh*/ }
-                Err(userfaultfd::Error::ReadEof) => return (/*done*/),
+                Ok(None) => { /*huh*/ println!("huh") }
+                Err(userfaultfd::Error::SystemError(e))
+                    if e.as_errno() == Some(nix::errno::Errno::EBADF) =>
+                {
+                    println!("closing uffd loop on ebadf");
+                    return (/*done*/);
+                }
+                Err(userfaultfd::Error::ReadEof) => {
+                    println!("closing uffd loop");
+                    return (/*done*/);
+                }
                 err => {
                     err.expect("uffd read error");
                 }
@@ -253,7 +271,8 @@ impl UfoCore {
         }
     }
 
-    fn msg_loop(this: Arc<UfoCore>) {
+    fn msg_loop(this: Arc<UfoCore>, recv: Receiver<UfoInstanceMsg>) {
+        println!("Started msg loop");
         fn allocate_impl(
             this: &Arc<UfoCore>,
             config: UfoObjectConfig,
@@ -263,7 +282,7 @@ impl UfoCore {
             let id_map = &state.objects_by_id;
             let id_gen = &mut state.object_id_gen;
 
-            let id = id_gen.next(|k| id_map.contains_key(k));
+            let id = id_gen.next(|k| !id_map.contains_key(k));
 
             let mmap = BaseMmap::new(
                 config.true_size,
@@ -294,7 +313,11 @@ impl UfoCore {
             state.objects_by_id.insert(id, ufo.clone());
             state.objects_by_segment.insert(segment, ufo.clone());
 
-            Ok(UfoHandle {core: Arc::downgrade(this), id, ptr: c_ptr })
+            Ok(UfoHandle {
+                core: Arc::downgrade(this),
+                id,
+                ptr: c_ptr,
+            })
         }
 
         fn reset_impl(this: &Arc<UfoCore>, ufo_id: UfoId) -> anyhow::Result<()> {
@@ -324,7 +347,10 @@ impl UfoCore {
                 .unwrap_or_else(|| Err(anyhow::anyhow!("No such Ufo")))?;
             let ufo = ufo.lock().map_err(|_| anyhow::anyhow!("Broken Ufo Lock"))?;
 
+            
             let mmap_base = ufo.mmap.as_ptr() as usize;
+            this.uffd.unregister(ufo.mmap.as_ptr().cast() , ufo.config.true_size)?;
+
             let segment = state
                 .objects_by_segment
                 .get_entry(&mmap_base)
@@ -340,7 +366,17 @@ impl UfoCore {
             Ok(())
         }
 
-        let recv = &this.msg_recv;
+        fn shutdown_impl(this: &Arc<UfoCore>){
+            let keys: Vec<UfoId> = {
+                let state = &mut *this.get_locked_state().expect("err on shutdown");
+                state.objects_by_id.keys()
+                    .map(Clone::clone)
+                    .collect()
+            };
+
+            keys.iter().for_each(|k| free_impl(this, *k).expect("err on free"));
+        }
+
         loop {
             match recv.recv() {
                 Ok(m) => match m {
@@ -353,7 +389,12 @@ impl UfoCore {
                     UfoInstanceMsg::Free(_, ufo_id) => {
                         free_impl(&this, ufo_id).expect("Free Error")
                     }
-                    UfoInstanceMsg::Shutdown => return (/*done*/),
+                    UfoInstanceMsg::Shutdown(_) => {
+                        shutdown_impl(&this);
+                        drop(recv);
+                        println!("closing msg loop");
+                        return (/*done*/);
+                    }
                 },
                 err => {
                     err.expect("recv error");
@@ -363,12 +404,28 @@ impl UfoCore {
     }
 
     pub(crate) fn shutdown(&self) {
+        let sync = WaitGroup::new();
         self.msg_send
-            .send(UfoInstanceMsg::Shutdown)
+            .send(UfoInstanceMsg::Shutdown(sync.clone()))
             .expect("Can't send shutdown signal");
-
+        println!("shutting down, waiting for sync");
+        sync.wait();
+        println!("sync, closing fd");
+        
         let fd = std::os::unix::prelude::AsRawFd::as_raw_fd(&self.uffd);
         // this will signal to the populate loop that it is time to close down
-        unsafe { libc::close(fd) };
+        let close_result = unsafe { libc::close(fd) };
+        match close_result {
+            0 => { },
+            _ => {
+                panic!("clouldn't close uffd handle {}", nix::errno::Errno::last().desc() );
+            }
+        }
+        println!("closed {}", close_result);
+
+        let mut buf = [0x00u8; 1];
+        let c_buf = buf.as_mut_ptr() as *mut c_void;
+        let nread = unsafe { libc::read(fd, c_buf, buf.len()) };
+        println!("read EOF after close {}", nread == libc::EOF as isize);
     }
 }
