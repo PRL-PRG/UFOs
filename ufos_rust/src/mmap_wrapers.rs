@@ -1,11 +1,10 @@
-use libc;
 use std::io::Error;
 use std::result::Result;
 
 use std::os::unix::io::RawFd;
 
 use super::return_checks::*;
-use log::{debug, error, info, trace};
+use log::debug;
 
 static PAGE_SIZE: std::lazy::SyncOnceCell<usize> = std::lazy::SyncOnceCell::new();
 
@@ -31,9 +30,7 @@ pub trait Mmap {
         if end > self.length() {
             None
         } else {
-            let arr = unsafe {
-                std::slice::from_raw_parts(self.as_ptr().offset(offset as isize), length)
-            };
+            let arr = unsafe { std::slice::from_raw_parts(self.as_ptr().add(offset), length) };
             Some(f(arr))
         }
     }
@@ -47,9 +44,7 @@ pub trait Mmap {
         if end > self.length() {
             None
         } else {
-            let arr = unsafe {
-                std::slice::from_raw_parts_mut(self.as_ptr().offset(offset as isize), length)
-            };
+            let arr = unsafe { std::slice::from_raw_parts_mut(self.as_ptr().add(offset), length) };
             Some(f(arr))
         }
     }
@@ -57,6 +52,7 @@ pub trait Mmap {
 
 #[repr(i32)]
 #[derive(Debug, Copy, Clone)]
+#[allow(dead_code)]
 pub enum MemoryProtectionFlag {
     Exec = libc::PROT_EXEC,
     Read = libc::PROT_READ,
@@ -66,12 +62,13 @@ pub enum MemoryProtectionFlag {
 
 #[repr(i32)]
 #[derive(Debug, Copy, Clone)]
+#[allow(dead_code)]
 pub enum MmapFlag {
     Shared = libc::MAP_SHARED,
     SharedValidate = libc::MAP_SHARED_VALIDATE,
     Private = libc::MAP_PRIVATE,
     B32 = libc::MAP_32BIT,
-    Annon = libc::MAP_ANON,
+    Anonymous = libc::MAP_ANONYMOUS,
     Fixed = libc::MAP_FIXED,
     FixedNoreplae = libc::MAP_FIXED_NOREPLACE,
     GrowsDown = libc::MAP_GROWSDOWN,
@@ -113,10 +110,10 @@ impl BaseMmap {
         let flags = mmap_flags.iter().fold(0, |a, b| a | *b as i32);
         let flags = flags | huge_tlb_size;
         // zeros are traditional gifts when you don't know what to give
-        let (fd, offset) = fd_offset.unwrap_or((0, 0));
+        let (fd, offset) = fd_offset.unwrap_or((-1, 0));
 
         debug!(target: "ufo_malloc", "malloc {} bytes on fd {} with offset {}", length, fd, offset);
-        let ptr = unsafe { libc::mmap64(std::ptr::null_mut(), length, prot, flags, fd, offset) };
+        let ptr = unsafe { libc::mmap(std::ptr::null_mut(), length, prot, flags, fd, offset) };
 
         if ptr == libc::MAP_FAILED {
             return Err(Error::last_os_error());
@@ -176,10 +173,10 @@ impl OpenFile {
         let tmp = std::ffi::CString::new(path)?;
 
         debug!(target: "ufo_malloc", "open anonymous temporary file at {}", path);
-        let fd = check_return_nonneg(libc::open64(
+        let fd = check_return_nonneg(libc::open(
             tmp.as_ptr(),
             libc::O_RDWR | libc::O_TMPFILE,
-            0600,
+            0o600,
         ))?;
 
         // make this before we truncate to a larger size so the file is closed even on error

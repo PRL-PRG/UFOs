@@ -4,9 +4,8 @@ use std::result::Result;
 use std::sync::{Arc, Mutex, Weak};
 use std::{lazy::SyncLazy, sync::MutexGuard};
 
-use log::{debug, error, info, trace};
+use log::{debug, error, trace};
 
-use blake3;
 use num::Integer;
 
 use crate::mmap_wrapers;
@@ -241,26 +240,27 @@ impl UfoChunk {
     }
 
     pub fn free_and_writeback_dirty(&mut self) -> Result<usize, Error> {
-        trace!(target: "ufo_object", "try writeback");
         if let Some(length) = self.length {
             let length = length.get();
             if let Some(obj) = self.object.upgrade() {
                 let mut obj = obj.lock().unwrap();
 
+                trace!(target: "ufo_object", "free chunk {:?}@{} ({}b)",
+                    self.ufo_id, self.offset.absolute_offset() , length
+                );
+
                 let calculated_hash = obj
                     .mmap
                     .with_slice(self.offset.absolute_offset(), length, blake3::hash)
                     .unwrap(); // it should never be possible for this to fail
+                trace!(target: "ufo_object", "writeback hash matches {}", self.hash == calculated_hash);
                 if self.hash != calculated_hash {
                     let o = &mut *obj;
                     o.writeback(self)?;
                 }
 
                 unsafe {
-                    let ptr = obj
-                        .mmap
-                        .as_ptr()
-                        .offset(self.offset.absolute_offset() as isize);
+                    let ptr = obj.mmap.as_ptr().add(self.offset.absolute_offset());
                     // MADV_DONTNEED has the exact semantics we want, no other advice would work for us
                     check_return_zero(libc::madvise(ptr.cast(), length, libc::MADV_DONTNEED))?;
                 }
@@ -308,8 +308,7 @@ impl UfoFileWriteback {
         let data_bytes = cfg.element_ct * cfg.stride;
         let total_bytes = bitmap_bytes + data_bytes;
 
-        let temp_file =
-            unsafe { OpenFile::temp(core.config.writeback_temp_path.as_ref(), total_bytes) }?;
+        let temp_file = unsafe { OpenFile::temp(core.config.writeback_temp_path, total_bytes) }?;
 
         let mmap = MmapFd::new(
             total_bytes,
@@ -338,10 +337,6 @@ pub struct UfoHandle {
 }
 
 impl UfoHandle {
-    pub(crate) fn as_ptr(&self) -> *mut std::ffi::c_void {
-        self.ptr
-    }
-
     pub fn header_ptr(&self) -> *mut std::ffi::c_void {
         (self.ptr as usize + self.header_offset) as *mut std::ffi::c_void
     }
@@ -361,7 +356,8 @@ impl UfoHandle {
             .send(UfoInstanceMsg::Reset(wait_group.clone(), self.id))
             .map_err(|_| anyhow::anyhow!("Cannot reset UFO, pipe broken"))?;
 
-        Ok(wait_group.wait())
+        wait_group.wait();
+        Ok(())
     }
 
     fn free_impl(&self) -> anyhow::Result<()> {
@@ -375,7 +371,8 @@ impl UfoHandle {
             .send(UfoInstanceMsg::Free(wait_group.clone(), self.id))
             .map_err(|_| anyhow::anyhow!("Cannot free UFO, pipe broken"))?;
 
-        Ok(wait_group.wait())
+        wait_group.wait();
+        Ok(())
     }
 
     pub fn free(self) -> anyhow::Result<()> {
@@ -385,12 +382,9 @@ impl UfoHandle {
 
 impl Drop for UfoHandle {
     fn drop(&mut self) {
-        match self.free_impl() {
-            Err(e) => {
-                error!(target: "ufo_object", "error on free {}", e);
-            }
-            _ => {}
-        };
+        if let Err(e) = self.free_impl() {
+            error!(target: "ufo_object", "error on free {}", e);
+        }
     }
 }
 
@@ -408,8 +402,7 @@ impl UfoObject {
         let wb_ptr = self.writeback_util.mmap.as_ptr();
         let offset = self.writeback_util.bitmap_bytes + chunk.offset.offset_from_header();
         let length = chunk.length.unwrap().get(); // in a writeback the length must be valid
-        let writeback_arr =
-            unsafe { std::slice::from_raw_parts_mut(wb_ptr.offset(offset as isize), length) };
+        let writeback_arr = unsafe { std::slice::from_raw_parts_mut(wb_ptr.add(offset), length) };
         chunk
             .with_slice(self, |live_data| {
                 debug!(target: "ufo_object", "writeback {:?}@{:#x}:{} → {:#x}",
@@ -422,10 +415,12 @@ impl UfoObject {
                 writeback_arr.copy_from_slice(live_data)
             })
             .map(Ok)
-            .unwrap_or(Err(Error::new(
-                std::io::ErrorKind::AddrNotAvailable,
-                "Chunk not valid",
-            )))
+            .unwrap_or_else(|| {
+                Err(Error::new(
+                    std::io::ErrorKind::AddrNotAvailable,
+                    "Chunk not valid",
+                ))
+            })
     }
 
     pub fn reset(&mut self) -> anyhow::Result<()> {

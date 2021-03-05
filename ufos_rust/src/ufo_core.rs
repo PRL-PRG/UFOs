@@ -8,7 +8,6 @@ use std::{
 };
 use std::{cmp::min, io::Error, ops::Deref};
 
-use anyhow;
 use log::{debug, info, trace, warn};
 
 use crossbeam::channel::{Receiver, Sender};
@@ -82,7 +81,7 @@ impl UfoChunks {
     }
 
     fn add(&mut self, chunk: UfoChunk) {
-        self.used_memory = self.used_memory + chunk.size();
+        self.used_memory += chunk.size();
         self.loaded_chunks.push_back(chunk);
     }
 
@@ -96,6 +95,7 @@ impl UfoChunks {
     }
 
     fn free_until_low_water_mark(&mut self) -> anyhow::Result<usize> {
+        debug!(target: "ufo_core", "Freeing memory");
         let low_water_mark = self.config.low_watermark;
         while self.used_memory > low_water_mark {
             match self.loaded_chunks.pop_front().borrow_mut() {
@@ -182,7 +182,7 @@ impl UfoCore {
 
     fn get_locked_state(&self) -> anyhow::Result<MutexGuard<UfoCoreState>> {
         match self.state.lock() {
-            Err(_) => return Err(anyhow::Error::msg("broken lock")),
+            Err(_) => Err(anyhow::Error::msg("broken lock")),
             Ok(l) => Ok(l),
         }
     }
@@ -194,10 +194,12 @@ impl UfoCore {
         }
     }
 
-    //TODO: this loop won't shutdown as it stands, it needs to be given a signal or such that it should exit
     fn populate_loop(this: Arc<UfoCore>) {
         trace!(target: "ufo_core", "Started pop loop");
         fn populate_impl(core: &UfoCore, buffer: &mut UfoWriteBuffer, addr: *mut c_void) {
+            // this is needed to actually unlock the mutex lock
+            fn droplockster<T>(_lock: MutexGuard<T>) {}
+
             let state = &mut *core.get_locked_state().unwrap();
 
             let ptr_int = addr as usize;
@@ -213,8 +215,6 @@ impl UfoCore {
 
             let load_size = config.elements_loaded_at_once * config.stride;
 
-            //TODO: BUG!! The offset needs to be relative to the mmap base but the index needs to be relative to the data's base
-
             let populate_offset = fault_offset.down_to_nearest_n_relative_to_header(load_size);
 
             let start = populate_offset.as_index_floor();
@@ -227,10 +227,17 @@ impl UfoCore {
             );
 
             debug!(target: "ufo_core", "fault at {}, populate {} bytes at {:#x}",
-                ptr_int, pop_end-start, populate_offset.as_ptr_int());
+                ptr_int, (pop_end-start) * config.stride, populate_offset.as_ptr_int());
+
+            // unlock the ufo before freeing because that might need to grab the lock on the ufo
+            droplockster(ufo);
 
             // Before we perform the load ensure that there is capacity
             UfoCore::ensure_capcity(&core.config, state, load_size);
+
+            // Reacquire our lock and the config
+            let ufo = ufo_arc.lock().unwrap();
+            let config = &ufo.config;
 
             // let fault_absolute_offset = fault_data_offset_start + config.header_size_with_padding;
             // let fault_segment_start_addr = (base_int + fault_absolute_offset) as *mut c_void;
@@ -274,11 +281,11 @@ impl UfoCore {
                     if e.as_errno() == Some(nix::errno::Errno::EBADF) =>
                 {
                     info!(target: "ufo_core", "closing uffd loop on ebadf");
-                    return (/*done*/);
+                    return /*done*/;
                 }
                 Err(userfaultfd::Error::ReadEof) => {
                     info!(target: "ufo_core", "closing uffd loop");
-                    return (/*done*/);
+                    return /*done*/;
                 }
                 err => {
                     err.expect("uffd read error");
@@ -334,7 +341,7 @@ impl UfoCore {
             let mmap = BaseMmap::new(
                 config.true_size,
                 &[MemoryProtectionFlag::Read, MemoryProtectionFlag::Write],
-                &[MmapFlag::Annon, MmapFlag::Private],
+                &[MmapFlag::Anonymous, MmapFlag::Private, MmapFlag::NoReserve],
                 None,
             )
             .expect("Mmap Error");
@@ -370,7 +377,7 @@ impl UfoCore {
             let ufo = Arc::new(Mutex::new(ufo));
 
             state.objects_by_id.insert(id, ufo.clone());
-            state.objects_by_segment.insert(segment, ufo.clone());
+            state.objects_by_segment.insert(segment, ufo);
 
             Ok(UfoHandle {
                 core: Arc::downgrade(this),
@@ -416,13 +423,12 @@ impl UfoCore {
             this.uffd
                 .unregister(ufo.mmap.as_ptr().cast(), ufo.config.true_size)?;
 
-            let segment = state
+            let segment = *(state
                 .objects_by_segment
                 .get_entry(&mmap_base)
                 .map(Ok)
                 .unwrap_or_else(|| Err(anyhow::anyhow!("memory segment missing")))?
-                .0
-                .clone();
+                .0);
 
             state.objects_by_segment.remove(&segment);
 
@@ -458,7 +464,7 @@ impl UfoCore {
                         shutdown_impl(&this);
                         drop(recv);
                         info!(target: "ufo_core", "closing msg loop");
-                        return (/*done*/);
+                        return /*done*/;
                     }
                 },
                 err => {
