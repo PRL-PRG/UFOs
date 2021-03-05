@@ -13,7 +13,7 @@ use log::{debug, info, trace, warn};
 use crossbeam::channel::{Receiver, Sender};
 use crossbeam::sync::WaitGroup;
 use segment_map::{Segment, SegmentMap};
-use userfaultfd::{ReadWrite, Uffd};
+use userfaultfd::Uffd;
 
 use crate::ufo_objects::UfoHandle;
 
@@ -239,11 +239,12 @@ impl UfoCore {
             let ufo = ufo_arc.lock().unwrap();
             let config = &ufo.config;
 
-            let raw_data = ufo.writeback_util
+            let raw_data = ufo
+                .writeback_util
                 .try_readback(&populate_offset)
-                .unwrap_or_else(||{
-                    trace!(target: "ufo_core", "data ready");
-                    unsafe { 
+                .unwrap_or_else(|| {
+                    trace!(target: "ufo_core", "calculate");
+                    unsafe {
                         buffer.ensure_capcity(load_size);
                         (config.populate)(start, pop_end, buffer.ptr);
                         &buffer.slice()[0..load_size]
@@ -252,18 +253,21 @@ impl UfoCore {
             trace!(target: "ufo_core", "data ready");
 
             unsafe {
-                core.uffd.copy(
-                    raw_data.as_ptr().cast(),
-                    populate_offset.as_ptr_int() as *mut c_void,
-                    copy_size,
-                    true,
-                )
-                .expect("unable to populate range");
+                core.uffd
+                    .copy(
+                        raw_data.as_ptr().cast(),
+                        populate_offset.as_ptr_int() as *mut c_void,
+                        copy_size,
+                        true,
+                    )
+                    .expect("unable to populate range");
             }
-            
+            trace!(target: "ufo_core", "populated");
+
             assert!(raw_data.len() == load_size);
             let chunk = UfoChunk::new(&ufo_arc, &ufo, populate_offset, raw_data);
             state.loaded_chunks.add(chunk);
+            trace!(target: "ufo_core", "chunk saved");
         }
 
         let uffd = &this.uffd;
@@ -272,8 +276,9 @@ impl UfoCore {
         loop {
             match uffd.read_event() {
                 Ok(Some(event)) => match event {
-                    userfaultfd::Event::Pagefault { rw: _, addr } => 
-                        populate_impl(&*this, &mut buffer, addr),
+                    userfaultfd::Event::Pagefault { rw: _, addr } => {
+                        populate_impl(&*this, &mut buffer, addr)
+                    }
                     e => panic!("Recieved an event we did not register for {:?}", e),
                 },
                 Ok(None) => {

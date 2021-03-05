@@ -296,7 +296,11 @@ pub(crate) struct UfoFileWriteback {
 }
 
 impl UfoFileWriteback {
-    pub fn new(ufo_id: UfoId, cfg: &UfoObjectConfig, core: &Arc<UfoCore>) -> Result<UfoFileWriteback, Error> {
+    pub fn new(
+        ufo_id: UfoId,
+        cfg: &UfoObjectConfig,
+        core: &Arc<UfoCore>,
+    ) -> Result<UfoFileWriteback, Error> {
         let page_size = *PAGE_SIZE;
 
         let chunk_ct = cfg.element_ct.div_ceil(&cfg.elements_loaded_at_once);
@@ -333,11 +337,14 @@ impl UfoFileWriteback {
         })
     }
 
-    fn body_bytes(&self) -> usize{
+    fn body_bytes(&self) -> usize {
         self.total_bytes - self.bitmap_bytes
     }
 
-    pub fn writeback_function<'a>(&'a self, offset: &UfoOffset) -> Result<Box<dyn FnOnce(&[u8]) + 'a>>{
+    pub fn writeback_function<'a>(
+        &'a self,
+        offset: &UfoOffset,
+    ) -> Result<Box<dyn FnOnce(&[u8]) + 'a>> {
         let off_head = offset.offset_from_header();
         if off_head > self.body_bytes() {
             anyhow::bail!("{} outside of range", off_head);
@@ -352,9 +359,15 @@ impl UfoFileWriteback {
         debug!(target: "ufo_object", "writeback offset {:#x}", writeback_offset);
 
         Ok(Box::new(move |live_data| {
-            let bitmap_ptr: &mut u8 = unsafe { self.mmap.as_ptr().add(chunk_byte).as_mut().unwrap() };
-            let writeback_arr: &mut [u8] = unsafe { std::slice::from_raw_parts_mut(self.mmap.as_ptr().add(writeback_offset), self.chunk_size) };
-            
+            let bitmap_ptr: &mut u8 =
+                unsafe { self.mmap.as_ptr().add(chunk_byte).as_mut().unwrap() };
+            let writeback_arr: &mut [u8] = unsafe {
+                std::slice::from_raw_parts_mut(
+                    self.mmap.as_ptr().add(writeback_offset),
+                    self.chunk_size,
+                )
+            };
+
             assert!(live_data.len() == self.chunk_size);
 
             *bitmap_ptr |= chunk_bit;
@@ -363,7 +376,7 @@ impl UfoFileWriteback {
         }))
     }
 
-    pub fn try_readback<'a>(&'a self, offset: &UfoOffset) -> Option<&'a [u8]>{
+    pub fn try_readback<'a>(&'a self, offset: &UfoOffset) -> Option<&'a [u8]> {
         let off_head = offset.offset_from_header();
         trace!(target: "ufo_object", "try readback {:?}@{:#x}", self.ufo_id, off_head);
 
@@ -375,14 +388,29 @@ impl UfoFileWriteback {
 
         let bitmap_ptr: &u8 = unsafe { self.mmap.as_ptr().add(chunk_byte).as_ref().unwrap() };
         let is_written = *bitmap_ptr & chunk_bit != 0;
-        
+
         if is_written {
             trace!(target: "ufo_object", "allow readback {:?}@{:#x}", self.ufo_id, off_head);
-            let arr: &[u8] = unsafe { std::slice::from_raw_parts(self.mmap.as_ptr().add(readback_offset), self.chunk_size) };
+            let arr: &[u8] = unsafe {
+                std::slice::from_raw_parts(self.mmap.as_ptr().add(readback_offset), self.chunk_size)
+            };
             Some(arr)
-        }else{
+        } else {
             None
         }
+    }
+
+    pub fn reset(&mut self) -> Result<()> {
+        let ptr = self.mmap.as_ptr();
+        unsafe {
+            check_return_zero(libc::madvise(
+                ptr.cast(),
+                self.total_bytes,
+                // punch a hole in the file
+                libc::MADV_REMOVE,
+            ))?;
+        }
+        Ok(())
     }
 }
 
@@ -460,40 +488,34 @@ impl UfoObject {
     fn writeback(&mut self, chunk: &UfoChunk) -> Result<()> {
         //TODO: Flag that we wrote out this chunk
         //TODO: Test for written out chunks
-        chunk.with_slice(self, |live_data| {
-            debug!(target: "ufo_object", "writeback {:?}@{:#x}:{}",
-                self.id,
-                self.mmap.as_ptr() as usize + chunk.offset.absolute_offset(),
-                live_data.len(),
-            );
+        chunk
+            .with_slice(self, |live_data| {
+                debug!(target: "ufo_object", "writeback {:?}@{:#x}:{}",
+                    self.id,
+                    self.mmap.as_ptr() as usize + chunk.offset.absolute_offset(),
+                    live_data.len(),
+                );
 
-            self.writeback_util.writeback_function(&chunk.offset).unwrap()(live_data);
-        })
-        .map(Ok)
-        .unwrap_or_else(|| {
-            Err(Error::new(
-                std::io::ErrorKind::AddrNotAvailable,
-                "Chunk not valid",
-            ))?
-        })
+                self.writeback_util
+                    .writeback_function(&chunk.offset)
+                    .unwrap()(live_data);
+            })
+            .map(Ok)
+            .unwrap_or_else(|| {
+                Err(Error::new(std::io::ErrorKind::AddrNotAvailable, "Chunk not valid").into())
+            })
     }
 
     pub fn reset(&mut self) -> anyhow::Result<()> {
-        {
-            let ptr = self.mmap.as_ptr();
-            let length = self.config.true_size;
-            unsafe {
-                check_return_zero(libc::madvise(ptr.cast(), length, libc::MADV_DONTNEED))?;
-            }
+        let length = self.config.true_size - self.config.header_size;
+        unsafe {
+            check_return_zero(libc::madvise(
+                self.mmap.as_ptr().add(self.config.header_size).cast(),
+                length,
+                libc::MADV_DONTNEED,
+            ))?;
         }
-
-        {
-            let ptr = self.writeback_util.mmap.as_ptr();
-            let length = self.writeback_util.total_bytes;
-            unsafe {
-                check_return_zero(libc::madvise(ptr.cast(), length, libc::MADV_DONTNEED))?;
-            }
-        }
+        self.writeback_util.reset()?;
 
         Ok(())
     }
