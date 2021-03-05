@@ -1,15 +1,12 @@
-use std::{lazy::SyncLazy, sync::MutexGuard};
+use std::io::Error;
 use std::num::NonZeroUsize;
 use std::result::Result;
 use std::sync::{Arc, Mutex, Weak};
-use std::{
-    io::Error,
-    marker::{PhantomData, PhantomPinned},
-};
+use std::{lazy::SyncLazy, sync::MutexGuard};
 
-use anyhow::{format_err, Context};
+use log::{debug, error, info, trace};
+
 use blake3;
-use libc;
 use num::Integer;
 
 use crate::mmap_wrapers;
@@ -133,16 +130,91 @@ impl UfoObjectConfig {
     }
 }
 
+pub(crate) struct UfoOffset {
+    base_addr: usize,
+    stride: usize,
+    header_bytes: usize,
+    absolute_offset_bytes: usize,
+}
+
+impl UfoOffset {
+    pub fn from_addr(ufo: &UfoObject, addr: *const libc::c_void) -> UfoOffset {
+        let addr = addr as usize;
+        let base_addr = ufo.mmap.as_ptr() as usize;
+        let absolute_offset_bytes = addr
+            .checked_sub(base_addr)
+            .unwrap_or_else(|| panic!("Addr less than base {} < {}", addr, base_addr));
+
+        UfoOffset {
+            base_addr,
+            stride: ufo.config.stride,
+            header_bytes: ufo.config.header_size_with_padding,
+            absolute_offset_bytes,
+        }
+    }
+
+    pub fn absolute_offset(&self) -> usize {
+        self.absolute_offset_bytes
+    }
+
+    pub fn offset_from_header(&self) -> usize {
+        self.absolute_offset_bytes - self.header_bytes
+    }
+
+    pub fn as_ptr_int(&self) -> usize {
+        self.base_addr + self.absolute_offset()
+    }
+
+    pub fn as_index_floor(&self) -> usize {
+        self.offset_from_header().div_floor(&self.stride)
+    }
+
+    pub fn down_to_nearest_n_relative_to_header(&self, nearest: usize) -> UfoOffset {
+        let offset = self.offset_from_header();
+        let offset = down_to_nearest(offset, nearest);
+
+        let absolute_offset_bytes = self.header_bytes + offset;
+
+        UfoOffset {
+            absolute_offset_bytes,
+            ..*self
+        }
+    }
+
+    // pub fn add_bytes(&self, bytes: isize) -> UfoOffset{
+    //     let absolute_offset_bytes = (
+    //         if bytes.is_negative() {
+    //             self.absolute_offset().checked_sub(bytes.abs() as usize)
+    //         }else{
+    //             self.absolute_offset().checked_add(bytes as usize)
+    //         }
+    //     ).unwrap();
+    //     UfoOffset{
+    //         absolute_offset_bytes,
+    //         ..*self
+    //     }
+    // }
+
+    // pub fn add_index(&self, index: usize) -> UfoOffset{
+    //     self.add_bytes((index * self.stride) as isize)
+    // }
+}
+
 pub(crate) struct UfoChunk {
     ufo_id: UfoId,
     object: Weak<Mutex<UfoObject>>,
-    offset: usize,
+    offset: UfoOffset,
     length: Option<NonZeroUsize>,
     hash: blake3::Hash,
 }
 
 impl UfoChunk {
-    pub fn new(arc: &WrappedUfoObject, object: &MutexGuard<UfoObject>, offset: usize, initial_data: &[u8]) -> UfoChunk {
+    pub fn new(
+        arc: &WrappedUfoObject,
+        object: &MutexGuard<UfoObject>,
+        offset: UfoOffset,
+        initial_data: &[u8],
+    ) -> UfoChunk {
         UfoChunk {
             ufo_id: object.id,
             object: Arc::downgrade(arc),
@@ -156,11 +228,14 @@ impl UfoChunk {
     where
         F: FnOnce(&[u8]) -> V,
     {
-        self.length
-            .and_then(|length| obj.mmap.with_slice(self.offset, length.get(), f))
+        self.length.and_then(|length| {
+            obj.mmap
+                .with_slice(self.offset.absolute_offset(), length.get(), f)
+        })
     }
 
     pub fn free_and_writeback_dirty(&mut self) -> Result<usize, Error> {
+        trace!(target: "ufo_object", "try writeback");
         if let Some(length) = self.length {
             let length = length.get();
             if let Some(obj) = self.object.upgrade() {
@@ -168,7 +243,7 @@ impl UfoChunk {
 
                 let calculated_hash = obj
                     .mmap
-                    .with_slice(self.offset, length, blake3::hash)
+                    .with_slice(self.offset.absolute_offset(), length, blake3::hash)
                     .unwrap(); // it should never be possible for this to fail
                 if self.hash != calculated_hash {
                     let o = &mut *obj;
@@ -176,7 +251,10 @@ impl UfoChunk {
                 }
 
                 unsafe {
-                    let ptr = obj.mmap.as_ptr().offset(self.offset as isize);
+                    let ptr = obj
+                        .mmap
+                        .as_ptr()
+                        .offset(self.offset.absolute_offset() as isize);
                     // MADV_DONTNEED has the exact semantics we want, no other advice would work for us
                     check_return_zero(libc::madvise(ptr.cast(), length, libc::MADV_DONTNEED))?;
                 }
@@ -281,8 +359,7 @@ impl UfoHandle {
             .send(UfoInstanceMsg::Free(wait_group.clone(), self.id))
             .map_err(|_| anyhow::anyhow!("Cannot free UFO, pipe broken"))?;
 
-        // Ok(wait_group.wait())
-        Ok(())
+        Ok(wait_group.wait())
     }
 
     pub fn free(self) -> anyhow::Result<()> {
@@ -294,7 +371,7 @@ impl Drop for UfoHandle {
     fn drop(&mut self) {
         match self.free_impl() {
             Err(e) => {
-                debug_assert!(false, format_err!(e))
+                error!(target: "ufo_object", "error on free {}", e);
             }
             _ => {}
         };
@@ -313,12 +390,18 @@ pub(crate) struct UfoObject {
 impl UfoObject {
     fn writeback(&mut self, chunk: &UfoChunk) -> Result<(), Error> {
         let wb_ptr = self.writeback_util.mmap.as_ptr();
-        let offset = self.writeback_util.bitmap_bytes + chunk.offset;
+        let offset = self.writeback_util.bitmap_bytes + chunk.offset.offset_from_header();
         let length = chunk.length.unwrap().get(); // in a writeback the length must be valid
         let writeback_arr =
             unsafe { std::slice::from_raw_parts_mut(wb_ptr.offset(offset as isize), length) };
         chunk
             .with_slice(self, |live_data| {
+                debug!(target: "ufo_object", "writeback {:?}@{:#x}:{} → {:#x}",
+                    chunk.ufo_id(),
+                    self.mmap.as_ptr() as usize + chunk.offset.absolute_offset(),
+                    length,
+                    wb_ptr as usize + offset
+                );
                 assert!(live_data.len() == writeback_arr.len());
                 writeback_arr.copy_from_slice(live_data)
             })

@@ -1,4 +1,3 @@
-use std::{cmp::min, io::Error};
 use std::result::Result;
 use std::sync::{Arc, Mutex};
 use std::{alloc, ffi::c_void};
@@ -7,16 +6,16 @@ use std::{
     collections::{HashMap, VecDeque},
     sync::MutexGuard,
 };
+use std::{cmp::min, io::Error, ops::Deref};
 
 use anyhow;
+use log::{debug, info, trace};
 
 use crossbeam::channel::{Receiver, Sender};
 use crossbeam::sync::WaitGroup;
-use nix::errno::Errno;
 use segment_map::{Segment, SegmentMap};
 use userfaultfd::{ReadWrite, Uffd};
 
-use crate::math::*;
 use crate::ufo_objects::UfoHandle;
 
 use super::mmap_wrapers::*;
@@ -134,7 +133,6 @@ pub(crate) struct UfoCore {
 
     pub msg_send: Sender<UfoInstanceMsg>,
     // msg_recv: Receiver<UfoInstanceMsg>,
-
     state: Mutex<UfoCoreState>,
 }
 
@@ -168,6 +166,7 @@ impl UfoCore {
             state,
         });
 
+        trace!(target: "ufo_core", "starting threads");
         let pop_core = Arc::clone(&core);
         std::thread::spawn(move || UfoCore::populate_loop(pop_core));
 
@@ -194,7 +193,7 @@ impl UfoCore {
 
     //TODO: this loop won't shutdown as it stands, it needs to be given a signal or such that it should exit
     fn populate_loop(this: Arc<UfoCore>) {
-        println!("Started pop loop");
+        trace!(target: "ufo_core", "Started pop loop");
         fn populate_impl(core: &UfoCore, buffer: &mut UfoWriteBuffer, addr: *mut c_void) {
             let state = &mut *core.get_locked_state().unwrap();
 
@@ -205,39 +204,50 @@ impl UfoCore {
             let ufo_arc = state.objects_by_segment.get(&ptr_int).unwrap().clone();
             let ufo = ufo_arc.lock().unwrap();
 
+            let fault_offset = UfoOffset::from_addr(ufo.deref(), addr);
+
             let config = &ufo.config;
 
             let load_size = config.elements_loaded_at_once * config.stride;
 
-            let base_int = ufo.mmap.as_ptr() as usize;
-            assert!(ptr_int >= base_int);
-            let base_after_header = base_int + config.header_size_with_padding;
-            assert!(ptr_int >= base_after_header);
-            let fault_offset = ptr_int - base_after_header;
-            let fault_segment_start = down_to_nearest(fault_offset, load_size);
+            //TODO: BUG!! The offset needs to be relative to the mmap base but the index needs to be relative to the data's base
 
-            let start = fault_segment_start / config.stride;
+            let populate_offset = fault_offset.down_to_nearest_n_relative_to_header(load_size);
+
+            let start = populate_offset.as_index_floor();
             let end = start + config.elements_loaded_at_once;
             let pop_end = min(end, config.element_ct);
 
-            let copy_size = min(load_size, config.true_size - fault_segment_start);
+            let copy_size = min(
+                load_size,
+                config.true_size - populate_offset.absolute_offset(),
+            );
+
+            debug!(target: "ufo_core", "fault at {}, populate {} bytes at {:#x}",
+                ptr_int, pop_end-start, populate_offset.as_ptr_int());
 
             // Before we perform the load ensure that there is capacity
             UfoCore::ensure_capcity(&core.config, state, load_size);
 
-            let fault_segment_start_addr = (base_int +fault_segment_start) as *mut c_void;
+            // let fault_absolute_offset = fault_data_offset_start + config.header_size_with_padding;
+            // let fault_segment_start_addr = (base_int + fault_absolute_offset) as *mut c_void;
 
             unsafe {
                 let buffer_ptr = buffer.ensure_capcity(load_size);
                 (config.populate)(start, pop_end, buffer.ptr);
                 core.uffd
-                    .copy(buffer_ptr.cast(), fault_segment_start_addr, copy_size, true)
+                    .copy(
+                        buffer_ptr.cast(),
+                        populate_offset.as_ptr_int() as *mut c_void,
+                        copy_size,
+                        true,
+                    )
                     .expect("unable to populate range");
             }
 
             let raw_data = unsafe { &buffer.slice()[0..load_size] };
             assert!(raw_data.len() == load_size);
-            let chunk = UfoChunk::new(&ufo_arc, &ufo, fault_segment_start, raw_data);
+            let chunk = UfoChunk::new(&ufo_arc, &ufo, populate_offset, raw_data);
             state.loaded_chunks.add(chunk);
         }
 
@@ -253,15 +263,18 @@ impl UfoCore {
                     },
                     e => panic!("Recieved an event we did not register for {:?}", e),
                 },
-                Ok(None) => { /*huh*/ println!("huh") }
+                Ok(None) => {
+                    /*huh*/
+                    println!("huh")
+                }
                 Err(userfaultfd::Error::SystemError(e))
                     if e.as_errno() == Some(nix::errno::Errno::EBADF) =>
                 {
-                    println!("closing uffd loop on ebadf");
+                    info!(target: "ufo_core", "closing uffd loop on ebadf");
                     return (/*done*/);
                 }
                 Err(userfaultfd::Error::ReadEof) => {
-                    println!("closing uffd loop");
+                    info!(target: "ufo_core", "closing uffd loop");
                     return (/*done*/);
                 }
                 err => {
@@ -272,7 +285,7 @@ impl UfoCore {
     }
 
     fn msg_loop(this: Arc<UfoCore>, recv: Receiver<UfoInstanceMsg>) {
-        println!("Started msg loop");
+        trace!(target: "ufo_core", "Started msg loop");
         fn allocate_impl(
             this: &Arc<UfoCore>,
             config: UfoObjectConfig,
@@ -282,7 +295,19 @@ impl UfoCore {
             let id_map = &state.objects_by_id;
             let id_gen = &mut state.object_id_gen;
 
-            let id = id_gen.next(|k| !id_map.contains_key(k));
+            let id = id_gen.next(|k| {
+                trace!(target: "ufo_core", "testing id {:?}", k);
+                !id_map.contains_key(k)
+            });
+
+            debug!(target: "ufo_core", "allocate {:?}: {} elements with stride {} [pad|header⋮body] [{}|{}⋮{}]",
+                id,
+                config.element_ct,
+                config.stride,
+                config.header_size_with_padding -config.header_size,
+                config.header_size,
+                config.stride * config.element_ct,
+            );
 
             let mmap = BaseMmap::new(
                 config.true_size,
@@ -296,6 +321,8 @@ impl UfoCore {
             let true_size = config.true_size;
             let mmap_base = mmap_ptr as usize;
             let segment = Segment::new(mmap_base, mmap_base + true_size);
+
+            debug!(target: "ufo_core", "mmapped {:#x} - {:#x}", mmap_base, mmap_base + true_size);
 
             let writeback = UfoFileWriteback::new(&config, this)?;
             this.uffd.register(mmap_ptr.cast(), true_size)?;
@@ -331,6 +358,8 @@ impl UfoCore {
                 .lock()
                 .map_err(|_| anyhow::anyhow!("lock poisoned"))?);
 
+            debug!(target: "ufo_core", "resetting {:?}", ufo.id);
+
             ufo.reset()?;
 
             state.loaded_chunks.drop_ufo_chunks(ufo_id);
@@ -347,9 +376,11 @@ impl UfoCore {
                 .unwrap_or_else(|| Err(anyhow::anyhow!("No such Ufo")))?;
             let ufo = ufo.lock().map_err(|_| anyhow::anyhow!("Broken Ufo Lock"))?;
 
-            
+            debug!(target: "ufo_core", "freeing {:?}", ufo.id);
+
             let mmap_base = ufo.mmap.as_ptr() as usize;
-            this.uffd.unregister(ufo.mmap.as_ptr().cast() , ufo.config.true_size)?;
+            this.uffd
+                .unregister(ufo.mmap.as_ptr().cast(), ufo.config.true_size)?;
 
             let segment = state
                 .objects_by_segment
@@ -366,15 +397,15 @@ impl UfoCore {
             Ok(())
         }
 
-        fn shutdown_impl(this: &Arc<UfoCore>){
+        fn shutdown_impl(this: &Arc<UfoCore>) {
+            info!(target: "ufo_core", "shutting down");
             let keys: Vec<UfoId> = {
                 let state = &mut *this.get_locked_state().expect("err on shutdown");
-                state.objects_by_id.keys()
-                    .map(Clone::clone)
-                    .collect()
+                state.objects_by_id.keys().map(Clone::clone).collect()
             };
 
-            keys.iter().for_each(|k| free_impl(this, *k).expect("err on free"));
+            keys.iter()
+                .for_each(|k| free_impl(this, *k).expect("err on free"));
         }
 
         loop {
@@ -405,27 +436,26 @@ impl UfoCore {
 
     pub(crate) fn shutdown(&self) {
         let sync = WaitGroup::new();
+        trace!(target: "ufo_core", "sending shutdown msg");
         self.msg_send
             .send(UfoInstanceMsg::Shutdown(sync.clone()))
             .expect("Can't send shutdown signal");
-        println!("shutting down, waiting for sync");
+        trace!(target: "ufo_core", "awaiting shutdown sync");
         sync.wait();
-        println!("sync, closing fd");
-        
+        trace!(target: "ufo_core", "sync, closing uffd filehandle");
+
         let fd = std::os::unix::prelude::AsRawFd::as_raw_fd(&self.uffd);
         // this will signal to the populate loop that it is time to close down
         let close_result = unsafe { libc::close(fd) };
         match close_result {
-            0 => { },
+            0 => {}
             _ => {
-                panic!("clouldn't close uffd handle {}", nix::errno::Errno::last().desc() );
+                panic!(
+                    "clouldn't close uffd handle {}",
+                    nix::errno::Errno::last().desc()
+                );
             }
         }
-        println!("closed {}", close_result);
-
-        let mut buf = [0x00u8; 1];
-        let c_buf = buf.as_mut_ptr() as *mut c_void;
-        let nread = unsafe { libc::read(fd, c_buf, buf.len()) };
-        println!("read EOF after close {}", nread == libc::EOF as isize);
+        trace!(target: "ufo_core", "close uffd handle: {}", close_result);
     }
 }

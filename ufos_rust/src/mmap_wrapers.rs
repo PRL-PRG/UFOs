@@ -5,6 +5,7 @@ use std::result::Result;
 use std::os::unix::io::RawFd;
 
 use super::return_checks::*;
+use log::{debug, error, info, trace};
 
 static PAGE_SIZE: std::lazy::SyncOnceCell<usize> = std::lazy::SyncOnceCell::new();
 
@@ -114,6 +115,7 @@ impl BaseMmap {
         // zeros are traditional gifts when you don't know what to give
         let (fd, offset) = fd_offset.unwrap_or((0, 0));
 
+        debug!(target: "ufo_malloc", "malloc {} bytes on fd {} with offset {}", length, fd, offset);
         let ptr = unsafe { libc::mmap64(std::ptr::null_mut(), length, prot, flags, fd, offset) };
 
         if ptr == libc::MAP_FAILED {
@@ -158,6 +160,7 @@ impl Mmap for BaseMmap {
 
 impl Drop for BaseMmap {
     fn drop(&mut self) {
+        debug!(target: "ufo_malloc", "free malloc {:#x}", self.base as usize);
         unsafe {
             libc::munmap(self.base.cast(), self.length());
         }
@@ -172,6 +175,7 @@ impl OpenFile {
     pub unsafe fn temp(path: &str, size: usize) -> Result<Self, Error> {
         let tmp = std::ffi::CString::new(path)?;
 
+        debug!(target: "ufo_malloc", "open anonymous temporary file at {}", path);
         let fd = check_return_nonneg(libc::open64(
             tmp.as_ptr(),
             libc::O_RDWR | libc::O_TMPFILE,
@@ -180,6 +184,7 @@ impl OpenFile {
 
         // make this before we truncate to a larger size so the file is closed even on error
         let f = OpenFile { fd };
+        debug!(target: "ufo_malloc", "opened file {}", fd);
 
         // truncate the file to the needed size
         check_return_zero(libc::ftruncate64(fd, size as i64))?;
@@ -194,6 +199,7 @@ impl OpenFile {
 
 impl Drop for OpenFile {
     fn drop(&mut self) {
+        debug!(target: "ufo_malloc", "close file {}", self.fd);
         unsafe { libc::close(self.fd) };
     }
 }

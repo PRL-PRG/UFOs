@@ -86,19 +86,18 @@ mod tests {
                     std::slice::from_raw_parts_mut(fill.cast(), size_of::<u32>() * (end - start))
                 };
                 for idx in start..end {
-                    slice[idx-start] = idx as u32;
+                    slice[idx - start] = idx as u32;
                 }
             }),
         );
 
         let o = core.allocate_ufo(obj_cfg);
-        println!("object");
 
         let arr = unsafe {
-            std::slice::from_raw_parts_mut(o.as_ptr().cast::<u32>(), size_of::<u32>() * 1000*1000)
+            std::slice::from_raw_parts_mut(o.as_ptr().cast::<u32>(), size_of::<u32>() * 1000 * 1000)
         };
 
-        for x in 0..1000*1000 {
+        for x in 0..1000 * 1000 {
             assert_eq!(x as u32, arr[x]);
         }
 
