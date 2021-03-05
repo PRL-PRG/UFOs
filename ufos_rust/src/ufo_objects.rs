@@ -97,7 +97,7 @@ pub struct UfoObjectConfig {
 impl UfoObjectConfig {
     pub fn new_config(
         header_size: usize,
-        ct: usize,
+        element_ct: usize,
         stride: usize,
         min_load_ct: Option<usize>,
         populate: Box<UfoPopulateFn>,
@@ -107,7 +107,7 @@ impl UfoObjectConfig {
 
         /* Headers and size */
         let header_size_with_padding = up_to_nearest(header_size as usize, page_size);
-        let body_size_with_padding = up_to_nearest(stride * ct, page_size);
+        let body_size_with_padding = up_to_nearest(stride * element_ct, page_size);
         let true_size = header_size_with_padding + body_size_with_padding;
 
         /* loading quanta */
@@ -123,7 +123,7 @@ impl UfoObjectConfig {
             true_size,
 
             elements_loaded_at_once,
-            element_ct: ct,
+            element_ct,
 
             populate,
         }
@@ -144,11 +144,17 @@ impl UfoOffset {
         let absolute_offset_bytes = addr
             .checked_sub(base_addr)
             .unwrap_or_else(|| panic!("Addr less than base {} < {}", addr, base_addr));
+        let header_bytes = ufo.config.header_size_with_padding;
+
+        assert!(
+            header_bytes <= absolute_offset_bytes,
+            "Cannot offset into the header"
+        );
 
         UfoOffset {
             base_addr,
             stride: ufo.config.stride,
-            header_bytes: ufo.config.header_size_with_padding,
+            header_bytes,
             absolute_offset_bytes,
         }
     }
@@ -327,11 +333,21 @@ pub struct UfoHandle {
     pub(crate) core: Weak<UfoCore>,
     pub(crate) id: UfoId,
     pub(crate) ptr: *mut std::ffi::c_void,
+    pub(crate) header_offset: usize,
+    pub(crate) body_offset: usize,
 }
 
 impl UfoHandle {
-    pub fn as_ptr(&self) -> *mut std::ffi::c_void {
+    pub(crate) fn as_ptr(&self) -> *mut std::ffi::c_void {
         self.ptr
+    }
+
+    pub fn header_ptr(&self) -> *mut std::ffi::c_void {
+        (self.ptr as usize + self.header_offset) as *mut std::ffi::c_void
+    }
+
+    pub fn body_ptr(&self) -> *mut std::ffi::c_void {
+        (self.ptr as usize + self.body_offset) as *mut std::ffi::c_void
     }
 
     pub fn reset(&self) -> anyhow::Result<()> {

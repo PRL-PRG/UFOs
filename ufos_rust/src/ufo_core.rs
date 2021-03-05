@@ -9,7 +9,7 @@ use std::{
 use std::{cmp::min, io::Error, ops::Deref};
 
 use anyhow;
-use log::{debug, info, trace};
+use log::{debug, info, trace, warn};
 
 use crossbeam::channel::{Receiver, Sender};
 use crossbeam::sync::WaitGroup;
@@ -168,12 +168,15 @@ impl UfoCore {
 
         trace!(target: "ufo_core", "starting threads");
         let pop_core = Arc::clone(&core);
-        std::thread::spawn(move || UfoCore::populate_loop(pop_core));
+        std::thread::Builder::new()
+            .name("Ufo Core".to_string())
+            .spawn(move || UfoCore::populate_loop(pop_core))?;
 
         let msg_core = Arc::clone(&core);
-        std::thread::spawn(move || UfoCore::msg_loop(msg_core, recv));
+        std::thread::Builder::new()
+            .name("Ufo Msg".to_string())
+            .spawn(move || UfoCore::msg_loop(msg_core, recv))?;
 
-        // TODO: seems like we should pass back something wrapping the Arc that can shutdown the core?
         Ok(core)
     }
 
@@ -265,7 +268,7 @@ impl UfoCore {
                 },
                 Ok(None) => {
                     /*huh*/
-                    println!("huh")
+                    warn!(target: "ufo_core", "huh")
                 }
                 Err(userfaultfd::Error::SystemError(e))
                     if e.as_errno() == Some(nix::errno::Errno::EBADF) =>
@@ -290,6 +293,25 @@ impl UfoCore {
             this: &Arc<UfoCore>,
             config: UfoObjectConfig,
         ) -> anyhow::Result<UfoHandle> {
+            info!(target: "ufo_object", "new Ufo {{
+                header_size: {},
+                stride: {},
+                header_size_with_padding: {},
+                true_size: {},
+    
+                elements_loaded_at_once: {},
+                element_ct: {},
+             }}",
+                config.header_size,
+                config.stride,
+
+                config.header_size_with_padding,
+                config.true_size,
+
+                config.elements_loaded_at_once,
+                config.element_ct,
+            );
+
             let state = &mut *this.get_locked_state()?;
 
             let id_map = &state.objects_by_id;
@@ -327,7 +349,17 @@ impl UfoCore {
             let writeback = UfoFileWriteback::new(&config, this)?;
             this.uffd.register(mmap_ptr.cast(), true_size)?;
 
+            //Pre-zero the header, that isn't part of our populate duties
+            if config.header_size_with_padding > 0 {
+                unsafe {
+                    this.uffd
+                        .zeropage(mmap_ptr.cast(), config.header_size_with_padding, true)
+                }?;
+            }
+
             let c_ptr = mmap.as_ptr().cast();
+            let header_offset = config.header_size_with_padding - config.header_size;
+            let body_offset = config.header_size_with_padding;
             let ufo = UfoObject {
                 id,
                 config,
@@ -344,6 +376,8 @@ impl UfoCore {
                 core: Arc::downgrade(this),
                 id,
                 ptr: c_ptr,
+                header_offset,
+                body_offset,
             })
         }
 
@@ -423,7 +457,7 @@ impl UfoCore {
                     UfoInstanceMsg::Shutdown(_) => {
                         shutdown_impl(&this);
                         drop(recv);
-                        println!("closing msg loop");
+                        info!(target: "ufo_core", "closing msg loop");
                         return (/*done*/);
                     }
                 },

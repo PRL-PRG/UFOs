@@ -94,7 +94,54 @@ mod tests {
         let o = core.allocate_ufo(obj_cfg);
 
         let arr = unsafe {
-            std::slice::from_raw_parts_mut(o.as_ptr().cast::<u32>(), size_of::<u32>() * 1000 * 1000)
+            std::slice::from_raw_parts_mut(
+                o.body_ptr().cast::<u32>(),
+                size_of::<u32>() * 1000 * 1000,
+            )
+        };
+
+        for x in 0..1000 * 1000 {
+            assert_eq!(x as u32, arr[x]);
+        }
+
+        drop(o);
+
+        core.shutdown();
+    }
+
+    #[test]
+    fn with_header() {
+        let config = UfoCoreConfig {
+            writeback_temp_path: "/tmp",
+            high_watermark: 1024 * 1024 * 1024,
+            low_watermark: 512 * 1024 * 1024,
+        };
+        let core = UfoCore::new_ufo_core(config).expect("error getting core");
+
+        let obj_cfg = UfoObjectConfig::new_config(
+            1,
+            1000 * 1000,
+            size_of::<u32>(),
+            Some(4096),
+            Box::new(|start, end, fill| {
+                let slice = unsafe {
+                    std::slice::from_raw_parts_mut(fill.cast(), size_of::<u32>() * (end - start))
+                };
+                for idx in start..end {
+                    slice[idx - start] = idx as u32;
+                }
+            }),
+        );
+
+        let o = core.allocate_ufo(obj_cfg);
+
+        unsafe { assert_eq!(*o.header_ptr().cast::<u32>(), 0) };
+
+        let arr = unsafe {
+            std::slice::from_raw_parts_mut(
+                o.body_ptr().cast::<u32>(),
+                size_of::<u32>() * 1000 * 1000,
+            )
         };
 
         for x in 0..1000 * 1000 {
