@@ -1,8 +1,9 @@
 use std::io::Error;
 use std::num::NonZeroUsize;
-use std::result::Result;
 use std::sync::{Arc, Mutex, Weak};
 use std::{lazy::SyncLazy, sync::MutexGuard};
+
+use anyhow::Result;
 
 use log::{debug, error, trace};
 
@@ -239,7 +240,7 @@ impl UfoChunk {
         })
     }
 
-    pub fn free_and_writeback_dirty(&mut self) -> Result<usize, Error> {
+    pub fn free_and_writeback_dirty(&mut self) -> Result<usize> {
         if let Some(length) = self.length {
             let length = length.get();
             if let Some(obj) = self.object.upgrade() {
@@ -287,17 +288,21 @@ impl UfoChunk {
 
 pub type UfoPopulateFn = dyn Fn(usize, usize, *mut u8) + Sync + Send;
 pub(crate) struct UfoFileWriteback {
+    ufo_id: UfoId,
     mmap: MmapFd,
+    chunk_size: usize,
     total_bytes: usize,
     bitmap_bytes: usize,
 }
 
 impl UfoFileWriteback {
-    pub fn new(cfg: &UfoObjectConfig, core: &Arc<UfoCore>) -> Result<UfoFileWriteback, Error> {
+    pub fn new(ufo_id: UfoId, cfg: &UfoObjectConfig, core: &Arc<UfoCore>) -> Result<UfoFileWriteback, Error> {
         let page_size = *PAGE_SIZE;
 
         let chunk_ct = cfg.element_ct.div_ceil(&cfg.elements_loaded_at_once);
         assert!(chunk_ct * cfg.elements_loaded_at_once >= cfg.element_ct);
+
+        let chunk_size = cfg.elements_loaded_at_once * cfg.stride;
 
         let bitmap_bytes = chunk_ct.div_ceil(&8); /*8 bits per byte*/
         // Now we want to get the bitmap bytes up to the next multiple of the page size
@@ -320,10 +325,64 @@ impl UfoFileWriteback {
         )?;
 
         Ok(UfoFileWriteback {
+            ufo_id,
+            chunk_size,
             mmap,
             total_bytes,
             bitmap_bytes,
         })
+    }
+
+    fn body_bytes(&self) -> usize{
+        self.total_bytes - self.bitmap_bytes
+    }
+
+    pub fn writeback_function<'a>(&'a self, offset: &UfoOffset) -> Result<Box<dyn FnOnce(&[u8]) + 'a>>{
+        let off_head = offset.offset_from_header();
+        if off_head > self.body_bytes() {
+            anyhow::bail!("{} outside of range", off_head);
+        }
+
+        let chunk_number = off_head.div_floor(&self.chunk_size);
+        let writeback_offset = self.bitmap_bytes + off_head;
+
+        let chunk_byte = chunk_number >> 3;
+        let chunk_bit = 1u8 << (chunk_number & 0b111);
+
+        debug!(target: "ufo_object", "writeback offset {:#x}", writeback_offset);
+
+        Ok(Box::new(move |live_data| {
+            let bitmap_ptr: &mut u8 = unsafe { self.mmap.as_ptr().add(chunk_byte).as_mut().unwrap() };
+            let writeback_arr: &mut [u8] = unsafe { std::slice::from_raw_parts_mut(self.mmap.as_ptr().add(writeback_offset), self.chunk_size) };
+            
+            assert!(live_data.len() == self.chunk_size);
+
+            *bitmap_ptr |= chunk_bit;
+            writeback_arr.copy_from_slice(live_data);
+            trace!(target: "ufo_object", "writeback");
+        }))
+    }
+
+    pub fn try_readback<'a>(&'a self, offset: &UfoOffset) -> Option<&'a [u8]>{
+        let off_head = offset.offset_from_header();
+        trace!(target: "ufo_object", "try readback {:?}@{:#x}", self.ufo_id, off_head);
+
+        let chunk_number = off_head.div_floor(&self.chunk_size);
+        let readback_offset = self.bitmap_bytes + off_head;
+
+        let chunk_byte = chunk_number >> 3;
+        let chunk_bit = 1u8 << (chunk_number & 0b111);
+
+        let bitmap_ptr: &u8 = unsafe { self.mmap.as_ptr().add(chunk_byte).as_ref().unwrap() };
+        let is_written = *bitmap_ptr & chunk_bit != 0;
+        
+        if is_written {
+            trace!(target: "ufo_object", "allow readback {:?}@{:#x}", self.ufo_id, off_head);
+            let arr: &[u8] = unsafe { std::slice::from_raw_parts(self.mmap.as_ptr().add(readback_offset), self.chunk_size) };
+            Some(arr)
+        }else{
+            None
+        }
     }
 }
 
@@ -398,29 +457,25 @@ pub(crate) struct UfoObject {
 }
 
 impl UfoObject {
-    fn writeback(&mut self, chunk: &UfoChunk) -> Result<(), Error> {
-        let wb_ptr = self.writeback_util.mmap.as_ptr();
-        let offset = self.writeback_util.bitmap_bytes + chunk.offset.offset_from_header();
-        let length = chunk.length.unwrap().get(); // in a writeback the length must be valid
-        let writeback_arr = unsafe { std::slice::from_raw_parts_mut(wb_ptr.add(offset), length) };
-        chunk
-            .with_slice(self, |live_data| {
-                debug!(target: "ufo_object", "writeback {:?}@{:#x}:{} → {:#x}",
-                    chunk.ufo_id(),
-                    self.mmap.as_ptr() as usize + chunk.offset.absolute_offset(),
-                    length,
-                    wb_ptr as usize + offset
-                );
-                assert!(live_data.len() == writeback_arr.len());
-                writeback_arr.copy_from_slice(live_data)
-            })
-            .map(Ok)
-            .unwrap_or_else(|| {
-                Err(Error::new(
-                    std::io::ErrorKind::AddrNotAvailable,
-                    "Chunk not valid",
-                ))
-            })
+    fn writeback(&mut self, chunk: &UfoChunk) -> Result<()> {
+        //TODO: Flag that we wrote out this chunk
+        //TODO: Test for written out chunks
+        chunk.with_slice(self, |live_data| {
+            debug!(target: "ufo_object", "writeback {:?}@{:#x}:{}",
+                self.id,
+                self.mmap.as_ptr() as usize + chunk.offset.absolute_offset(),
+                live_data.len(),
+            );
+
+            self.writeback_util.writeback_function(&chunk.offset).unwrap()(live_data);
+        })
+        .map(Ok)
+        .unwrap_or_else(|| {
+            Err(Error::new(
+                std::io::ErrorKind::AddrNotAvailable,
+                "Chunk not valid",
+            ))?
+        })
     }
 
     pub fn reset(&mut self) -> anyhow::Result<()> {

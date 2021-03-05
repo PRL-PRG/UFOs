@@ -20,7 +20,8 @@ segment-map = "0.1.1" # for maps over ranges
 promissory = { git = "https://github.com/electroCutie/promissory", branch = "main" }
 userfaultfd = { path = "/home/ckerr/workspace/userfaultfd-rs/" }
 
-stderrlog = "0.5.1"
+# stderrlog = "0.5.1"
 
 [build]
 target_os = "linux"
+

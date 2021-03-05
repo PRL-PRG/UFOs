@@ -159,24 +159,56 @@ mod tests {
     }
 
     #[test]
-    fn large() {
+    fn large() -> anyhow::Result<()> {
         // use stderrlog;
         // stderrlog::new()
         //     // .module("ufo_core")
         //     .verbosity(4)
-        //     .timestamp(stderrlog::Timestamp::Off)
+        //     .timestamp(stderrlog::Timestamp::Microsecond)
         //     .init()
         //     .unwrap();
 
         let ct = 1000 * 1000 * 2000;
-        let (core, o) = basic_test_object::<u64>(0, ct, 1000 * 1000);
+        let (core, o) = basic_test_object::<u64>(0, ct, 1024 * 1024);
 
         let arr = unsafe { std::slice::from_raw_parts_mut(o.body_ptr().cast::<u64>(), ct) };
 
         for x in 0..ct {
-            assert_eq!(x as u64, arr[x]);
+            if !(x as u64 == arr[x]) {
+                anyhow::bail!("{} != {}", x, arr[x]);
+            }
         }
 
         core.shutdown();
+        Ok(())
+    }
+
+    #[test]
+    fn large_write() -> anyhow::Result<()> {
+        // use stderrlog;
+        // stderrlog::new()
+        //     // .module("ufo_core")
+        //     .verbosity(4)
+        //     .timestamp(stderrlog::Timestamp::Millisecond)
+        //     .init()
+        //     .unwrap();
+
+        let ct = 1000 * 1000 * 200;
+        let (core, o) = basic_test_object::<u64>(0, ct, 1024 * 1024);
+
+        let arr = unsafe { std::slice::from_raw_parts_mut(o.body_ptr().cast::<u64>(), ct) };
+
+        arr[0] = 14;
+
+        for x in 1..ct {
+            if !(x as u64 == arr[x]) {
+                anyhow::bail!("{} != {}", x, arr[x]);
+            }
+        }
+
+        assert_eq!(14, arr[0]);
+
+        core.shutdown();
+        Ok(())
     }
 }

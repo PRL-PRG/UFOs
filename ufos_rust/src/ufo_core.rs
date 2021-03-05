@@ -227,7 +227,7 @@ impl UfoCore {
             );
 
             debug!(target: "ufo_core", "fault at {}, populate {} bytes at {:#x}",
-                ptr_int, (pop_end-start) * config.stride, populate_offset.as_ptr_int());
+                start, (pop_end-start) * config.stride, populate_offset.as_ptr_int());
 
             // unlock the ufo before freeing because that might need to grab the lock on the ufo
             droplockster(ufo);
@@ -239,23 +239,28 @@ impl UfoCore {
             let ufo = ufo_arc.lock().unwrap();
             let config = &ufo.config;
 
-            // let fault_absolute_offset = fault_data_offset_start + config.header_size_with_padding;
-            // let fault_segment_start_addr = (base_int + fault_absolute_offset) as *mut c_void;
+            let raw_data = ufo.writeback_util
+                .try_readback(&populate_offset)
+                .unwrap_or_else(||{
+                    trace!(target: "ufo_core", "data ready");
+                    unsafe { 
+                        buffer.ensure_capcity(load_size);
+                        (config.populate)(start, pop_end, buffer.ptr);
+                        &buffer.slice()[0..load_size]
+                    }
+                });
+            trace!(target: "ufo_core", "data ready");
 
             unsafe {
-                let buffer_ptr = buffer.ensure_capcity(load_size);
-                (config.populate)(start, pop_end, buffer.ptr);
-                core.uffd
-                    .copy(
-                        buffer_ptr.cast(),
-                        populate_offset.as_ptr_int() as *mut c_void,
-                        copy_size,
-                        true,
-                    )
-                    .expect("unable to populate range");
+                core.uffd.copy(
+                    raw_data.as_ptr().cast(),
+                    populate_offset.as_ptr_int() as *mut c_void,
+                    copy_size,
+                    true,
+                )
+                .expect("unable to populate range");
             }
-
-            let raw_data = unsafe { &buffer.slice()[0..load_size] };
+            
             assert!(raw_data.len() == load_size);
             let chunk = UfoChunk::new(&ufo_arc, &ufo, populate_offset, raw_data);
             state.loaded_chunks.add(chunk);
@@ -267,10 +272,8 @@ impl UfoCore {
         loop {
             match uffd.read_event() {
                 Ok(Some(event)) => match event {
-                    userfaultfd::Event::Pagefault { rw, addr } => match rw {
-                        ReadWrite::Read => populate_impl(&*this, &mut buffer, addr),
-                        ReadWrite::Write => panic!("unexpected write fault"),
-                    },
+                    userfaultfd::Event::Pagefault { rw: _, addr } => 
+                        populate_impl(&*this, &mut buffer, addr),
                     e => panic!("Recieved an event we did not register for {:?}", e),
                 },
                 Ok(None) => {
@@ -353,7 +356,7 @@ impl UfoCore {
 
             debug!(target: "ufo_core", "mmapped {:#x} - {:#x}", mmap_base, mmap_base + true_size);
 
-            let writeback = UfoFileWriteback::new(&config, this)?;
+            let writeback = UfoFileWriteback::new(id, &config, this)?;
             this.uffd.register(mmap_ptr.cast(), true_size)?;
 
             //Pre-zero the header, that isn't part of our populate duties
