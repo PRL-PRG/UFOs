@@ -4,7 +4,7 @@ project(ufos)
 SET(EX_PLATFORM 64)
 SET(EX_PLATFORM_NAME "x64")
 
-add_definitions(-Wall -g -D__UFOs_CoreDev__ -DMAKE_SURE)
+add_definitions(-Wall -O2 -g -D__UFOs_CoreDev__ -DMAKE_SURE)
 
 set(CMAKE_CXX_STANDARD 11)
 
@@ -39,6 +39,9 @@ find_package(OpenSSL REQUIRED)
 set(OPENSSL_TARGET OpenSSL::Crypto)
 message("R OpenSSL: ${OPENSSL_TARGET}")
 
+#Rust Core
+add_subdirectory(rust/ufos_c/)
+
 add_library(ufos SHARED ${CORE_SRC} ${R_SRC} ${UNSTDLIB_SRC})
 include_directories(ufos ${R_INCLUDE_DIR})
 target_link_libraries(ufos ${R_LIBRARIES} ${OPENSSL_TARGET})
@@ -58,4 +61,9 @@ target_link_libraries(sparseListTest ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_TARGET}
 
 add_executable(userfaultSpeed ${CORE_SRC} src/mappedMemory/userfaultSpeed.c)
 target_link_libraries(userfaultSpeed ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_TARGET})
+
+add_executable(ufoSpeedTest src/mappedMemory/ufoSpeedTest.c)
+# add_dependencies(ufoSpeedTest ufos_c )
+include_directories(ufoSpeedTest ufos_c )
+target_link_libraries(ufoSpeedTest ufos_c )
 

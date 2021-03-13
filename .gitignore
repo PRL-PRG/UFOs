@@ -15,3 +15,5 @@
 !*/cmake/FindR.cmake
 .Rproj.user
 CMakeFiles
+
+Cargo.lock

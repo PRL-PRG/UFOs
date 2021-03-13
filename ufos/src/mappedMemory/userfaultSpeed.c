@@ -123,6 +123,11 @@ static void *handler(void *arg)
   return NULL;
 }
 
+#define UFFD_IOCTLS_NEEDED      \
+	((__u64)1 << _UFFDIO_WAKE |		\
+	 (__u64)1 << _UFFDIO_COPY |		\
+	 (__u64)1 << _UFFDIO_ZEROPAGE)
+
 int main(int argc, char **argv)
 {
   int uffd;
@@ -174,8 +179,7 @@ int main(int argc, char **argv)
     exit(1);
   }
 
-  if ((uffdio_register.ioctls & UFFD_API_RANGE_IOCTLS) !=
-      UFFD_API_RANGE_IOCTLS) {
+  if ((uffdio_register.ioctls & UFFD_IOCTLS_NEEDED) != UFFD_IOCTLS_NEEDED) {
     fprintf(stderr, "unexpected userfaultfd ioctl set\n");
     exit(1);
   }
