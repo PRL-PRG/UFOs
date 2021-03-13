@@ -1,0 +1,14 @@
+[package]
+name = "ufos"
+version = "0.1.0"
+authors = ["Colette 🌩︎‍💝 Kerr <Colette.m.y.Kerr@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.38"
+crossbeam = "0.8.0"
+num = "0.3.1"
+promissory = { git = "https://github.com/electroCutie/promissory", commit = "8f3fc2f2983f555de2019212671cc535a92e50a4" }
+ufos_core = {path = "../ufos_core/"}
