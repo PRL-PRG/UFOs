@@ -335,7 +335,9 @@ impl UfoFileWriteback {
         assert!(bitmap_bytes * 8 >= chunk_ct);
         assert!(bitmap_bytes.trailing_zeros() >= page_size.trailing_zeros());
 
-        let data_bytes = cfg.element_ct * cfg.stride;
+        // round the mmap up to the nearest chunk size
+        // when loading we need to give back chunks this large so even though no useful user data may be in the last chunk we still need to have this available for in the readback chunk
+        let data_bytes = up_to_nearest(cfg.element_ct * cfg.stride, chunk_size);
         let total_bytes = bitmap_bytes + data_bytes;
 
         let temp_file =
