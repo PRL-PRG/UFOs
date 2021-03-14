@@ -256,7 +256,7 @@ impl UfoCore {
             let end = start + config.elements_loaded_at_once;
             let pop_end = min(end, config.element_ct);
 
-            let copy_size = min(
+            let populate_size = min(
                 load_size,
                 config.true_size - populate_offset.absolute_offset(),
             );
@@ -293,7 +293,7 @@ impl UfoCore {
                     .copy(
                         raw_data.as_ptr().cast(),
                         populate_offset.as_ptr_int() as *mut c_void,
-                        copy_size,
+                        populate_size,
                         true,
                     )
                     .expect("unable to populate range");
@@ -301,7 +301,9 @@ impl UfoCore {
             trace!(target: "ufo_core", "populated");
 
             assert!(raw_data.len() == load_size);
-            let chunk = UfoChunk::new(&ufo_arc, &ufo, populate_offset, raw_data);
+            let chunk = UfoChunk::new(&ufo_arc, &ufo, populate_offset, 
+                // Make sure to take a slice of the raw data. the kernel operates in page sized chunks but the UFO ends where it ends
+                &raw_data[0..populate_size]);
             state.loaded_chunks.add(chunk);
             trace!(target: "ufo_core", "chunk saved");
 

@@ -46,8 +46,10 @@ add_library(ufos SHARED ${CORE_SRC} ${R_SRC} ${UNSTDLIB_SRC})
 include_directories(ufos ${R_INCLUDE_DIR})
 target_link_libraries(ufos ${R_LIBRARIES} ${OPENSSL_TARGET})
 
-add_executable(ufoTest ${CORE_SRC} ${UNSTDLIB_SRC} src/mappedMemory/ufoTest.c)
-target_link_libraries(ufoTest ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_TARGET})
+add_executable(ufoTest src/mappedMemory/ufoTest.c)
+# target_link_libraries(ufoTest ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_TARGET})
+include_directories(ufoTest ufos_c)
+target_link_libraries(ufoTest ufos_c)
 
 
 #add_executable(oroborosTest src/mappedMemory/oroboros.c src/mappedMemory/oroboros.h src/mappedMemory/oroborosTest.c)
@@ -63,7 +65,6 @@ add_executable(userfaultSpeed ${CORE_SRC} src/mappedMemory/userfaultSpeed.c)
 target_link_libraries(userfaultSpeed ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_TARGET})
 
 add_executable(ufoSpeedTest src/mappedMemory/ufoSpeedTest.c)
-# add_dependencies(ufoSpeedTest ufos_c )
 include_directories(ufoSpeedTest ufos_c )
 target_link_libraries(ufoSpeedTest ufos_c )
 

@@ -37,15 +37,6 @@ macro_rules! opaque_c_type {
                 }
             }
         }
-    };
-
-    ($wrapper_name:ident, $wrapped_type:ty, $free_name:ident) => {
-        opaque_c_type!($wrapper_name, $wrapped_type);
-
-        impl $wrapper_name {
-            #[no_mangle]
-            pub extern "C" fn $free_name(self) {}
-        }
 
         impl Drop for $wrapper_name {
             fn drop(&mut self) {
@@ -53,6 +44,7 @@ macro_rules! opaque_c_type {
                     let mut the_ptr = std::ptr::null_mut();
                     unsafe {
                         std::ptr::swap(&mut the_ptr, &mut self.ptr);
+                        assert!(!the_ptr.is_null());
                         Box::<$wrapped_type>::from_raw(the_ptr.cast());
                     }
                 }
@@ -65,12 +57,12 @@ macro_rules! opaque_c_type {
 pub struct UfoCore {
     ptr: *mut c_void,
 }
-opaque_c_type!(UfoCore, Arc<ufos_core::UfoCore>, free_ufo_core);
+opaque_c_type!(UfoCore, Arc<ufos_core::UfoCore>);
 
 
 impl UfoCore {
     #[no_mangle]
-    pub unsafe extern "C" fn new_ufo_core(
+    pub unsafe extern "C" fn ufo_new_core(
         writeback_temp_path: *const libc::c_char,
         low_water_mark: libc::size_t,
         high_water_mark: libc::size_t,
@@ -79,7 +71,15 @@ impl UfoCore {
             let wb = std::ffi::CStr::from_ptr(writeback_temp_path)
                 .to_str().expect("invalid string")
                 .to_string();
+            
+            let mut low_water_mark = low_water_mark;
+            let mut high_water_mark = high_water_mark;
+
+            if low_water_mark > high_water_mark {
+                std::mem::swap(&mut low_water_mark, &mut high_water_mark);
+            }
             assert!(low_water_mark < high_water_mark);
+
             let config = UfoCoreConfig {
                 writeback_temp_path: wb,
                 low_watermark: low_water_mark,
@@ -96,15 +96,15 @@ impl UfoCore {
     }
 
     #[no_mangle]
-    pub extern "C" fn shutdown(self) {}
+    pub extern "C" fn ufo_core_shutdown(self) {}
 
     #[no_mangle]
-    pub extern "C" fn is_valid(&self) -> bool {
-        self.deref().is_some()
+    pub extern "C" fn ufo_core_is_error(&self) -> bool {
+        self.deref().is_none()
     }
 
     #[no_mangle]
-    pub extern "C" fn get_ufo_by_address(&self, ptr: usize) -> UfoObj{
+    pub extern "C" fn ufo_get_by_address(&self, ptr: usize) -> UfoObj{
         std::panic::catch_unwind(|| {
             self.deref()
             .and_then( |core| {
@@ -117,7 +117,7 @@ impl UfoCore {
     }
 
     #[no_mangle]
-    pub extern "C" fn new_ufo(
+    pub extern "C" fn ufo_new(
         &self,
         prototype: &UfoPrototype,
         ct: libc::size_t,
@@ -159,12 +159,12 @@ impl UfoCore {
 pub struct UfoPrototype {
     ptr: *mut c_void,
 }
-opaque_c_type!(UfoPrototype, UfoObjectConfigPrototype, free_ufo_prototype);
+opaque_c_type!(UfoPrototype, UfoObjectConfigPrototype);
 
 
 impl UfoPrototype {
     #[no_mangle]
-    pub extern "C" fn new_ufo_prototype(
+    pub extern "C" fn ufo_new_prototype(
         header_size: libc::size_t,
         stride: libc::size_t,
         min_load_ct: libc::size_t,
@@ -179,6 +179,14 @@ impl UfoPrototype {
         })
         .unwrap_or_else(|_| Self::none())
     }
+
+    #[no_mangle]
+    pub extern "C" fn ufo_prototype_is_error(&self) -> bool {
+        self.deref().is_none()
+    }
+
+    #[no_mangle]
+    pub extern "C" fn ufo_free_prototype(self){}
 }
 
 #[repr(C)]
@@ -201,7 +209,7 @@ impl UfoObj {
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn reset(&self) -> i32 {
+    pub unsafe extern "C" fn ufo_reset(&self) -> i32 {
         std::panic::catch_unwind(|| {
             self.with_ufo(|ufo| ufo.reset())
                 .map(|w| w.wait())
@@ -212,7 +220,7 @@ impl UfoObj {
     }
 
     #[no_mangle]
-    pub extern "C" fn header_ptr(&self) -> *mut std::ffi::c_void {
+    pub extern "C" fn ufo_header_ptr(&self) -> *mut std::ffi::c_void {
         std::panic::catch_unwind(|| {
             self.with_ufo(|ufo| Ok::<*mut c_void, ()>(ufo.header_ptr()))
             .unwrap_or_else(|| std::ptr::null_mut())
@@ -221,7 +229,7 @@ impl UfoObj {
     }
 
     #[no_mangle]
-    pub extern "C" fn body_ptr(&self) -> *mut std::ffi::c_void {
+    pub extern "C" fn ufo_body_ptr(&self) -> *mut std::ffi::c_void {
         std::panic::catch_unwind(|| {
             self.with_ufo(|ufo| Ok::<*mut c_void, ()>(ufo.body_ptr()))
             .unwrap_or_else(|| std::ptr::null_mut())
@@ -230,7 +238,7 @@ impl UfoObj {
     }
 
     #[no_mangle]
-    pub extern "C" fn free_ufo(self) {
+    pub extern "C" fn ufo_free(self) {
         std::panic::catch_unwind(|| {
             self.deref()
             .and_then(|ufo| ufo.lock().ok()?.free().ok())
@@ -238,10 +246,15 @@ impl UfoObj {
             .unwrap_or(())
         }).unwrap_or(())
     }
+
+    #[no_mangle]
+    pub extern "C" fn ufo_is_error(&self) -> bool {
+        self.deref().is_none()
+    }
 }
 
 #[no_mangle]
-pub extern "C" fn begin_ufo_log() {
+pub extern "C" fn ufo_begin_log() {
     stderrlog::new()
         // .module("ufo_core")
         .verbosity(4)

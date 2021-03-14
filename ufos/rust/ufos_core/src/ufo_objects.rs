@@ -230,6 +230,8 @@ impl UfoChunk {
         offset: UfoOffset,
         initial_data: &[u8],
     ) -> UfoChunk {
+        assert!(offset.absolute_offset()  + initial_data.len() <= object.mmap.length(),
+        "{} + {} > {}", offset.absolute_offset(), initial_data.len(), object.mmap.length());
         UfoChunk {
             ufo_id: object.id,
             object: Arc::downgrade(arc),
@@ -376,14 +378,18 @@ impl UfoFileWriteback {
         Ok(Box::new(move |live_data| {
             let bitmap_ptr: &mut u8 =
                 unsafe { self.mmap.as_ptr().add(chunk_byte).as_mut().unwrap() };
+            let expected_size = std::cmp::min(
+                self.chunk_size,
+                self.total_bytes - writeback_offset);
+
             let writeback_arr: &mut [u8] = unsafe {
                 std::slice::from_raw_parts_mut(
                     self.mmap.as_ptr().add(writeback_offset),
-                    self.chunk_size,
+                    expected_size,
                 )
             };
 
-            assert!(live_data.len() == self.chunk_size);
+            assert!(live_data.len() == expected_size);
 
             *bitmap_ptr |= chunk_bit;
             writeback_arr.copy_from_slice(live_data);
@@ -460,10 +466,10 @@ impl UfoObject {
     }
 
     pub(crate) fn reset_internal(&self) -> anyhow::Result<()> {
-        let length = self.config.true_size - self.config.header_size;
+        let length = self.config.true_size - self.config.header_size_with_padding;
         unsafe {
             check_return_zero(libc::madvise(
-                self.mmap.as_ptr().add(self.config.header_size).cast(),
+                self.mmap.as_ptr().add(self.config.header_size_with_padding).cast(),
                 length,
                 libc::MADV_DONTNEED,
             ))?;

@@ -10,11 +10,9 @@
 
 #include <unistd.h>
 
+#include "ufos_c.h"
 
-#include "userfaultCore.h"
-#include "../unstdLib/errors.h"
-
-int testpopulate(uint64_t startValueIdx, uint64_t endValueIdx, ufPopulateCallout callout, ufUserData userData, char* target){
+int testpopulate(void* userData, uint64_t startValueIdx, uint64_t endValueIdx, unsigned char* target){
   uint64_t* t = (uint64_t*) target;
   uint64_t* requestCt = (uint64_t*) userData;
   assert(startValueIdx >= 0);
@@ -31,41 +29,40 @@ int testpopulate(uint64_t startValueIdx, uint64_t endValueIdx, ufPopulateCallout
 #define testBit(i)  (0 != (bitmap[i >> 6] & (1ull << (i & 0x3f))) )
 
 int main(int argc, char **argv) {
-  int res;
   int i = 0;
   int n = (argc > 1) ? atoi(argv[1]) : -1;
 
   srand(13);
 
-  ufInstance_t ufI = ufMakeInstance();
-  ufSetMemoryLimits(ufI, 100*1024*1024, 50*1024*1024);
-  tryPerrInt(res, ufInit(ufI), "Err Init", error);
+  UfoCore ufoCore = ufo_new_core("/tmp/", 50*1024*1024, 200*1024*1024);
+  if(ufo_core_is_error(&ufoCore))
+    goto error;
+
+  UfoPrototype ufoPrototype = ufo_new_prototype(64, sizeof(uint64_t), (rand() & 0xffff) + 1);
+  // ufo_free_prototype(ufoPrototype);
+  if(ufo_prototype_is_error(&ufoPrototype))
+    goto proto_error; 
 
 //  uint64_t* bitmap = calloc(1024*1024*1024, 8);
   while(n < 0 || i < n) {
     uint64_t ct = 1024ull*1024*((rand() & 0xffull) + 1), sz = ct*8 ;
 
-    ufObjectConfig_t config = makeObjectConfig(uint64_t, 64, ct, (rand() & 0xffff) + 1);
-    ufSetPopulateFunction(config, testpopulate);
-    ufSetUserConfig(config, &ct);
+    UfoObj o = ufo_new(&ufoCore, &ufoPrototype, ct, &ct, testpopulate);
+    if(ufo_is_error(&o))
+      goto bad_ufo;
 
-    ufObject_t o;
-    tryPerrInt(res, ufCreateObject(ufI, config, &o), "Err init obj", error1);
-    uint64_t* h = (uint64_t*) ufGetHeaderPointer(o);
+    uint64_t* h = (uint64_t*) ufo_header_ptr(&o);
     assert(h[0] == 0x00);
     h[0] = 0x01;
     assert(h[0] == 0x01);
 
 
-    *((uint32_t*)ufGetHeaderPointer(o)) = 0x5c5c;
-    uint64_t* ptr = (uint64_t*) ufGetValuePointer(o);
-
-    free(config);
+    *((uint32_t*)ufo_header_ptr(&o)) = 0x5c5c;
+    uint64_t* ptr = (uint64_t*) ufo_body_ptr(&o);
 
     printf("%lu\n", (uint64_t)ct);
 
     uint64_t persianFlawIdx;
-
     void makeFlaw(){
       persianFlawIdx = rand() % ct;
       ptr[persianFlawIdx] = persianFlawIdx;
@@ -74,9 +71,9 @@ int main(int argc, char **argv) {
 
     while((random() & 0xfff) != 0){
       if((random() & 0xfff) < 7){
-        ufResetObject(o);
+        ufo_reset(&o);
         makeFlaw();
-        assert(0x5c5c == *((uint32_t*)ufGetHeaderPointer(o)));
+        assert(0x5c5c == *((uint32_t*)ufo_header_ptr(&o)));
       }
 
       uint64_t i = rand() % ct;
@@ -92,15 +89,18 @@ int main(int argc, char **argv) {
       }
     }
 
-    tryPerrInt(res, ufDestroyObject(o), "Err destroying obj", error1);
+    ufo_free(o);
 
     i++;
   };
 
-  error1:
-  tryPerrInt(res, ufShutdown(ufI, false), "Err Shutdown", error);
-  tryPerrInt(res, ufAwaitShutdown(ufI), "Err Await Shutdown", error);
-  exit(0);
+  bad_ufo:
+  // ufo_core_shutdown(ufoCore);
+  exit(-3);
+
+  proto_error:
+  // ufo_core_shutdown(ufoCore);
+  exit(-2);
 
   error:
   exit(-1);
