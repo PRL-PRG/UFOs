@@ -19,7 +19,7 @@ libc = "0.2.80"
 log = "0.4.14"
 nix = "0.17"
 num = "0.3.1" # for One
-promissory = { git = "https://github.com/electroCutie/promissory", commit = "8f3fc2f2983f555de2019212671cc535a92e50a4" }
+promissory = "0.1"
 segment-map = "0.1.1" # for maps over ranges
 thiserror = "1.0"
 userfaultfd = { path = "/home/ckerr/workspace/userfaultfd-rs/" }

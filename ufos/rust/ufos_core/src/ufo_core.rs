@@ -12,7 +12,6 @@ use log::{debug, info, trace, warn};
 
 use crossbeam::channel::{Receiver, Sender};
 use crossbeam::sync::WaitGroup;
-use promissory::Awaiter;
 use segment_map::{Segment, SegmentMap};
 use userfaultfd::Uffd;
 
@@ -301,9 +300,13 @@ impl UfoCore {
             trace!(target: "ufo_core", "populated");
 
             assert!(raw_data.len() == load_size);
-            let chunk = UfoChunk::new(&ufo_arc, &ufo, populate_offset, 
+            let chunk = UfoChunk::new(
+                &ufo_arc,
+                &ufo,
+                populate_offset,
                 // Make sure to take a slice of the raw data. the kernel operates in page sized chunks but the UFO ends where it ends
-                &raw_data[0..populate_size]);
+                &raw_data[0..populate_size],
+            );
             state.loaded_chunks.add(chunk);
             trace!(target: "ufo_core", "chunk saved");
 
