@@ -1,5 +1,7 @@
 context("UFO vector subscripting")
 
+# FIXME test 0s
+
 test_that("ufo null subscript", {
   ufo <- ufo_integer(100000)
   ufo[1:100000] <- 1:100000
