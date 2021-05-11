@@ -1,0 +1,74 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [        
+        
+        {
+            "name": "C+R: Launch R Console",
+            "logging": { "engineLogging": true },
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${config:R.binary}",            
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [ // Since this is a call directly to the binary, it nees the full setup explicitly.
+                { "name": "R_HOME", "value": "${config:R.dir}"},
+                { "name": "R_HOME_DIR", "value": "${config:R.dir}"},
+                { "name": "R_SHARE_DIR", "value": "${config:R.dir}/share"},
+                { "name": "R_INCLUDE_DIR", "value":"${config:R.dir}/include"},
+                { "name": "R_DOC_DIR", "value": "${config:R.dir}/doc"},
+                { "name": "R_JAVA_LD_LIBRARY_PATH", "value": "${config:R.java_server}"},
+                { "name": "R_LD_LIBRARY_PATH", "value": "${config:R.ld}"},
+                { "name": "LD_LIBRARY_PATH", "value": "${config:R.ld}"},
+                { "name": "R_binary", "value": "${config:R.binary}"},
+                { "name": "R_ARCH", "value": ""}
+            ],
+            "externalConsole": true,
+            //"console": "integratedTerminal",
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "R+C: Build package",
+        },
+        {
+            "name": "C+R: Launch Current File as R Script",
+            "logging": { "engineLogging": true },
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${config:R.script}",            
+            "args": ["${file}"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            // "environment": [ // Rscript is a binary that seems to be happy to set its own environment.
+            //     { "name": "R_HOME", "value": "${config:R.dir}"},
+            //     { "name": "R_HOME_DIR", "value": "${config:R.dir}"},
+            //     { "name": "R_SHARE_DIR", "value": "${config:R.dir}/share"},
+            //     { "name": "R_INCLUDE_DIR", "value":"${config:R.dir}/include"},
+            //     { "name": "R_DOC_DIR", "value": "${config:R.dir}/doc"},
+            //     { "name": "R_JAVA_LD_LIBRARY_PATH", "value": "${config:R.java_server}"},
+            //     { "name": "R_LD_LIBRARY_PATH", "value": "${config:R.ld}"},
+            //     { "name": "LD_LIBRARY_PATH", "value": "${config:R.ld}"},
+            //     { "name": "R_binary", "value": "${config:R.binary}"},
+            //     { "name": "R_ARCH", "value": ""}
+            // ],
+            "externalConsole": false,
+            //"console": "integratedTerminal",
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "R+C: Build package",
+        }
+    ]
+}

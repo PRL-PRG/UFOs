@@ -1,0 +1,25 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "cppbuild",
+			"label": "R+C: Build package",
+			"command": "${config:R.cmd}",
+			"args": [
+				"CMD",
+				"INSTALL",
+				"${workspaceFolder}",
+				"--preclean",
+				"--postclean"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": "build",
+			"detail": "compiler: /usr/bin/gcc"
+		},
+	]
+}
