@@ -129,6 +129,8 @@ size_t __get_element_size(SEXPTYPE vector_type) {
             return sizeof(Rcomplex);
         case RAWSXP:
             return sizeof(Rbyte);
+        case STRSXP:
+            return sizeof(SEXP/*STRSXP*/);
         default:
             Rf_error("Unrecognized vector type: %s\n", type2char(vector_type));
     }

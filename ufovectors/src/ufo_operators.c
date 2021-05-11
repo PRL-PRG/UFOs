@@ -37,8 +37,8 @@ R_xlen_t ufo_vector_size_to_fit_both(SEXPTYPE x_type, SEXPTYPE y_type, R_xlen_t 
 		return 0;
 	}
 
-	if ((x_type == REALSXP || x_type == INTSXP || x_type == LGLSXP || x_type == NILSXP || x_type == CPLXSXP)
-		&& (y_type == REALSXP || y_type == INTSXP || y_type == LGLSXP || y_type == NILSXP || y_type == CPLXSXP))  {
+	if ((x_type == REALSXP || x_type == INTSXP || x_type == LGLSXP || x_type == NILSXP || x_type == CPLXSXP || x_type == STRSXP)
+		&& (y_type == REALSXP || y_type == INTSXP || y_type == LGLSXP || y_type == NILSXP || y_type == CPLXSXP  || y_type == STRSXP))  {
 		return x_length >= y_length ? x_length : y_length;
 	}
 
@@ -52,8 +52,8 @@ R_xlen_t ufo_vector_size_to_mod_both(SEXPTYPE x_type, SEXPTYPE y_type, R_xlen_t 
 		return 0;
 	}
 
-	if ((x_type == REALSXP || x_type == INTSXP || x_type == LGLSXP || x_type == NILSXP)
-		&& (y_type == REALSXP || y_type == INTSXP || y_type == LGLSXP || y_type == NILSXP))  {
+	if ((x_type == REALSXP || x_type == INTSXP || x_type == LGLSXP || x_type == NILSXP || x_type == STRSXP)
+		&& (y_type == REALSXP || y_type == INTSXP || y_type == LGLSXP || y_type == NILSXP || y_type == STRSXP))  {
 		return x_length >= y_length ? x_length : y_length;
 	}
 
@@ -185,6 +185,7 @@ SEXPTYPE ufo_vector_type_to_rel_both(SEXPTYPE x, SEXPTYPE y) {
 		if (y == INTSXP) 	return LGLSXP;
 		if (y == LGLSXP)	return LGLSXP;
 		if (y == NILSXP)	return LGLSXP;
+		if (y == STRSXP)	return LGLSXP;
 
 		Rf_error("operation is not supported");
 	}
@@ -195,12 +196,20 @@ SEXPTYPE ufo_vector_type_to_rel_both(SEXPTYPE x, SEXPTYPE y) {
 		if (y == LGLSXP)	return LGLSXP;
 		if (y == NILSXP)	return LGLSXP;
 		if (y == CPLXSXP)	return LGLSXP;
+		if (y == STRSXP)	return LGLSXP;
 
 		Rf_error("operation is not supported");
 	}
 
 	if (x == CPLXSXP) {
 		if (y == NILSXP)	return LGLSXP;
+		if (y == STRSXP)	return LGLSXP;		
+
+		Rf_error("operation is not supported");
+	}
+
+	if (x == STRSXP) {
+		if (y == STRSXP)	return STRSXP;
 
 		Rf_error("operation is not supported");
 	}
@@ -211,12 +220,13 @@ SEXPTYPE ufo_vector_type_to_rel_both(SEXPTYPE x, SEXPTYPE y) {
 
 // Good for: == != | &
 SEXPTYPE ufo_vector_type_to_log_both(SEXPTYPE x, SEXPTYPE y) {
-	if (x == REALSXP || x == INTSXP || x == LGLSXP || x == NILSXP || x == CPLXSXP) {
+	if (x == REALSXP || x == INTSXP || x == LGLSXP || x == NILSXP || x == CPLXSXP || x == STRSXP) {
 		if (y == REALSXP) 	return LGLSXP;
 		if (y == INTSXP) 	return LGLSXP;
 		if (y == LGLSXP)	return LGLSXP;
 		if (y == NILSXP)	return LGLSXP;
 		if (y == CPLXSXP)	return LGLSXP;
+		if (y == STRSXP)	return LGLSXP;
 
 		Rf_error("operation is not supported");
 	}
@@ -964,6 +974,27 @@ Rbyte get_raw_by_real_index(SEXP vector, R_xlen_t vector_length, double index) {
 	return RAW_ELT(vector, vector_index);
 }
 
+SEXP/*CHARSXP*/ get_string_by_integer_index(SEXP/*STRSXP*/ vector, R_xlen_t vector_length, int index) {
+	if (NA_INTEGER == index) {
+		return NA_STRING;
+	}
+	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
+	make_sure(vector_index < vector_length, Rf_error, 
+			  "Index out of bounds %d >= %d.", vector_index, vector_length);
+	return STRING_ELT(vector, vector_index);
+}
+
+
+SEXP/*CHARSXP*/ get_string_by_real_index(SEXP/*STRSXP*/ vector, R_xlen_t vector_length, double index) {
+	if (ISNAN(index)) {
+		return NA_STRING;
+	}
+	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
+	make_sure(vector_index < vector_length, Rf_error, 
+			"Index out of bounds %d >= %d.", vector_index, vector_length);
+	return STRING_ELT(vector, vector_index);
+}
+
 // XXX Can copy by region for contiguous, ordered areas of memory
 SEXP copy_selected_values_according_to_integer_indices(SEXP source, SEXP target, SEXP indices_into_source) {
 	make_sure(TYPEOF(source) == TYPEOF(target), Rf_error, 
@@ -1014,15 +1045,21 @@ SEXP copy_selected_values_according_to_integer_indices(SEXP source, SEXP target,
 		}
 		break;
 
-	case RAWSXP:
+	case STRSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
 			int index_in_source = INTEGER_ELT(indices_into_source, i) - 1;
+			SEXP/*STRSXP*/ value = get_string_by_integer_index(source, source_length, index_in_source);
+			SET_STRING_ELT(target, i, value);
+		}
+		break;		
+
+	case RAWSXP:
+		for (R_xlen_t i = 0; i < index_length; i++) {
+			int index_in_source = INTEGER_ELT(indices_into_source, i) - 1; // FIXME integer indices are -1 bnut real indices are - 0!
 			Rbyte value = get_raw_by_integer_index(source, source_length, index_in_source);
 			SET_RAW_ELT(target, i, value);
 		}
 		break;
-
-		// TODO potentially others
 	
 	default:
 		Rf_error("Cannot copy selected values from vector of type %i to "
@@ -1090,7 +1127,13 @@ SEXP copy_selected_values_according_to_real_indices(SEXP source, SEXP target, SE
 		}
 		break;
 
-		// TODO potentially others: strings?
+	case STRSXP:
+		for (R_xlen_t i = 0; i < index_length; i++) {
+			double index_in_source = REAL_ELT(indices_into_source, i);
+			SEXP/*STRSXP*/ value = get_string_by_integer_index(source, source_length, index_in_source);
+			SET_STRING_ELT(target, i, value);
+		}
+		break;			
 	
 	default:
 		Rf_error("Cannot copy selected values from vector of type %i to "
@@ -1222,6 +1265,27 @@ void set_raw_by_real_index(SEXP vector, R_xlen_t vector_length, double index, Rb
 	SET_RAW_ELT(vector, vector_index, value);
 }
 
+
+void set_string_by_integer_index(SEXP vector, R_xlen_t vector_length, int index, SEXP/*CHARSXP*/ value) {
+	if (index == NA_INTEGER) {
+		return;
+	}
+	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
+	make_sure(vector_index < vector_length, Rf_error, 
+	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
+	SET_STRING_ELT(vector, vector_index, value);
+}
+
+void set_string_by_real_index(SEXP vector, R_xlen_t vector_length, double index, SEXP/*CHARSXP*/ value) {
+	if (ISNAN(index)) {
+		return;
+	}
+	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
+	make_sure(vector_index < vector_length, Rf_error, 
+	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
+	SET_STRING_ELT(vector, vector_index, value);
+}
+
 // XXX Can copy by region for contiguous, ordered areas of memory
 SEXP write_values_into_vector_at_integer_indices(SEXP target, SEXP indices_into_target, SEXP source) {
 	// make_sure(TYPEOF(source) == TYPEOF(target), Rf_error, 
@@ -1281,6 +1345,15 @@ SEXP write_values_into_vector_at_integer_indices(SEXP target, SEXP indices_into_
 			Rboolean value = element_as_logical(source, index_in_source);
 			int index_in_target = INTEGER_ELT(indices_into_target, i);
 			set_logical_by_integer_index(target, target_length, index_in_target, value);
+		}
+		break;
+
+	case STRSXP:
+		for (R_xlen_t i = 0; i < index_length; i++) {
+			R_xlen_t index_in_source = i % source_length;
+			SEXP/*STRSXP*/ value = element_as_string(source, index_in_source);
+			int index_in_target = INTEGER_ELT(indices_into_target, i);
+			set_string_by_integer_index(target, target_length, index_in_target, value);
 		}
 		break;
 
@@ -1367,6 +1440,16 @@ SEXP write_values_into_vector_at_real_indices(SEXP target, SEXP indices_into_tar
 		break;
 
 	case RAWSXP:
+		for (R_xlen_t i = 0; i < index_length; i++) {
+			R_xlen_t index_in_source = i % source_length;
+			SEXP/*STRSXP*/ value = element_as_string(source, index_in_source);
+			double index_in_target = REAL_ELT(indices_into_target, i);
+			set_string_by_real_index(target, target_length, index_in_target, value);
+		}
+		break;
+
+
+	case STRSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
 			R_xlen_t index_in_source = i % source_length;
 			Rbyte value = element_as_raw(source, index_in_source);

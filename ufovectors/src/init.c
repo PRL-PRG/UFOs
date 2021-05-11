@@ -35,7 +35,7 @@ static const R_CallMethodDef CallEntries[] = {
 	{"ufo_vecsxp_empty",      		(DL_FUNC) &ufo_vecsxp_empty,          		2},
     
     // CSV support
-    {"ufo_csv",                     (DL_FUNC) &ufo_csv,                         5},
+    {"ufo_csv",                     (DL_FUNC) &ufo_csv,                         6},
 
     // Storage.
     {"ufo_store_bin",               (DL_FUNC) &ufo_store_bin,                   2},

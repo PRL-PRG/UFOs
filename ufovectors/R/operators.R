@@ -163,6 +163,7 @@ unload_operators <- function() {
 # options(ufovectors.overload_operators = TRUE)
 .onLoad <- function(...) {
   if (isTRUE(getOption("ufovectors.add_class"))) {
+    write("Creating S3 methods for UFO vectors\n", stderr())
     registerS3method("+",   "ufo", ufovectors:::ufo_add)
     registerS3method("-",   "ufo", ufovectors:::ufo_subtract)
     registerS3method("*",   "ufo", ufovectors:::ufo_multiply)
@@ -184,6 +185,7 @@ unload_operators <- function() {
   }
 
   if (isTRUE(getOption("ufovectors.overload_operators"))) {
+    write("Overloading operators to return UFO vectors\n", stderr())
     ufovectors:::overload_operators()
   }
 }
