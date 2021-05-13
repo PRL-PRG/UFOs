@@ -1031,7 +1031,7 @@ SEXP copy_selected_values_according_to_integer_indices(SEXP source, SEXP target,
 
 	case CPLXSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			int index_in_source = INTEGER_ELT(indices_into_source, i) - 1;
+			int index_in_source = INTEGER_ELT(indices_into_source, i);
 			Rcomplex value = get_complex_by_integer_index(source, source_length, index_in_source);
 			SET_COMPLEX_ELT(target, i, value);
 		}
@@ -1039,7 +1039,7 @@ SEXP copy_selected_values_according_to_integer_indices(SEXP source, SEXP target,
 
 	case LGLSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			int index_in_source = INTEGER_ELT(indices_into_source, i) - 1;
+			int index_in_source = INTEGER_ELT(indices_into_source, i);
 			Rboolean value = get_logical_by_integer_index(source, source_length, index_in_source);
 			SET_LOGICAL_ELT(target, i, value);
 		}
@@ -1047,7 +1047,7 @@ SEXP copy_selected_values_according_to_integer_indices(SEXP source, SEXP target,
 
 	case STRSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			int index_in_source = INTEGER_ELT(indices_into_source, i) - 1;
+			int index_in_source = INTEGER_ELT(indices_into_source, i);
 			SEXP/*STRSXP*/ value = get_string_by_integer_index(source, source_length, index_in_source);
 			SET_STRING_ELT(target, i, value);
 		}
@@ -1055,7 +1055,7 @@ SEXP copy_selected_values_according_to_integer_indices(SEXP source, SEXP target,
 
 	case RAWSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			int index_in_source = INTEGER_ELT(indices_into_source, i) - 1; // FIXME integer indices are -1 bnut real indices are - 0!
+			int index_in_source = INTEGER_ELT(indices_into_source, i);
 			Rbyte value = get_raw_by_integer_index(source, source_length, index_in_source);
 			SET_RAW_ELT(target, i, value);
 		}
