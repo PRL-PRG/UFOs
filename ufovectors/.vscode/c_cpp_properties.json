@@ -5,8 +5,8 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 //"/usr/include/linux/**",
-                "/opt/R-4.0.3/include/**",
-                "/opt/R-4.0.3/src/include/**"
+                "/opt/R-4.0.5/include/**",
+                "/opt/R-4.0.5/src/include/**"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

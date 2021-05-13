@@ -162,7 +162,6 @@ ufo_matrix_bin <- function(type, path, rows, cols, min_load_count = 0, add_class
 ufo_csv <- function(path, min_load_count = 0, check_names=T, header=T, record_row_offsets_at_interval=1000, 
                     initial_buffer_size=32, col_names, add_class = .check_add_class()) {
 
-  browser()
   .expect_exactly_one(min_load_count)
   .expect_exactly_one(header)
   .expect_exactly_one(check_names)

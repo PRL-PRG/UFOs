@@ -4,7 +4,7 @@
         "*.c": "c",
         "type_traits": "c"
     },
-    "R.dir": "/opt/R-4.0.3",
+    "R.dir": "/opt/R-4.0.5",
     "R.cmd": "${config:R.dir}/bin/R" ,
     "R.binary": "${config:R.dir}/bin/exec/R" ,
     "R.script": "${config:R.dir}/bin/Rscript",
@@ -22,4 +22,5 @@
         { "name": "R_binary", "value": "${config:R.binary}"},
         { "name": "R_ARCH", "value": ""}
     ],
+    "cmake.configureOnOpen": true,
 }
