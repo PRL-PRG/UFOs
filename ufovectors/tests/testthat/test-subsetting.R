@@ -7,7 +7,7 @@ test_that("ufo integer subset", {
 
   subscript <- 1:1000
 
-  result <- ufovectors::subset(ufo, subscript)
+  result <- ufovectors::ufo_subset(ufo, subscript)
 
   expect_equal(result, data[subscript])
 })
