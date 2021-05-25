@@ -23,14 +23,24 @@ ufo_or            <- function(x, y)   .ufo_binary(.base_or,            "ufo_log_
 ufo_and           <- function(x, y)   .ufo_binary(.base_and,           "ufo_log_result", x, y)
 ufo_not           <- function(x)      .ufo_unary (.base_not,           "ufo_neg_result", x)
 
-ufo_subset <- function(x, i, ..., drop=TRUE) {
-  cat("[...]\n")
 
-  result <- .Call(result_inference, x, y, as.integer(min_load_count))
-  result_size <- length(result);
-  number_of_chunks <- ceiling(result_size / chunk_size)
+#-----------------------------------------------------------------------------
+# Subsetting
+#-----------------------------------------------------------------------------
+
+ufo_subset <- function(x, subscript, ..., drop=FALSE, min_load_count=0) { # drop ignored for ordinary vectors, it seems?
+  # choice of output type goes here? or inside
+  .Call("ufo_subset", x, subscript, as.integer(min_load_count))
 }
-#ufo_subset_assign <- function(x, i, v)
+
+ufo_subset_assign <- function(x, subscript, values, ..., drop=FALSE, min_load_count=0) { # drop ignored for ordinary vectors, it seems?
+  # choice of output type goes here? or inside
+  .Call("ufo_subset_assign", x, subscript, values, as.integer(min_load_count))
+}
+
+ufo_subscript <- function(x, subscript, min_load_count=0) {
+  .Call("ufo_subscript", x, subscript, as.integer(min_load_count))
+}
 
 #-----------------------------------------------------------------------------
 # Helper functions that do the actual chunking
@@ -50,7 +60,7 @@ ufo_subset <- function(x, i, ..., drop=TRUE) {
     result[attr(x_chunk, 'start_index'):attr(x_chunk, 'end_index')] <- operation(x_chunk, y_chunk)
   }
 
-  # TODO copy attributes`
+  # TODO copy attributes
   return(.add_class(result, "ufo", .check_add_class()))
 }
 
@@ -153,6 +163,7 @@ unload_operators <- function() {
 # options(ufovectors.overload_operators = TRUE)
 .onLoad <- function(...) {
   if (isTRUE(getOption("ufovectors.add_class"))) {
+    write("Creating S3 methods for UFO vectors\n", stderr())
     registerS3method("+",   "ufo", ufovectors:::ufo_add)
     registerS3method("-",   "ufo", ufovectors:::ufo_subtract)
     registerS3method("*",   "ufo", ufovectors:::ufo_multiply)
@@ -174,10 +185,30 @@ unload_operators <- function() {
   }
 
   if (isTRUE(getOption("ufovectors.overload_operators"))) {
+    write("Overloading operators to return UFO vectors\n", stderr())
     ufovectors:::overload_operators()
   }
 }
 
-subscript <- function(x, subscript, min_load_count=0) {
-  .Call("ufo_subscript", x, subscript, as.integer(min_load_count))
-}
+# Notes on subsetting:
+#
+# +-------------------+-------------------+----------+------+
+# | capture method    | works from C code | hygene   | done |
+# +-------------------+-------------------+----------+------+
+# | ALTREP            | Y                 | good     |      |
+# | S3                | N                 | good     |      |
+# | redefine operator | N                 | criminal |      |
+# +-------------------+-------------------+----------+------+
+#
+# +-------------------+-------------+-------------+--------------------+------+
+# | store result in   | disk use    | memory use  | overhead on access |      |
+# +-------------------+-------------+-------------+--------------------+------+
+# | ALTREP / viewport | none        | index size  | some               |      |
+# | UFO copy          | result size | negligible  | negligible         |      |
+# | R copy            | none        | result size | none               |      |
+# +-------------------+-------------+-------------+--------------------+------+
+# | UFO viewport      |             currently not possible             |      |
+# +-------------------+------------------------------------------------+------+
+#
+
+# TODO parameterize minloadcount globally

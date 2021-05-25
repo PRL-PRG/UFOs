@@ -2,13 +2,6 @@ useDynLib(ufovectors, .registration = TRUE, .fixes = "")
 
 export(ufo_set_debug_mode)
 
-export(ufo_integer_bin)
-export(ufo_numeric_bin)
-export(ufo_complex_bin)
-export(ufo_logical_bin)
-export(ufo_raw_bin)
-export(ufo_vector_bin)
-
 export(ufo_integer)
 export(ufo_numeric)
 export(ufo_complex)
@@ -16,12 +9,22 @@ export(ufo_logical)
 export(ufo_raw)
 export(ufo_character)
 
+export(ufo_integer_bin)
+export(ufo_numeric_bin)
+export(ufo_complex_bin)
+export(ufo_logical_bin)
+export(ufo_raw_bin)
+export(ufo_vector_bin)
+
 export(ufo_matrix_integer_bin)
 export(ufo_matrix_numeric_bin)
 export(ufo_matrix_complex_bin)
 export(ufo_matrix_logical_bin)
 export(ufo_matrix_raw_bin)
 export(ufo_matrix_bin)
+
+export(ufo_integer_seq)
+export(ufo_numeric_seq)
 
 export(ufo_csv)
 
@@ -90,7 +93,9 @@ if (isTRUE(getOption("ufovectors.add_class"))) {
   #export(`[<-`)
 #}
 
-export(subscript)
+export(ufo_subscript)
+export(ufo_subset)
+export(ufo_subset_assign)
 
 # Helpers
 export(ufo_store_bin)

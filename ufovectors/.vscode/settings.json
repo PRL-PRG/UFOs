@@ -1,0 +1,27 @@
+{
+    "files.associations": {
+        "*.h": "c",
+        "*.c": "c",
+        "type_traits": "c",
+        "compare": "c"
+    },
+    "R.dir": "/opt/R-4.0.5",
+    "R.cmd": "${config:R.dir}/bin/R" ,
+    "R.binary": "${config:R.dir}/bin/exec/R" ,
+    "R.script": "${config:R.dir}/bin/Rscript",
+    "R.java_server": "/usr/lib/jvm/java-11-openjdk-amd64/lib/server",
+    "R.ld": "${config:R.dir}/lib:/usr/local/lib:${config:R.java_server}",
+    "R.env": [
+        { "name": "R_HOME", "value": "${config:R.dir}"},
+        { "name": "R_HOME_DIR", "value": "${config:R.dir}"},
+        { "name": "R_SHARE_DIR", "value": "${config:R.dir}/share"},
+        { "name": "R_INCLUDE_DIR", "value":"${config:R.dir}/include"},
+        { "name": "R_DOC_DIR", "value": "${config:R.dir}/doc"},
+        { "name": "R_JAVA_LD_LIBRARY_PATH", "value": "${config:R.java_server}"},
+        { "name": "R_LD_LIBRARY_PATH", "value": "${config:R.ld}"},
+        { "name": "LD_LIBRARY_PATH", "value": "${config:R.ld}"},
+        { "name": "R_binary", "value": "${config:R.binary}"},
+        { "name": "R_ARCH", "value": ""}
+    ],
+    "cmake.configureOnOpen": true,
+}
