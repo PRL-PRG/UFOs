@@ -337,6 +337,8 @@ static int readHandleUfEvent(ufInstance* i){
           .address = (void *) faultAtLoadBoundaryAbsolute,
           .ufo     = ufo
   };
+  if(!ufo->config.readOnly)
+    blake3(copySource, fillSizeBytes, chunkMetadata.sha);
 
   struct uffdio_copy copy = (struct uffdio_copy){
       .src = (uint64_t) copySource,
