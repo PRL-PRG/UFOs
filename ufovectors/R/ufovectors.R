@@ -55,6 +55,20 @@ ufo_set_debug_mode <- function(debug=TRUE) {
 
 .check_add_class <- function () isTRUE(getOption("ufovectors.add_class"))
 
+ufo_integer_seq <- function(from, to, by = 1, min_load_count = 0, add_class = .check_add_class()) {
+  .add_class(.Call("ufo_intsxp_seq",
+                    as.integer(from), as.integer(to), as.integer(by),
+                    as.integer(.expect_exactly_one(min_load_count))),
+             "ufo", add_class)
+}
+
+ufo_numeric_seq <- function(from, to, by = 1, min_load_count = 0, add_class = .check_add_class()) {
+  .add_class(.Call("ufo_realsxp_seq",
+                    as.integer(from), as.integer(to), as.integer(by),
+                    as.integer(.expect_exactly_one(min_load_count))),
+             "ufo", add_class)
+}
+
 ufo_integer_bin <- function(path, min_load_count = 0, add_class = .check_add_class()) {
   .add_class(.Call("ufo_vectors_intsxp_bin",
                     path.expand(.check_path(.expect_exactly_one(path))),

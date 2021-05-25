@@ -20,6 +20,7 @@ library(ufovectors)
 library(ufoaltrep)
 library(microbenchmark)
 library(ggplot2)
+library(scales)
 ```
 
 ```R
@@ -79,7 +80,7 @@ result <- microbenchmark(
   times = 50L
 )
 
-autoplot(result)
+autoplot(result) + scale_y_continuous(labels = scales::label_number_si())
 ```
 
 ### Sum: 32 million random integers
@@ -104,7 +105,7 @@ result <- microbenchmark(
   times = 50L
 )
 
-autoplot(result)
+autoplot(result) + scale_y_continuous(labels = scales::label_number_si())
 ```
 
 ### For loop: 32 million random integers
@@ -120,10 +121,11 @@ result <- microbenchmark(
   "ALTREP" = {
     for (e in altrep_ufo_integer_bin(stats$stats_32mln_rand_ints$path)) some_function(e)
   },
-  times = 1L
+  
+  times = 10L
 )
 
-autoplot(result)
+autoplot(result) + scale_y_continuous(labels = scales::label_number_si())
 ```
 
 ALTREP is really slow because:
@@ -146,19 +148,25 @@ Here I'm comparing
 size = 32000000
 
 result <- microbenchmark(
-  "ufoseq" = {
-    sum(ufo_seq(1, size, 1))
+  "UFO" = {
+    sum(ufo_integer_seq(1, size, 1))
   },
   "seq.int" = {
     sum(seq.int(1, size, 1))
   },
+  "R vector" = {
+    sum(c(1:size))
+  },
   "compact vector" = {
     sum(1:size)
+  },
+  check = function(values) {
+    all(sapply(values, function(result) result == sum(1:size)))
   },
   times = 50L
 )
 
-autoplot(result)
+autoplot(result) + scale_y_continuous(labels = scales::label_number_si())
 ```
 
 They implement their own sum, which doesn't go through all the elements, instead it just calculates the sum from the boundaries of the sequence:
@@ -176,8 +184,11 @@ size = 32000000
 some_function <- function(x) x
 
 result <- microbenchmark(
-  "ufoseq" = {
-    for (e in ufo_seq(1, size, 1)) some_function(e)
+  "UFO" = {
+    for (e in ufo_integer_seq(1, size, 1)) some_function(e)
+  },
+  "R vector" = {
+    for (e in c(1:size)) some_function(e)
   },
   "seq.int" = {
     for (e in seq.int(1, size, 1)) some_function(e)
@@ -188,5 +199,5 @@ result <- microbenchmark(
   times = 10L
 )
 
-autoplot(result)
+autoplot(result) + scale_y_continuous(labels = scales::label_number_si())
 ```

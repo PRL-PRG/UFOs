@@ -2,7 +2,8 @@
     "files.associations": {
         "*.h": "c",
         "*.c": "c",
-        "type_traits": "c"
+        "type_traits": "c",
+        "compare": "c"
     },
     "R.dir": "/opt/R-4.0.5",
     "R.cmd": "${config:R.dir}/bin/R" ,

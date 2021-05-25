@@ -19,37 +19,6 @@
 
 int ufo_initialized = 0;
 
-/**
- * Translates the type of UFO vector to the size of its element in bytes.
- *
- * @param vector_type The type of the vector as specified by the ufo_vector_type
- *                    enum.
- * @return Returns the size of the element vector or dies in case of an
- *         unrecognized vector type.
- */
-size_t __get_ufo_element_size(ufo_vector_type_t vector_type) {
-    switch (vector_type) {
-        case UFO_CHAR:
-            return sizeof(Rbyte);
-        case UFO_LGL:
-            return sizeof(Rboolean);
-        case UFO_INT:
-            return sizeof(int);
-        case UFO_REAL:
-            return sizeof(double);
-        case UFO_CPLX:
-            return sizeof(Rcomplex);
-        case UFO_RAW:
-            return sizeof(Rbyte);
-        case UFO_STR:
-            return sizeof(SEXP/*STRSXP*/);
-        default:
-            Rf_error("Unrecognized vector type: %d\n", vector_type);
-    }
-
-    return 0;
-}
-
 void __destroy(ufUserData *user_data) {
     ufo_file_source_data_t *data = (ufo_file_source_data_t*) user_data;
     if (__get_debug_mode()) {
@@ -80,7 +49,7 @@ ufo_source_t* __make_source_or_die(ufo_vector_type_t type, const char *path, int
     source->destructor_function = &__destroy;
     source->data = (ufUserData*) data;
     source->vector_type = type;
-    source->element_size = __get_ufo_element_size(type);
+    source->element_size = __get_element_size(type);
     source->vector_size = __get_vector_length_from_file_or_die(path, source->element_size);
     source->dimensions = dimensions;
     source->dimensions_length = dimensions_length;

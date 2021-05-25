@@ -2,6 +2,7 @@
 #include "ufo_vectors.h"
 #include "ufo_empty.h"
 #include "ufo_csv.h"
+#include "ufo_seq.h"
 #include "ufo_operators.h"
 
 #include <R_ext/Rdynload.h>
@@ -33,6 +34,9 @@ static const R_CallMethodDef CallEntries[] = {
 	{"ufo_rawsxp_empty",      		(DL_FUNC) &ufo_rawsxp_empty,          		2},
 	{"ufo_strsxp_empty",      		(DL_FUNC) &ufo_strsxp_empty,          		3},
 	{"ufo_vecsxp_empty",      		(DL_FUNC) &ufo_vecsxp_empty,          		2},
+
+    {"ufo_intsxp_seq",      		(DL_FUNC) &ufo_intsxp_empty,          		4},
+	{"ufo_realsxp_seq",     		(DL_FUNC) &ufo_realsxp_empty,         		4},
     
     // CSV support
     {"ufo_csv",                     (DL_FUNC) &ufo_csv,                         6},

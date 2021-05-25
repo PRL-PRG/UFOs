@@ -1,6 +1,8 @@
 #include "helpers.h"
-#include "assert.h"
-#include "stdint.h"
+#include <assert.h>
+#include <stdint.h>
+
+#include "../include/ufos.h"
 
 int __extract_int_or_die(SEXP/*INTSXP*/ sexp) {
     if (TYPEOF(sexp) != INTSXP) {
@@ -107,6 +109,27 @@ const char* __extract_path_or_die(SEXP/*STRSXP*/ path) {
     return ret;
 }
 
+int32_t __select_min_load_count(int32_t min_load_count, size_t element_size) {
+	if (min_load_count > 0) {
+		return min_load_count;
+	} else {
+		return __1MB_of_elements(element_size);
+	}
+}
+
+/**
+ * Calculates how many elements fit in 1 MB of memory.
+ *
+ * @param element_size
+ * @return number of elements
+ */
+int32_t __1MB_of_elements(size_t element_size) {
+    assert (element_size < 1 << 24);
+    assert (element_size > 0);
+    return (1024 * 1024) / ((int32_t) element_size);
+}
+
+
 /**
  * Translates the type of UFO vector to the size of its element in bytes.
  *
@@ -135,26 +158,3 @@ size_t __get_element_size(SEXPTYPE vector_type) {
             Rf_error("Unrecognized vector type: %s\n", type2char(vector_type));
     }
 }
-
-int32_t __select_min_load_count(int32_t min_load_count, size_t element_size) {
-	if (min_load_count > 0) {
-		return min_load_count;
-	} else {
-		return __1MB_of_elements(element_size);
-	}
-}
-
-/**
- * Calculates how many elements fit in 1 MB of memory.
- *
- * @param element_size
- * @return number of elements
- */
-int32_t __1MB_of_elements(size_t element_size) {
-    assert (element_size < 1 << 24);
-    assert (element_size > 0);
-    return (1024 * 1024) / ((int32_t) element_size);
-}
-
-
-
