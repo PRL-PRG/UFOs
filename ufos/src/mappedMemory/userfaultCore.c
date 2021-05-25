@@ -190,23 +190,25 @@ static int ufCopy(ufInstance* i, struct uffdio_copy* copy){
 static int reclaimMemory(ufInstance* i, oroboros_item_t* chunkMetadata){
   if(0 == chunkMetadata->size)
     return 0; // this chunk was already reclaimed
-  uint8_t* sha = (uint8_t*)alloca(SHA256_DIGEST_LENGTH);
-  SHA256(chunkMetadata->address, chunkMetadata->size, sha);
+  if(!asUfo(chunkMetadata->ufo)->config.readOnly){
+    uint8_t* sha = (uint8_t*)alloca(SHA256_DIGEST_LENGTH);
+    SHA256(chunkMetadata->address, chunkMetadata->size, sha);
 
-  // Let the compiler make this fast
-  bool isEqual = true;
-  for(int i = 0; i < SHA256_DIGEST_LENGTH; i++)
-    isEqual = isEqual && sha[i] == chunkMetadata->sha[i];
+    // Let the compiler make this fast
+    bool isEqual = true;
+    for(int i = 0; i < SHA256_DIGEST_LENGTH; i++)
+      isEqual = isEqual && sha[i] == chunkMetadata->sha[i];
 
-  if(!isEqual){
-    // When the memory changed write it out to the writeback file
-    ufObject *ufo = asUfo(chunkMetadata->ufo);
-    uint64_t offset = ((uint64_t)chunkMetadata->address) - (uint64_t) ufGetValuePointer(ufo);
+    if(!isEqual){
+      // When the memory changed write it out to the writeback file
+      ufObject *ufo = asUfo(chunkMetadata->ufo);
+      uint64_t offset = ((uint64_t)chunkMetadata->address) - (uint64_t) ufGetValuePointer(ufo);
 
-    uint32_t bitIndex = offset / (ufo->config.stride * ufo->config.objectsAtOnce);
-    ufo->writebackMmapBase[bitIndex >> 3] |= 1 << (bitIndex & 7);
+      uint32_t bitIndex = offset / (ufo->config.stride * ufo->config.objectsAtOnce);
+      ufo->writebackMmapBase[bitIndex >> 3] |= 1 << (bitIndex & 7);
 
-    memcpy(ufo->writebackMmapBase + ufo->writebackMmapBitmapLength, chunkMetadata->address, chunkMetadata->size);
+      memcpy(ufo->writebackMmapBase + ufo->writebackMmapBitmapLength, chunkMetadata->address, chunkMetadata->size);
+    }
   }
 
   madvise(chunkMetadata->address, chunkMetadata->size, MADV_DONTNEED); // also possible: MADV_FREE
@@ -327,7 +329,8 @@ static int readHandleUfEvent(ufInstance* i){
           .ufo     = ufo
   };
   //TODO CMYK 2020.05.26 : Blake 2 or 3 would be faster, but this was handy
-  SHA256(copySource, fillSizeBytes, chunkMetadata.sha);
+  if(!ufo->config.readOnly)
+    SHA256(copySource, fillSizeBytes, chunkMetadata.sha);
 
 
   assert(check_totals(i));

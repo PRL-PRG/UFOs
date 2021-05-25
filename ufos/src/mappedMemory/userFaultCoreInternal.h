@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <sys/epoll.h>
@@ -29,6 +30,7 @@ typedef struct {
 
   //Defaulted
   uint32_t          objectsAtOnce;
+  bool              readOnly;
 } ufObjectConfig;
 
 typedef struct {
