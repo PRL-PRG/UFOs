@@ -45,7 +45,7 @@ int main(int argc, char **argv){
   ufObjectConfig_t config = makeObjectConfig(uint64_t, 64, ct, 4*1024*1024);
   ufSetPopulateFunction(config, testpopulate);
   ufSetUserConfig(config, &ct);
-  ufSetReadOnly(config);
+  // ufSetReadOnly(config);
 
   ufObject_t o;
   tryPerrInt(res, ufCreateObject(ufI, config, &o), "Err init obj", error1);

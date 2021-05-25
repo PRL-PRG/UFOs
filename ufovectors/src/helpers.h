@@ -3,6 +3,7 @@
 #define USE_RINTERNALS
 #include <R.h>
 #include <Rinternals.h>
+#include "../include/ufos.h"
 
 int __extract_int_or_die(SEXP/*INTSXP*/ sexp);
 int __extract_boolean_or_die(SEXP/*LGLSXP*/ sexp);

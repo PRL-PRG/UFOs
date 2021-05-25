@@ -55,6 +55,20 @@ ufo_set_debug_mode <- function(debug=TRUE) {
 
 .check_add_class <- function () isTRUE(getOption("ufovectors.add_class"))
 
+ufo_integer_seq <- function(from, to, by = 1, min_load_count = 0, add_class = .check_add_class()) {
+  .add_class(.Call("ufo_intsxp_seq",
+                    as.integer(from), as.integer(to), as.integer(by),
+                    as.integer(.expect_exactly_one(min_load_count))),
+             "ufo", add_class)
+}
+
+ufo_numeric_seq <- function(from, to, by = 1, min_load_count = 0, add_class = .check_add_class()) {
+  .add_class(.Call("ufo_realsxp_seq",
+                    as.integer(from), as.integer(to), as.integer(by),
+                    as.integer(.expect_exactly_one(min_load_count))),
+             "ufo", add_class)
+}
+
 ufo_integer_bin <- function(path, min_load_count = 0, add_class = .check_add_class()) {
   .add_class(.Call("ufo_vectors_intsxp_bin",
                     path.expand(.check_path(.expect_exactly_one(path))),
@@ -174,7 +188,8 @@ ufo_csv <- function(path, min_load_count = 0, check_names=T, header=T, record_ro
               as.integer(.expect_exactly_one(min_load_count)),                                          # SEXP/*INTSXP*/
               as.logical(.expect_exactly_one(header)),                                                  # SEXP/*LGLSXP*/
               as.integer(.expect_exactly_one(record_row_offsets_at_interval)),                          # SEXP/*INTSXP*/
-              as.integer(.expect_exactly_one(initial_buffer_size)))                                     # SEXP/*INTSXP*/
+              as.integer(.expect_exactly_one(initial_buffer_size)),                                     # SEXP/*INTSXP*/
+              as.logical(.expect_exactly_one(add_class)))                                               # SEXP/*LGLSXP*/
 
   if (!missing(col_names)) {
     names(df) <- col_names
@@ -186,9 +201,10 @@ ufo_csv <- function(path, min_load_count = 0, check_names=T, header=T, record_ro
     names(df) <- make.names(names(df), unique=T)
   }
 
-  if (add_class) for(col_name in names(df)) {
-    attr(df[[col_name]], "class") <- "ufo"
-  }
+  # handled internally, because it was misbehaving
+  # if (add_class) for(col_name in names(df)) {
+  #   attr(df[[col_name]], "class") <- "ufo"
+  # }
 
   df
 }
@@ -239,7 +255,6 @@ ufo_character <- function(size, populate_with_NAs = FALSE, min_load_count = 0, a
                   as.logical(populate_with_NAs),
                   as.integer(.expect_exactly_one(min_load_count))),
              "ufo", add_class)
-  result
 }
 
 ufo_store_bin <- function(path, vector) {

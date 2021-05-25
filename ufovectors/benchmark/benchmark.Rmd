@@ -15,17 +15,46 @@ devtools::install_github("olafmersmann/microbenchmark")
 ```
 
 ```{r}
-library(ufoseq)
+#library(ufoseq)
 library(ufovectors)
 library(ufoaltrep)
 library(microbenchmark)
 library(ggplot2)
+library(scales)
 ```
 
 ```R
 setwd("~/Workspace/ufo_workspace/UFOs/ufovectors/benchmark")
 ufo_set_debug_mode(F)
 options(scipen=999) # effectively turns off scientific notation
+```
+
+## Generating files
+
+```{r generate}
+generate_binary_file <- function(path, range, repeats) {
+  sum <- 0
+  minimum <- integer(0)
+  maximum <- integer(0)
+  size <- length(range) * repeats
+  f <- file(path, "wb")
+  for (i in 0:repeats) {
+    writeBin(range, f)
+    sum <- sum + sum(range, na.rm = TRUE)
+    minimum <- min(minimum, range, na.rm = TRUE)
+    maximum <- max(maximum, range, na.rm = TRUE)
+  }
+  close(f)
+  list(path=path, sum=sum, size=size, min=minimum, max=maximum)
+}
+
+stats <- list(
+  stats_32mln_1s = generate_binary_file("32mln_1s.bin", as.integer(rep(1, 1000000)), 32), #126MB
+  stats_32mln_seq_ints = generate_binary_file("32mln_seq_ints.bin", 1:1000000, 32),
+  stats_32mln_rand_ints = generate_binary_file("32mln_rand_ints.bin", sample(1000000, replace=T), 32)
+)
+
+print(stats)
 ```
 
 ## File-backed matrices
@@ -35,74 +64,68 @@ Two nigh-identical implementations of file-backed vectors. One done with UFOs, o
 ### Sum: 32 million 1s
 
 ```{r fb-sum32mln1, cache=T}
-path <- "32M1s.bin"
 min_load_count = 1024 * 1024 / 4
-expected_value = 32000000
 
 result <- microbenchmark(
   "UFO" = { 
-    sum(ufo_integer_bin(path, min_load_count))
+    sum(ufo_integer_bin(stats$stats_32mln_1s$path, min_load_count))
   },
   "ALTREP" = {
-    sum(altrep_ufo_integer_bin(path))
+    sum(altrep_ufo_integer_bin(stats$stats_32mln_1s$path))
   },
   check = function(values) {
     # turns out 32 mln 1s is 32mln
-    all(sapply(values[first_row], function(result) result == expected_value))
+    all(sapply(values, function(result) result == stats$stats_32mln_1s$sum))
   },
   times = 50L
 )
 
-autoplot(result)
+autoplot(result) + scale_y_continuous(labels = scales::label_number_si())
 ```
 
 ### Sum: 32 million random integers
 
 ```{r fb-sum32mlnrand, cache=T}
-path <- "32Mints.bin"
 min_load_count = 1024 * 1024 / 4
-
 actually_check = T
-expected_value = first_row5985145033203 # for this particular file, but not if its regenerated
 
 result <- microbenchmark(
-  "UFO" = {
-    sum(ufo_integer_bin(path, min_load_count))
+  "UFO" = { 
+    sum(ufo_integer_bin(stats$stats_32mln_rand_ints$path, min_load_count))
   },
   "ALTREP" = {
-    sum(altrep_ufo_integer_bin(path))
+    sum(altrep_ufo_integer_bin(stats$stats_32mln_rand_ints$path))
   },
   check = function(values) {
     if (actually_check) {
-      all(sapply(values[first_row], function(result) result == expected_value))
+      all(sapply(values, function(result) result == stats$stats_32mln_rand_ints$sum))
     } else
       TRUE
   },
   times = 50L
 )
 
-autoplot(result)
+autoplot(result) + scale_y_continuous(labels = scales::label_number_si())
 ```
 
 ### For loop: 32 million random integers
 
 ```{r fb-for32mlnrand, cache=T}
-path <- "32Mints.bin"
 min_load_count = 1024 * 1024 / 4
-
 some_function <- function(x) x
 
 result <- microbenchmark(
   "UFO" = {
-    for (e in ufo_integer_bin(path, min_load_count)) some_function(e)
+    for (e in ufo_integer_bin(stats$stats_32mln_rand_ints$path, min_load_count)) some_function(e)
   },
   "ALTREP" = {
-    for (e in altrep_ufo_integer_bin(path)) some_function(e)
+    for (e in altrep_ufo_integer_bin(stats$stats_32mln_rand_ints$path)) some_function(e)
   },
+  
   times = 10L
 )
 
-autoplot(result)
+autoplot(result) + scale_y_continuous(labels = scales::label_number_si())
 ```
 
 ALTREP is really slow because:
@@ -125,19 +148,25 @@ Here I'm comparing
 size = 32000000
 
 result <- microbenchmark(
-  "ufoseq" = {
-    sum(ufo_seq(1, size, 1))
+  "UFO" = {
+    sum(ufo_integer_seq(1, size, 1))
   },
   "seq.int" = {
     sum(seq.int(1, size, 1))
   },
+  "R vector" = {
+    sum(c(1:size))
+  },
   "compact vector" = {
     sum(1:size)
+  },
+  check = function(values) {
+    all(sapply(values, function(result) result == sum(1:size)))
   },
   times = 50L
 )
 
-autoplot(result)
+autoplot(result) + scale_y_continuous(labels = scales::label_number_si())
 ```
 
 They implement their own sum, which doesn't go through all the elements, instead it just calculates the sum from the boundaries of the sequence:
@@ -155,8 +184,11 @@ size = 32000000
 some_function <- function(x) x
 
 result <- microbenchmark(
-  "ufoseq" = {
-    for (e in ufo_seq(1, size, 1)) some_function(e)
+  "UFO" = {
+    for (e in ufo_integer_seq(1, size, 1)) some_function(e)
+  },
+  "R vector" = {
+    for (e in c(1:size)) some_function(e)
   },
   "seq.int" = {
     for (e in seq.int(1, size, 1)) some_function(e)
@@ -167,5 +199,5 @@ result <- microbenchmark(
   times = 10L
 )
 
-autoplot(result)
+autoplot(result) + scale_y_continuous(labels = scales::label_number_si())
 ```

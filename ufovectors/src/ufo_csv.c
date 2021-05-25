@@ -173,9 +173,10 @@ ufo_vector_type_t token_type_to_ufo_type(token_type_t type) {
     }
 }
 
-SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp, SEXP/*LGLSXP*/ headers_sexp, SEXP/*INTSXP*/ record_row_offsets_at_interval_sexp, SEXP/*INTSXP*/ initial_buffer_size_sexp) {
+SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp, SEXP/*LGLSXP*/ headers_sexp, SEXP/*INTSXP*/ record_row_offsets_at_interval_sexp, SEXP/*INTSXP*/ initial_buffer_size_sexp, SEXP/*LGLSXP*/ add_class_to_columns_sexp) {
 
     bool headers = __extract_boolean_or_die(headers_sexp);
+    bool add_class_to_columns = __extract_boolean_or_die(add_class_to_columns_sexp);
     const char *path = __extract_path_or_die(path_sexp);
     long record_row_offsets_at_interval = __extract_int_or_die(record_row_offsets_at_interval_sexp);
     size_t initial_buffer_size = __extract_int_or_die(initial_buffer_size_sexp);
@@ -220,7 +221,7 @@ SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp, SEXP/
         if (csv_metadata->column_types[column] == TOKEN_STRING) {
             size_t limit = 5; //FIXME as parameter also FIXME make work
             string_set_t *unique_values = ufo_csv_read_column_unique_values(tokenizer, path, column, csv_metadata, limit, initial_buffer_size);
-            REprintf("    ... [%li]: %li vs %li\n\n", column, unique_values->size, limit);
+            //REprintf("    ... [%li]: %li vs %li\n\n", column, unique_values->size, limit);
             if (unique_values->size == limit) {
                 if (__get_debug_mode()) {
                     REprintf("    cannot pre-intern strings for column [%li]: %li (or more) unique values\n\n",
@@ -290,9 +291,13 @@ SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp, SEXP/
         SEXP/*UFO*/ vector = PROTECT(ufo_new(source));
         SET_VECTOR_ELT(data_frame, column, vector);
 
+        if(add_class_to_columns) {
+            setAttrib(vector, R_ClassSymbol, mkString("ufo"));
+        }
+
         if (__get_debug_mode()) {
             REprintf("        [%li]: SEXP at   %p\n", column, vector);
-        }
+        }        
     }
     if (__get_debug_mode()) {
         REprintf("\n");
