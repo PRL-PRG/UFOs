@@ -12,6 +12,18 @@ clean:
 	$(RM) *.o
 	$(RM) *.a
 
+blake3_avx2_x86-64_unix.o: blake3_avx2_x86-64_unix.S
+	gcc -fPIC -O3 -c -o $@ $^
+
+blake3_avx512_x86-64_unix.o: blake3_avx512_x86-64_unix.S
+	gcc -fPIC -O3 -c -o $@ $^
+
+blake3_sse41_x86-64_unix.o: blake3_sse41_x86-64_unix.S
+	gcc -fPIC -O3 -c -o $@ $^
+
+blake3_sse2_x86-64_unix.o: blake3_sse2_x86-64_unix.S
+	gcc -fPIC -O3 -c -o $@ $^
+
 %.o: %.c %.S
 	gcc -fPIC -O3 -c -o $@ $^
 
