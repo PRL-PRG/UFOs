@@ -153,6 +153,7 @@ ufObjectConfig_t makeObjectConfig0(uint32_t headerBytes, uint64_t ct, uint32_t s
 
 void ufSetPopulateFunction(ufObjectConfig_t config, ufPopulateRange populateF);
 void ufSetUserConfig(ufObjectConfig_t config, ufUserData userData);
+void ufSetReadOnly(ufObjectConfig_t config);
 
 /*
  * returns 0 on success

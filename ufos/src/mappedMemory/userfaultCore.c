@@ -20,7 +20,8 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include <openssl/sha.h>
+// #include <openssl/sha.h>
+#include "blake3/blake3.h"
 
 #include "userfaultCore.h"
 
@@ -33,6 +34,13 @@
 /* System init and initial worker thread */
 
 static size_t pageSize = 0;
+
+static inline void blake3(const unsigned char *data, size_t data_len, unsigned char *out){
+  blake3_hasher hasher;
+  blake3_hasher_init(&hasher);
+  blake3_hasher_update(&hasher, data, data_len);
+  blake3_hasher_finalize(&hasher, out, BLAKE3_OUT_LEN);
+}
 
 static size_t get_page_size(){
   long ret = sysconf(_SC_PAGESIZE);
@@ -190,23 +198,26 @@ static int ufCopy(ufInstance* i, struct uffdio_copy* copy){
 static int reclaimMemory(ufInstance* i, oroboros_item_t* chunkMetadata){
   if(0 == chunkMetadata->size)
     return 0; // this chunk was already reclaimed
-  uint8_t* sha = (uint8_t*)alloca(SHA256_DIGEST_LENGTH);
-  SHA256(chunkMetadata->address, chunkMetadata->size, sha);
+  // If a UFO is read only just discard the memory
+  if(!asUfo(chunkMetadata->ufo)->config.readOnly){
+    uint8_t* sha = (uint8_t*)alloca(BLAKE3_OUT_LEN);
+    blake3(chunkMetadata->address, chunkMetadata->size, sha);
 
-  // Let the compiler make this fast
-  bool isEqual = true;
-  for(int i = 0; i < SHA256_DIGEST_LENGTH; i++)
-    isEqual = isEqual && sha[i] == chunkMetadata->sha[i];
+    // Let the compiler make this fast
+    bool isEqual = true;
+    for(int i = 0; i < BLAKE3_OUT_LEN; i++)
+      isEqual = isEqual && sha[i] == chunkMetadata->sha[i];
 
-  if(!isEqual){
-    // When the memory changed write it out to the writeback file
-    ufObject *ufo = asUfo(chunkMetadata->ufo);
-    uint64_t offset = ((uint64_t)chunkMetadata->address) - (uint64_t) ufGetValuePointer(ufo);
+    if(!isEqual){
+      // When the memory changed write it out to the writeback file
+      ufObject *ufo = asUfo(chunkMetadata->ufo);
+      uint64_t offset = ((uint64_t)chunkMetadata->address) - (uint64_t) ufGetValuePointer(ufo);
 
-    uint32_t bitIndex = offset / (ufo->config.stride * ufo->config.objectsAtOnce);
-    ufo->writebackMmapBase[bitIndex >> 3] |= 1 << (bitIndex & 7);
+      uint32_t bitIndex = offset / (ufo->config.stride * ufo->config.objectsAtOnce);
+      ufo->writebackMmapBase[bitIndex >> 3] |= 1 << (bitIndex & 7);
 
-    memcpy(ufo->writebackMmapBase + ufo->writebackMmapBitmapLength, chunkMetadata->address, chunkMetadata->size);
+      memcpy(ufo->writebackMmapBase + ufo->writebackMmapBitmapLength, chunkMetadata->address, chunkMetadata->size);
+    }
   }
 
   madvise(chunkMetadata->address, chunkMetadata->size, MADV_DONTNEED); // also possible: MADV_FREE
@@ -326,9 +337,16 @@ static int readHandleUfEvent(ufInstance* i){
           .address = (void *) faultAtLoadBoundaryAbsolute,
           .ufo     = ufo
   };
-  //TODO CMYK 2020.05.26 : Blake 2 or 3 would be faster, but this was handy
-  SHA256(copySource, fillSizeBytes, chunkMetadata.sha);
 
+  struct uffdio_copy copy = (struct uffdio_copy){
+      .src = (uint64_t) copySource,
+      .dst = faultAtLoadBoundaryAbsolute,
+      .len = fillSizeBytes,
+      .mode = 0};
+  tryPerrNegOne(res, ufCopy(i, &copy), "error copying", error);
+
+  if(!ufo->config.readOnly) // read only chunks don't need hashes
+    blake3(copySource, fillSizeBytes, chunkMetadata.sha);
 
   assert(check_totals(i));
 
@@ -337,13 +355,6 @@ static int readHandleUfEvent(ufInstance* i){
     "Could not push metadata onto the ring buffer. The ring buffer cannot resize.", error);  // FIXME consider adding an upper limit to size
 
   assert(check_totals(i));
-
-  struct uffdio_copy copy = (struct uffdio_copy){
-      .src = (uint64_t) copySource,
-      .dst = faultAtLoadBoundaryAbsolute,
-      .len = fillSizeBytes,
-      .mode = 0};
-  tryPerrNegOne(res, ufCopy(i, &copy), "error copying", error);
 
   return 0;
 
@@ -390,7 +401,7 @@ static int allocateUfo(ufInstance* i, ufAsyncMsg* msg){
 
   // allocate a memory region to be managed by userfaultfd
   /* With writeback files we can allow writes! */
-  tryPerr(ufo->start, ufo->start == (void*)-1, mmap(NULL, ufo->trueSize, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0), "error allocating ufo memory", callerErr);
+  tryPerr(ufo->start, ufo->start == (void*)-1, mmap(NULL, ufo->trueSize, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_NORESERVE, -1, 0), "error allocating ufo memory", callerErr);
   //printf("alloc: %p (%li) \n", ufo->start, ufo->trueSize);
 
   /* With writeback files the whole mapping is already writeable */
@@ -744,6 +755,7 @@ ufObjectConfig_t makeObjectConfig0(uint32_t headerSize, uint64_t ct, uint32_t st
   conf->stride = stride;
   conf->elementCt = ct;
   conf->headerSize = headerSize;
+  conf->readOnly = false;
 
   // If pageSize is zero, perhaps the framework was never initialized?
   assert(pageSize > 0);
