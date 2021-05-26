@@ -37,8 +37,8 @@ SEXP ufo_initialize() {
         if (__ufo_system == NULL) {
             Rf_error("Error initializing the UFO framework (null instance)");
         }
-        size_t high = 200 * 1024 * 1024; // * 1024; for testing: 200MB
-        size_t low = 100 * 1024 * 1024;  // * 1024; for testing: 100MB
+        size_t high = 2 * 1024 * 1024 * 1024;
+        size_t low = 1 * 1024 * 1024 * 1024;
         int result = ufSetMemoryLimits(__ufo_system, high, low);
         if (result != 0) {
             Rf_error("Error setting memory limits for the UFO framework (%i)", result);
@@ -89,6 +89,10 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
 
     ufSetPopulateFunction(cfg, source->population_function);
     ufSetUserConfig(cfg, source->data);
+
+    if (source->read_only) {
+        ufSetReadOnly(cfg);
+    }
 
     ufObject_t object;
     int status = ufCreateObject(__ufo_system, cfg, &object);
@@ -250,4 +254,8 @@ SEXP is_ufo(SEXP x) {
 	}
 	UNPROTECT(1);
 	return response;
+}
+
+SEXP is_read_only(SEXP x) {
+    // TODO
 }

@@ -39,7 +39,7 @@ int populate_double_seq(uint64_t startValueIdx, uint64_t endValueIdx,
     return 0;
 }
 
-SEXP/*:result_type*/ ufo_seq(ufo_vector_type_t result_type, SEXP/*INTXP*/ from, SEXP/*INTXP*/ to, SEXP/*INTXP*/ by, SEXP/*INTSXP*/ min_load_count) {
+SEXP/*:result_type*/ ufo_seq(ufo_vector_type_t result_type, SEXP/*INTXP*/ from, SEXP/*INTXP*/ to, SEXP/*INTXP*/ by, SEXP/*LGLSXP*/ read_only, SEXP/*INTSXP*/ min_load_count) {
 
     // make_sure(TYPEOF(from) == INTSXP, Rf_error, 
 	// 		  "Parameter `from` must be an integer vector, but it is %s.", 
@@ -61,13 +61,14 @@ SEXP/*:result_type*/ ufo_seq(ufo_vector_type_t result_type, SEXP/*INTXP*/ from, 
     int from_value = __extract_int_or_die(from);
     int to_value = __extract_int_or_die(to);
     int by_value = __extract_int_or_die(by);
+    bool read_only_value = __extract_boolean_or_die(read_only);
     int min_load_count_value = __extract_int_or_die(min_load_count);
 
     source->vector_size = (to_value - from_value) / by_value + 1;
 
     source->dimensions = NULL;
     source->dimensions_length = 0;
-
+    source->read_only = read_only_value;
     source->min_load_count = __select_min_load_count(min_load_count_value, source->element_size);
 
     ufo_seq_data_t *data = (ufo_seq_data_t*) malloc(sizeof(ufo_seq_data_t));
@@ -95,11 +96,11 @@ SEXP/*:result_type*/ ufo_seq(ufo_vector_type_t result_type, SEXP/*INTXP*/ from, 
 }
 
 
-SEXP/*INTXP*/ ufo_intsxp_seq(SEXP/*INTXP*/ from, SEXP/*INTXP*/ to, SEXP/*INTXP*/ by, SEXP/*INTSXP*/ min_load_count) {
-    return ufo_seq(UFO_INT, from, to, by, min_load_count);
+SEXP/*INTXP*/ ufo_intsxp_seq(SEXP/*INTXP*/ from, SEXP/*INTXP*/ to, SEXP/*INTXP*/ by, SEXP/*LGLSXP*/ read_only, SEXP/*INTSXP*/ min_load_count) {
+    return ufo_seq(UFO_INT, from, to, by, read_only, min_load_count);
 }
 
 
-SEXP/*REALSXP*/ ufo_realsxp_seq(SEXP/*INTXP*/ from, SEXP/*INTXP*/ to, SEXP/*INTXP*/ by, SEXP/*INTSXP*/ min_load_count) {
-    return ufo_seq(UFO_REAL, from, to, by, min_load_count);
+SEXP/*REALSXP*/ ufo_realsxp_seq(SEXP/*INTXP*/ from, SEXP/*INTXP*/ to, SEXP/*INTXP*/ by, SEXP/*LGLSXP*/ read_only, SEXP/*INTSXP*/ min_load_count) {
+    return ufo_seq(UFO_REAL, from, to, by, read_only, min_load_count);
 }

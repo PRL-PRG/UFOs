@@ -5,6 +5,8 @@
 #include <R.h>
 #include <Rinternals.h>
 
+#include <stdbool.h>
+
 typedef enum {
     UFO_CHAR = CHARSXP,
     UFO_LGL  = LGLSXP,
@@ -31,6 +33,7 @@ typedef struct {
     int                 *dimensions;        // because they are `ints` are in R
     size_t              dimensions_length;
     int32_t             min_load_count;
+    bool                read_only;
 } ufo_source_t;
 
 // Initialization and shutdown

@@ -138,6 +138,7 @@ SEXP ufo_empty(ufo_vector_type_t type, R_xlen_t size, bool populate_with_na, int
     source->dimensions = NULL;
     source->dimensions_length = 0;
     source->min_load_count = __select_min_load_count(min_load_count, source->element_size);
+	source->read_only = false;
 
     make_sure(sizeof(ufo_vector_type_t) <= sizeof(int64_t), Rf_error, "Cannot fit vector type information into ufUserData pointer.");
     data_t *data = (data_t *) malloc(sizeof(data_t));
@@ -154,6 +155,7 @@ SEXP ufo_intsxp_empty(SEXP/*REALSXP*/ size, SEXP/*LGLSXP*/ fill_with_nas, SEXP/*
 	return ufo_empty(INTSXP,
 			__extract_R_xlen_t_or_die(size),
 			__extract_boolean_or_die(fill_with_nas),
+			//__extract_boolean_or_die(read_only),
 			__extract_int_or_die(min_load_count));
 }
 
@@ -161,6 +163,7 @@ SEXP ufo_realsxp_empty(SEXP/*REALSXP*/ size, SEXP/*LGLSXP*/ fill_with_nas, SEXP/
 	return ufo_empty(REALSXP,
 			__extract_R_xlen_t_or_die(size),
 			__extract_boolean_or_die(fill_with_nas),
+			//__extract_boolean_or_die(read_only),
 			__extract_int_or_die(min_load_count));
 }
 
@@ -168,6 +171,7 @@ SEXP ufo_rawsxp_empty(SEXP/*REALSXP*/ size, SEXP/*INTSXP*/ min_load_count) {
 	return ufo_empty(RAWSXP,
 			__extract_R_xlen_t_or_die(size),
 			false,
+			//__extract_boolean_or_die(read_only),
 			__extract_int_or_die(min_load_count));
 }
 
@@ -175,6 +179,7 @@ SEXP ufo_cplxsxp_empty(SEXP/*REALSXP*/ size, SEXP/*LGLSXP*/ fill_with_nas, SEXP/
 	return ufo_empty(CPLXSXP,
 			__extract_R_xlen_t_or_die(size),
 			__extract_boolean_or_die(fill_with_nas),
+			//__extract_boolean_or_die(read_only),
 			__extract_int_or_die(min_load_count));
 }
 
@@ -182,6 +187,7 @@ SEXP ufo_lglsxp_empty(SEXP/*REALSXP*/ size, SEXP/*LGLSXP*/ fill_with_nas, SEXP/*
 	return ufo_empty(LGLSXP,
 			__extract_R_xlen_t_or_die(size),
 			__extract_boolean_or_die(fill_with_nas),
+			//__extract_boolean_or_die(read_only),
 			__extract_int_or_die(min_load_count));
 }
 
@@ -189,6 +195,7 @@ SEXP ufo_vecsxp_empty(SEXP/*REALSXP*/ size, SEXP/*INTSXP*/ min_load_count) {
 	return ufo_empty(VECSXP,
 			__extract_R_xlen_t_or_die(size),
 			false,
+			//__extract_boolean_or_die(read_only),
 			__extract_int_or_die(min_load_count));
 }
 
@@ -196,5 +203,6 @@ SEXP ufo_strsxp_empty(SEXP/*REALSXP*/ size, SEXP/*LGLSXP*/ fill_with_nas, SEXP/*
 	return ufo_empty(STRSXP,
 			__extract_R_xlen_t_or_die(size),
 			__extract_boolean_or_die(fill_with_nas),
+			//__extract_boolean_or_die(read_only),
 			__extract_int_or_die(min_load_count));
 }
