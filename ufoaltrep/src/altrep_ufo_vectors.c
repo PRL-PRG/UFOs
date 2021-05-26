@@ -222,7 +222,7 @@ static void __materialize_data(SEXP x) {
             (altrep_ufo_config_t *) EXTPTR_PTR(R_altrep_data1(x));
     PROTECT(x);
     SEXP payload = allocVector(INTSXP, cfg->vector_size);
-    int *data = INTEGER(payload);
+    int *data = INTEGER(payload); // FIXME This looks like it should be different types.
     __load_from_file(__get_debug_mode(), 0, cfg->vector_size, cfg, (char *) data);
     R_set_altrep_data2(x, payload);
     UNPROTECT(1);
@@ -237,11 +237,11 @@ static void *ufo_vector_dataptr(SEXP x, Rboolean writeable) {
     if (writeable) {
         if (R_altrep_data2(x) == R_NilValue)
             __materialize_data(x);
-        return DATAPTR(R_altrep_data1(x));
+        return DATAPTR(R_altrep_data2(x));
     } else {
         if (R_altrep_data2(x) == R_NilValue)
             __materialize_data(x);
-        return DATAPTR(R_altrep_data1(x));
+        return DATAPTR(R_altrep_data2(x));
     }
 }
 
@@ -376,10 +376,10 @@ static R_xlen_t ufo_logical_get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
 //    return R_NilValue;
 //}
 
-static SEXP ufo_integer_extract_subset(SEXP x, SEXP indx, SEXP call) {
+// static SEXP ufo_integer_extract_subset(SEXP x, SEXP indx, SEXP call) {
 
-    return;
-}
+//     return;
+// }
 
 
 // UFO Inits
@@ -403,7 +403,7 @@ void init_ufo_integer_altrep_class(DllInfo * dll) {
 
     //R_set_altinteger_Sum_method(cls, ufo_integer_sum);
 
-    R_set_altvec_Extract_subset_method(cls, ufo_integer_extract_subset);
+    //R_set_altvec_Extract_subset_method(cls, ufo_integer_extract_subset);
 }
 
 void init_ufo_numeric_altrep_class(DllInfo * dll) {

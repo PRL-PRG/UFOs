@@ -12,3 +12,11 @@ typedef struct {
     FILE*               file_handle;
     size_t              file_cursor;
 } altrep_ufo_config_t;
+
+typedef struct {
+    int from;
+    int to;
+    int by;
+    size_t size;
+    SEXPTYPE            type;
+} altrep_seq_config_t;
