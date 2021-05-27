@@ -170,7 +170,7 @@ Here I'm comparing
 
 ## Creation
 
-```{r seq-sum32mln, cache=T}
+```{r seq-create, cache=T}
 size = 32000000
 
 result <- microbenchmark(
@@ -180,9 +180,6 @@ result <- microbenchmark(
   "standard vector" = { as.integer(c(1:size)) },
   #"compact vector" = { 1:size },
   "seq.int" = { seq.int(1, size, 1) },
-  check = function(values) {
-    all(sapply(values, function(result) result == sum(1:size)))
-  },
   times = 50L
 )
 
