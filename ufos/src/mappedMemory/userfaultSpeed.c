@@ -6,7 +6,6 @@
 #include <sys/mman.h>
 #include <stdint.h>
 #include <string.h>
-#include <assert.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <poll.h>
@@ -14,6 +13,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+
+#undef NDEBUG
+#include <assert.h>
 
 static volatile int stop;
 

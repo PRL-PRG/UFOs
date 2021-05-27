@@ -364,6 +364,7 @@ static int readHandleUfEvent(ufInstance* i){
   return -1;
 }
 
+#ifndef NDEBUG
 static bool nonOverlapping(ufInstance* i, ufObject* ufo){
   bool isOverlapping = false;
 
@@ -383,6 +384,7 @@ static bool nonOverlapping(ufInstance* i, ufObject* ufo){
 
   return isOverlapping;
 }
+#endif
 
 #define UFFD_IOCTLS_NEEDED      \
 	((__u64)1 << _UFFDIO_WAKE |		\
@@ -960,9 +962,11 @@ ufObject_t ufLookupObjectByMemberAddress(ufInstance_t instance, void* ptr){
 
   ufObject* ufo = asUfo(e.valuePtr);
 
+  #ifndef NDEBUG
   const uint64_t ptrI = (uint64_t) ptr;
   assert(ptrI >= ufo->startI);
   assert(ptrI < ufo->startI + ufo->trueSize);
+  #endif
 
   return ufo;
 }
