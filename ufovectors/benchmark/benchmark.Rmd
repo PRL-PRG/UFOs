@@ -15,7 +15,6 @@ devtools::install_github("olafmersmann/microbenchmark")
 ```
 
 ```{r}
-#library(ufoseq)
 library(ufovectors)
 library(ufoaltrep)
 library(microbenchmark)
@@ -61,20 +60,42 @@ print(stats)
 
 Two nigh-identical implementations of file-backed vectors. One done with UFOs, one done with vectors.
 
+
+### Creation: 32 million 1s
+
+```{r creat}
+min_load_count = 1024 * 1024 / 4
+
+result <- microbenchmark(
+  "UFO" = { 
+    ufo_integer_bin(stats$stats_32mln_1s$path, read_only=FALSE, min_load_count=min_load_count)
+  },
+  "UFO/RO" = { 
+    ufo_integer_bin(stats$stats_32mln_1s$path, read_only=TRUE, min_load_count=min_load_count)
+  },
+  "ALTREP" = {
+    altrep_ufo_integer_bin(stats$stats_32mln_1s$path)
+  },
+  times = 50L
+)
+
+autoplot(result) + scale_y_continuous(labels = scales::label_number_si())
+```
+
 ### Sum: 32 million 1s
 
 ```{r fb-sum32mln1, cache=T}
 min_load_count = 1024 * 1024 / 4
 
+ufo <- ufo_integer_bin(stats$stats_32mln_1s$path, read_only=FALSE, min_load_count=min_load_count)
+ufo.ro <- ufo_integer_bin(stats$stats_32mln_1s$path, read_only=TRUE, min_load_count=min_load_count)
+altrep <- altrep_ufo_integer_bin(stats$stats_32mln_1s$path)
+
 result <- microbenchmark(
-  "UFO" = { 
-    sum(ufo_integer_bin(stats$stats_32mln_1s$path, min_load_count))
-  },
-  "ALTREP" = {
-    sum(altrep_ufo_integer_bin(stats$stats_32mln_1s$path))
-  },
+  "UFO" = { sum(ufo) },
+  "UFO/RO" = { sum(ufo.ro) },
+  "ALTREP" = { sum(altrep) },
   check = function(values) {
-    # turns out 32 mln 1s is 32mln
     all(sapply(values, function(result) result == stats$stats_32mln_1s$sum))
   },
   times = 50L
@@ -89,18 +110,16 @@ autoplot(result) + scale_y_continuous(labels = scales::label_number_si())
 min_load_count = 1024 * 1024 / 4
 actually_check = T
 
+ufo <- ufo_integer_bin(stats$stats_32mln_rand_ints$path, read_only=FALSE, min_load_count=min_load_count)
+ufo.ro <- ufo_integer_bin(stats$stats_32mln_rand_ints$path, read_only=TRUE, min_load_count=min_load_count)
+altrep <- altrep_ufo_integer_bin(stats$stats_32mln_rand_ints$path)
+
 result <- microbenchmark(
-  "UFO" = { 
-    sum(ufo_integer_bin(stats$stats_32mln_rand_ints$path, min_load_count))
-  },
-  "ALTREP" = {
-    sum(altrep_ufo_integer_bin(stats$stats_32mln_rand_ints$path))
-  },
+  "UFO" = { sum(ufo) },
+  "UFO/RO" = { sum(ufo.ro) },
+  "ALTREP" = { sum(altrep) },
   check = function(values) {
-    if (actually_check) {
-      all(sapply(values, function(result) result == stats$stats_32mln_rand_ints$sum))
-    } else
-      TRUE
+    all(sapply(values, function(result) result == stats$stats_32mln_rand_ints$sum))
   },
   times = 50L
 )
@@ -114,12 +133,19 @@ autoplot(result) + scale_y_continuous(labels = scales::label_number_si())
 min_load_count = 1024 * 1024 / 4
 some_function <- function(x) x
 
+ufo <- ufo_integer_bin(stats$stats_32mln_rand_ints$path, read_only=FALSE, min_load_count=min_load_count)
+ufo.ro <- ufo_integer_bin(stats$stats_32mln_rand_ints$path, read_only=TRUE, min_load_count=min_load_count)
+altrep <- altrep_ufo_integer_bin(stats$stats_32mln_rand_ints$path)
+
 result <- microbenchmark(
   "UFO" = {
-    for (e in ufo_integer_bin(stats$stats_32mln_rand_ints$path, min_load_count)) some_function(e)
+    for (e in ufo) some_function(e)
+  },
+  "UFO/RO" = {
+    for (e in ufo) some_function(e)
   },
   "ALTREP" = {
-    for (e in altrep_ufo_integer_bin(stats$stats_32mln_rand_ints$path)) some_function(e)
+    for (e in altrep) some_function(e)
   },
   
   times = 10L
@@ -142,24 +168,18 @@ Here I'm comparing
 - `seq.int` which just returns an ordinary R vector, vs. 
 - a compact vector (result of `n:m`), which, *I believe*, is implemented with ALTREP
 
-## Sum: 32 mln int sequence
+## Creation
 
 ```{r seq-sum32mln, cache=T}
 size = 32000000
 
 result <- microbenchmark(
-  "UFO" = {
-    sum(ufo_integer_seq(1, size, 1))
-  },
-  "seq.int" = {
-    sum(seq.int(1, size, 1))
-  },
-  "R vector" = {
-    sum(c(1:size))
-  },
-  "compact vector" = {
-    sum(1:size)
-  },
+  "UFO" = { ufo_integer_seq(1, size, 1, read_only = FALSE) },
+  "UFO/RO" = {  ufo_integer_seq(1, size, 1, read_only = TRUE) },
+  "ALTREP" = {  altrep_integer_seq(1, size, 1) },
+  "standard vector" = { as.integer(c(1:size)) },
+  #"compact vector" = { 1:size },
+  "seq.int" = { seq.int(1, size, 1) },
   check = function(values) {
     all(sapply(values, function(result) result == sum(1:size)))
   },
@@ -169,13 +189,39 @@ result <- microbenchmark(
 autoplot(result) + scale_y_continuous(labels = scales::label_number_si())
 ```
 
-They implement their own sum, which doesn't go through all the elements, instead it just calculates the sum from the boundaries of the sequence:
+## Sum: 32 mln int sequence
+
+```{r seq-sum32mln, cache=T}
+size = 32000000
+
+ufo <- ufo_integer_seq(1, size, 1, read_only = FALSE)
+ufo.ro <- ufo_integer_seq(1, size, 1, read_only = TRUE)
+altrep <- altrep_integer_seq(1, size, 1)
+vec.std <- as.integer(c(1:size))
+vec.comp <- 1:size
+vec.seq.int <-  seq.int(1, size, 1)
+
+result <- microbenchmark(
+  "UFO" = { sum(ufo) },
+  "UFO/RO" = { sum(ufo.ro) },
+  "ALTREP" = { sum(altrep) },
+  "standard vector" = { sum(vec.std) },
+  #"compact vector" = { sum(vec.comp) },
+  "seq.int" = { sum(vec.seq.int) },
+  check = function(values) {
+    all(sapply(values, function(result) result == sum(1:size)))
+  },
+  times = 50L
+)
+
+autoplot(result) + scale_y_continuous(labels = scales::label_number_si())
+```
+
+The compact vectors implement their own sum, which doesn't go through all the elements, instead it just calculates the sum from the boundaries of the sequence. I removed them in the end.
 
 ```C
 (size / 2.0) * (n1 + n1 + inc * (size - 1))
 ```
-
-
 
 ## For loop: 32 mln int sequence
 
@@ -183,18 +229,28 @@ They implement their own sum, which doesn't go through all the elements, instead
 size = 32000000
 some_function <- function(x) x
 
+ufo <- ufo_integer_seq(1, size, 1, read_only = FALSE)
+ufo.ro <- ufo_integer_seq(1, size, 1, read_only = TRUE)
+altrep <- altrep_integer_seq(1, size, 1)
+vec.std <- as.integer(c(1:size))
+vec.comp <- 1:size
+vec.seq.int <-  seq.int(1, size, 1)
+
 result <- microbenchmark(
   "UFO" = {
-    for (e in ufo_integer_seq(1, size, 1)) some_function(e)
+    for (e in ufo) some_function(e)
   },
-  "R vector" = {
-    for (e in c(1:size)) some_function(e)
+  "UFO/RO" = {
+    for (e in ufo.ro) some_function(e)
   },
   "seq.int" = {
-    for (e in seq.int(1, size, 1)) some_function(e)
+    for (e in vec.seq.int) some_function(e)
   },
   "compact vector" = {
-    for (e in 1:size) some_function(e)
+    for (e in vec.comp) some_function(e)
+  },
+  "standard vector" = {
+    for (e in vec.std) some_function(e)
   },
   times = 10L
 )
