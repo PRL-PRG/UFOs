@@ -16,6 +16,7 @@
 int testpopulate(uint64_t startValueIdx, uint64_t endValueIdx, ufPopulateCallout callout, ufUserData userData, char* target){
   uint64_t* t = (uint64_t*) target;
   uint64_t* requestCt = (uint64_t*) userData;
+  UNUSED(requestCt);
   assert(startValueIdx >= 0);
   assert(endValueIdx <= *requestCt);
   for(int i = startValueIdx; i < endValueIdx; i++)
@@ -27,6 +28,7 @@ int testpopulate(uint64_t startValueIdx, uint64_t endValueIdx, ufPopulateCallout
 static inline uint64_t getns(void){
   struct timespec ts;
   int ret = clock_gettime(CLOCK_MONOTONIC, &ts);
+  UNUSED(ret);
   assert(ret == 0);
   return (((uint64_t)ts.tv_sec) * 1000000000ULL) + ts.tv_nsec;
 }
@@ -45,7 +47,7 @@ int main(int argc, char **argv){
   ufObjectConfig_t config = makeObjectConfig(uint64_t, 64, ct, 4*1024*1024);
   ufSetPopulateFunction(config, testpopulate);
   ufSetUserConfig(config, &ct);
-  // ufSetReadOnly(config);
+  ufSetReadOnly(config);
 
   ufObject_t o;
   tryPerrInt(res, ufCreateObject(ufI, config, &o), "Err init obj", error1);

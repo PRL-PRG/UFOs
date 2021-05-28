@@ -13,3 +13,5 @@
 #define tryPerrInt(res, f, errMsg, gotoE)    tryPerr(res, 0 != res,    f, errMsg, gotoE)
 #define tryPerrNull(x, f, errMsg, gotoE)     tryPerr(x, NULL == x, f, errMsg, gotoE)
 #define tryPerrNegOne(res, f, errMsg, gotoE) tryPerr(res, -1 == res,   f, errMsg, gotoE)
+
+#define UNUSED(x) (void)(x)
