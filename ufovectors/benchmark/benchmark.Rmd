@@ -1,12 +1,21 @@
 ---
-title: "Benchmarks"
+title: "Microbenchmarks"
 author: "K. Siek"
-date: "March 6, 2020"
+date: "May 28 2021"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+
+plot_to_pdf_and_here <- function(path, data) {
+  pdf(path, width = 4, height = 4)
+  plot(data)
+  dev.off()
+  
+  plot(data)
+}
 ```
 
 ```R
@@ -20,14 +29,6 @@ library(ufoaltrep)
 library(microbenchmark)
 library(ggplot2)
 library(scales)
-
-plot_to_pdf_and_here <- function(path, data) {
-  pdf(path)
-  plot(data)
-  dev.off()
-  
-  plot(data)
-}
 ```
 
 ```R
@@ -56,12 +57,18 @@ generate_binary_file <- function(path, range, repeats) {
 }
 
 stats <- list(
-  stats_32mln_1s = generate_binary_file("32mln_1s.bin", as.integer(rep(1, 1000000)), 32), #126MB
-  stats_32mln_seq_ints = generate_binary_file("32mln_seq_ints.bin", 1:1000000, 32),
-  stats_32mln_rand_ints = generate_binary_file("32mln_rand_ints.bin", sample(1000000, replace=T), 32)
+  stats_1s = generate_binary_file("250M_1s.bin", as.integer(rep(1, 1000000)), 250), #126MB
+  stats_seq_ints = generate_binary_file("250M_seq_ints.bin", 1:1000000, 250),
+  stats_rand_ints = generate_binary_file("250M_rand_ints.bin", sample(1000000, replace=T), 250)
 )
 
+size <- 250 * 1000 * 1000
+some_function <- function(x) x
+
 print(stats)
+
+file.exists(stats$stats_1s$path)
+
 ```
 
 ## File-backed matrices
@@ -71,16 +78,16 @@ Two nigh-identical implementations of file-backed vectors. One done with UFOs, o
 
 ### Creation: 32 million 1s
 
-```{r creat}
+```{r creat, eval = FALSE, echo = FALSE}
 result <- microbenchmark(
   "UFO" = { 
-    ufo_integer_bin(stats$stats_32mln_1s$path, read_only=FALSE)
+    ufo_integer_bin(stats$stats_1s$path, read_only=FALSE)
   },
   "UFO/RO" = { 
-    ufo_integer_bin(stats$stats_32mln_1s$path, read_only=TRUE)
+    ufo_integer_bin(stats$stats_1s$path, read_only=TRUE)
   },
   "ALTREP" = {
-    altrep_ufo_integer_bin(stats$stats_32mln_1s$path)
+    altrep_ufo_integer_bin(stats$stats_1s$path)
   },
   times = 1000L
 )
@@ -88,24 +95,24 @@ result <- microbenchmark(
 plot <- autoplot(result) +
   scale_y_continuous(labels = scales::label_number_si()) +
   xlab("time [ns]") +
-  ggtitle("File-backed/32M 1s/create")
+  ggtitle("File-backed/250M 1s/create")
 
-plot_to_pdf_and_here("32M_1s_bin_create.pdf", plot)
+plot_to_pdf_and_here("250M_1s_bin_create.pdf", plot)
 ```
 
 ### Sum: 32 million 1s
 
-```{r fb-sum32mln1, cache=T}
-ufo <- ufo_integer_bin(stats$stats_32mln_1s$path, read_only=FALSE)
-ufo.ro <- ufo_integer_bin(stats$stats_32mln_1s$path, read_only=TRUE)
-altrep <- altrep_ufo_integer_bin(stats$stats_32mln_1s$path)
+```{r fb-sum32mln1, cache=T, fig.height=3, fig.width=3, eval = FALSE, echo = FALSE}
+ufo <- ufo_integer_bin(stats$stats_1s$path, read_only=FALSE)
+ufo.ro <- ufo_integer_bin(stats$stats_1s$path, read_only=TRUE)
+altrep <- altrep_ufo_integer_bin(stats$stats_1s$path)
 
 result <- microbenchmark(
   "UFO" = { sum(ufo) },
   "UFO/RO" = { sum(ufo.ro) },
   "ALTREP" = { sum(altrep) },
   check = function(values) {
-    all(sapply(values, function(result) result == stats$stats_32mln_1s$sum))
+    all(sapply(values, function(result) result == stats$stats_1s$sum))
   },
   times = 1000L
 )
@@ -113,18 +120,18 @@ result <- microbenchmark(
 plot <- autoplot(result) +
   scale_y_continuous(labels = scales::label_number_si()) +
   xlab("time [ns]") +
-  ggtitle("File-backed/32M 1s/sum")
+  ggtitle("File-backed/250M 1s/sum")
 
-plot_to_pdf_and_here("32M_1s_bin_sum.pdf", plot)
+plot_to_pdf_and_here("250M_1s_bin_sum.pdf", plot)
 ```
 ### Loop: 32 million 1s
 
-```{r fb-for32mln1s, cache=T}
+```{r fb-for32mln1s, cache=T, eval = FALSE, echo = FALSE}
 some_function <- function(x) x
 
-ufo <- ufo_integer_bin(stats$stats_32mln_1s$path, read_only=FALSE)
-ufo.ro <- ufo_integer_bin(stats$stats_32mln_1s$path, read_only=TRUE)
-altrep <- altrep_ufo_integer_bin(stats$stats_32mln_1s$path)
+ufo <- ufo_integer_bin(stats$stats_1s$path, read_only=FALSE)
+ufo.ro <- ufo_integer_bin(stats$stats_1s$path, read_only=TRUE)
+altrep <- altrep_ufo_integer_bin(stats$stats_1s$path)
 
 result <- microbenchmark(
   "UFO" = {
@@ -143,23 +150,23 @@ result <- microbenchmark(
 plot <- autoplot(result) +
   scale_y_continuous(labels = scales::label_number_si()) +
   xlab("time [ns]") +
-  ggtitle("File-backed/32M 1s/loop")
+  ggtitle("File-backed/250M 1s/loop")
 
-plot_to_pdf_and_here("32M_1s_bin_loop.pdf", plot)
+plot_to_pdf_and_here("250M_1s_bin_loop.pdf", plot)
 ```
 
 ### Creation: 32 million random integers
 
-```{r creat}
+```{r creat32}
 result <- microbenchmark(
   "UFO" = { 
-    ufo_integer_bin(stats$stats_32mln_rand_ints$path, read_only=FALSE)
+    ufo_integer_bin(stats$stats_rand_ints$path, read_only=FALSE)
   },
   "UFO/RO" = { 
-    ufo_integer_bin(stats$stats_32mln_rand_ints$path, read_only=TRUE)
+    ufo_integer_bin(stats$stats_rand_ints$path, read_only=TRUE)
   },
   "ALTREP" = {
-    altrep_ufo_integer_bin(stats$stats_32mln_rand_ints$path)
+    altrep_ufo_integer_bin(stats$stats_rand_ints$path)
   },
   times = 1000L
 )
@@ -167,24 +174,24 @@ result <- microbenchmark(
 plot <- autoplot(result) +
   scale_y_continuous(labels = scales::label_number_si()) +
   xlab("time [ns]") +
-  ggtitle("File-backed/32M rand ints/create")
+  ggtitle("File-backed/250M rand ints/create")
 
-plot_to_pdf_and_here("32M_rand_bin_create.pdf", plot)
+plot_to_pdf_and_here("250M_rand_bin_create.pdf", plot)
 ```
 
 ### Sum: 32 million random integers
 
-```{r fb-sum32mlnrand, cache=T}
-ufo <- ufo_integer_bin(stats$stats_32mln_rand_ints$path, read_only=FALSE)
-ufo.ro <- ufo_integer_bin(stats$stats_32mln_rand_ints$path, read_only=TRUE)
-altrep <- altrep_ufo_integer_bin(stats$stats_32mln_rand_ints$path)
+```{r fb-sum32mlnrand, cache=T,}
+ufo <- ufo_integer_bin(stats$stats_rand_ints$path, read_only=FALSE)
+ufo.ro <- ufo_integer_bin(stats$stats_rand_ints$path, read_only=TRUE)
+altrep <- altrep_ufo_integer_bin(stats$stats_rand_ints$path)
 
 result <- microbenchmark(
   "UFO" = { sum(ufo) },
   "UFO/RO" = { sum(ufo.ro) },
   "ALTREP" = { sum(altrep) },
   check = function(values) {
-    all(sapply(values, function(result) result == stats$stats_32mln_rand_ints$sum))
+    all(sapply(values, function(result) result == stats$stats_rand_ints$sum))
   },
   times = 1000L
 )
@@ -192,9 +199,9 @@ result <- microbenchmark(
 plot <- autoplot(result) +
   scale_y_continuous(labels = scales::label_number_si()) +
   xlab("time [ns]") +
-  ggtitle("File-backed/32M rand ints/sum")
+  ggtitle("File-backed/250M rand ints/sum")
 
-plot_to_pdf_and_here("32M_rand_bin_sum.pdf", plot)
+plot_to_pdf_and_here("250M_rand_bin_sum.pdf", plot)
 ```
 
 ### For loop: 32 million random integers
@@ -202,9 +209,9 @@ plot_to_pdf_and_here("32M_rand_bin_sum.pdf", plot)
 ```{r fb-for32mlnrand, cache=T}
 some_function <- function(x) x
 
-ufo <- ufo_integer_bin(stats$stats_32mln_rand_ints$path, read_only=FALSE)
-ufo.ro <- ufo_integer_bin(stats$stats_32mln_rand_ints$path, read_only=TRUE)
-altrep <- altrep_ufo_integer_bin(stats$stats_32mln_rand_ints$path)
+ufo <- ufo_integer_bin(stats$stats_rand_ints$path, read_only=FALSE)
+ufo.ro <- ufo_integer_bin(stats$stats_rand_ints$path, read_only=TRUE)
+altrep <- altrep_ufo_integer_bin(stats$stats_rand_ints$path)
 
 result <- microbenchmark(
   "UFO" = {
@@ -223,9 +230,9 @@ result <- microbenchmark(
 plot <- autoplot(result) +
   scale_y_continuous(labels = scales::label_number_si()) +
   xlab("time [ns]") +
-  ggtitle("File-backed/32M rand ints/loop")
+  ggtitle("File-backed/250M rand ints/loop")
 
-plot_to_pdf_and_here("32M_rand_bin_loop.pdf", plot)
+plot_to_pdf_and_here("250M_rand_bin_loop.pdf", plot)
 ```
 
 ALTREP is really slow because:
@@ -245,31 +252,27 @@ Here I'm comparing
 ## Creation
 
 ```{r seq-create, cache=T}
-size = 32000000
-
 result <- microbenchmark(
   "UFO" = { ufo_integer_seq(1, size, 1, read_only = FALSE) },
   "UFO/RO" = {  ufo_integer_seq(1, size, 1, read_only = TRUE) },
   "ALTREP" = {  altrep_integer_seq(1, size, 1) },
-  "standard vector" = { as.integer(c(1:size)) },
+  "R vector" = { as.integer(c(1:size)) },
   #"compact vector" = { 1:size },
-  "seq.int" = { seq.int(1, size, 1) },
+  #"seq.int" = { seq.int(1, size, 1) },
   times = 100L
 )
 
 plot <- autoplot(result) +
   scale_y_continuous(labels = scales::label_number_si()) +
   xlab("time [ns]") +
-  ggtitle("Sequence/32M ints/create")
+  ggtitle("Sequence/250M ints/create")
 
-plot_to_pdf_and_here("32M_seq_create.pdf", plot)
+plot_to_pdf_and_here("250M_seq_create.pdf", plot)
 ```
 
 ## Sum: 32 mln int sequence
 
 ```{r seq-sum32mln, cache=T}
-size = 32000000
-
 ufo <- ufo_integer_seq(1, size, 1, read_only = FALSE)
 ufo.ro <- ufo_integer_seq(1, size, 1, read_only = TRUE)
 altrep <- altrep_integer_seq(1, size, 1)
@@ -281,9 +284,9 @@ result <- microbenchmark(
   "UFO" = { sum(ufo) },
   "UFO/RO" = { sum(ufo.ro) },
   "ALTREP" = { sum(altrep) },
-  "standard vector" = { sum(vec.std) },
+  "R vector" = { sum(vec.std) },
   #"compact vector" = { sum(vec.comp) },
-  "seq.int" = { sum(vec.seq.int) },
+  #"seq.int" = { sum(vec.seq.int) },
   check = function(values) {
     all(sapply(values, function(result) result == sum(1:size)))
   },
@@ -293,9 +296,9 @@ result <- microbenchmark(
 plot <- autoplot(result) +
   scale_y_continuous(labels = scales::label_number_si()) +
   xlab("time [ns]") +
-  ggtitle("Sequence/32M ints/sum")
+  ggtitle("Sequence/250M ints/sum")
 
-plot_to_pdf_and_here("32M_seq_sum.pdf", plot)
+plot_to_pdf_and_here("250M_seq_sum.pdf", plot)
 ```
 
 The compact vectors implement their own sum, which doesn't go through all the elements, instead it just calculates the sum from the boundaries of the sequence. I removed them in the end.
@@ -307,9 +310,6 @@ The compact vectors implement their own sum, which doesn't go through all the el
 ## For loop: 32 mln int sequence
 
 ```{r fseq-for32mln, cache=T}
-size = 32000000
-some_function <- function(x) x
-
 ufo <- ufo_integer_seq(1, size, 1, read_only = FALSE)
 ufo.ro <- ufo_integer_seq(1, size, 1, read_only = TRUE)
 altrep <- altrep_integer_seq(1, size, 1)
@@ -327,13 +327,13 @@ result <- microbenchmark(
   "ALTREP" = {
     for (e in altrep) some_function(e)
   },
-  "seq.int" = {
-    for (e in vec.seq.int) some_function(e)
-  },
-  "compact vector" = {
-    for (e in vec.comp) some_function(e)
-  },
-  "standard vector" = {
+  #"seq.int" = {
+  #  for (e in vec.seq.int) some_function(e)
+  #},
+  #"compact vector" = {
+  #  for (e in vec.comp) some_function(e)
+  #},
+  "R vector" = {
     for (e in vec.std) some_function(e)
   },
   times = 10L
@@ -342,7 +342,7 @@ result <- microbenchmark(
 plot <- autoplot(result) +
   scale_y_continuous(labels = scales::label_number_si()) +
   xlab("time [ns]") +
-  ggtitle("Sequence/32M ints/loop")
+  ggtitle("Sequence/250M ints/loop")
 
-plot_to_pdf_and_here("32M_seq_loop.pdf", plot)
+plot_to_pdf_and_here("250M_seq_loop.pdf", plot)
 ```
