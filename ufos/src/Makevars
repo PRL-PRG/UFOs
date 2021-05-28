@@ -2,9 +2,10 @@ MkInclude = $(R_HOME)/etc${R_ARCH}/Makeconf
 
 #PKG_CXXFLAGS =
 #PKG_CPPFLAGS = -pthread
-PKG_CFLAGS = -DMAKE_SURE
-PKG_LIBS = -pthread -LmappedMemory -lmappedMemory -LmappedMemory/blake3 -l:blake3.a -lcrypto -g -O0 -Wall -Werror
-CFLAGS = -O0 -ggdb -fpic -Wall -Werror
+#PKG_CFLAGS = -DMAKE_SURE
+PKG_CFLAGS = -DNDEBUG
+PKG_LIBS = -pthread -LmappedMemory -lmappedMemory -LmappedMemory/blake3 -l:blake3.a -lcrypto -g -O3 -Wall -Werror
+CFLAGS = -O3 -ggdb -fpic -Wall -Werror 
 #-Og -ggdb -Wall -Werror -fPIC
 
 SOURCES_C = init.c ufos.c R_ext.c
