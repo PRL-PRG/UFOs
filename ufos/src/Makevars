@@ -3,7 +3,7 @@ MkInclude = $(R_HOME)/etc${R_ARCH}/Makeconf
 #PKG_CXXFLAGS =
 #PKG_CPPFLAGS = -pthread
 PKG_CFLAGS = -DMAKE_SURE
-PKG_LIBS = -pthread -LmappedMemory -lmappedMemory -lcrypto -g -O2 -Wall -Werror
+PKG_LIBS = -pthread -LmappedMemory -lmappedMemory -LmappedMemory/blake3 -l:blake3.a -lcrypto -g -O0 -Wall -Werror
 CFLAGS = -O0 -ggdb -fpic -Wall -Werror
 #-Og -ggdb -Wall -Werror -fPIC
 
@@ -11,7 +11,7 @@ SOURCES_C = init.c ufos.c R_ext.c
 
 OBJECTS = $(SOURCES_C:.c=.o)
 
-SUBDIRS = mappedMemory
+SUBDIRS = mappedMemory mappedMemory/blake3
 SUBLIBS = $(SUBDIRS:=.a)
 
 all: $(SHLIB)

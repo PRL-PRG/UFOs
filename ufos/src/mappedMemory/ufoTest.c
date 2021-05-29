@@ -15,6 +15,7 @@
 int testpopulate(void* userData, uint64_t startValueIdx, uint64_t endValueIdx, unsigned char* target){
   uint64_t* t = (uint64_t*) target;
   uint64_t* requestCt = (uint64_t*) userData;
+  UNUSED(requestCt);
   assert(startValueIdx >= 0);
   assert(endValueIdx <= *requestCt);
   for(int i = startValueIdx; i < endValueIdx; i++)
@@ -45,7 +46,8 @@ int main(int argc, char **argv) {
 
 //  uint64_t* bitmap = calloc(1024*1024*1024, 8);
   while(n < 0 || i < n) {
-    uint64_t ct = 1024ull*1024*((rand() & 0xffull) + 1), sz = ct*8 ;
+    uint64_t ct = 1024ull*1024*((rand() & 0xffull) + 1), sz = ct*8;
+    UNUSED(sz);
 
     UfoObj o = ufo_new(&ufoCore, &ufoPrototype, ct, &ct, testpopulate);
     if(ufo_is_error(&o))
@@ -85,6 +87,7 @@ int main(int argc, char **argv) {
         assert(ptr[i] == persianFlawIdx);
       }else{
         uint64_t x = ptr[i];
+        UNUSED(x);
         assert(~i == x);
       }
     }

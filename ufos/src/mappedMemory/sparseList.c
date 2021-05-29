@@ -369,10 +369,10 @@ int listAdd(sparseList_t list_t, void* ptr, uint64_t length, dataPtr value){
   // Ensure the element just added is greater than its predecessor and less than its sucessor
   // This holds true even if those slots are no longer "occupied"
   assert(actualIdx < l->usedSlots);
-  assert(actualIdx == 0 || -1 == eCompare(true, false, l->list[actualIdx-1].ptrI, e));
+  assert(actualIdx == 0 || 1 == eCompare(true, false, e->ptrI, &l->list[actualIdx-1]));
   // Check if the next slot it strictly larger than us. If it is occupied check for overlap too
   if(actualIdx+1 < l->usedSlots)
-    assert(1 == eCompare(l->list[actualIdx+1].occupied, false, l->list[actualIdx+1].ptrI, e));
+    assert(-1 == eCompare(l->list[actualIdx+1].occupied, false, e->ptrI, &l->list[actualIdx+1]));
 
   // Expensive assertion of all list invariants that we can think of
   // Will be a nop if turned off

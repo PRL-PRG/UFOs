@@ -198,23 +198,26 @@ static int ufCopy(ufInstance* i, struct uffdio_copy* copy){
 static int reclaimMemory(ufInstance* i, oroboros_item_t* chunkMetadata){
   if(0 == chunkMetadata->size)
     return 0; // this chunk was already reclaimed
-  uint8_t* sha = (uint8_t*)alloca(BLAKE3_OUT_LEN);
-  blake3(chunkMetadata->address, chunkMetadata->size, sha);
+  // If a UFO is read only just discard the memory
+  if(!asUfo(chunkMetadata->ufo)->config.readOnly){
+    uint8_t* sha = (uint8_t*)alloca(BLAKE3_OUT_LEN);
+    blake3(chunkMetadata->address, chunkMetadata->size, sha);
 
-  // Let the compiler make this fast
-  bool isEqual = true;
-  for(int i = 0; i < BLAKE3_OUT_LEN; i++)
-    isEqual = isEqual && sha[i] == chunkMetadata->sha[i];
+    // Let the compiler make this fast
+    bool isEqual = true;
+    for(int i = 0; i < BLAKE3_OUT_LEN; i++)
+      isEqual = isEqual && sha[i] == chunkMetadata->sha[i];
 
-  if(!isEqual){
-    // When the memory changed write it out to the writeback file
-    ufObject *ufo = asUfo(chunkMetadata->ufo);
-    uint64_t offset = ((uint64_t)chunkMetadata->address) - (uint64_t) ufGetValuePointer(ufo);
+    if(!isEqual){
+      // When the memory changed write it out to the writeback file
+      ufObject *ufo = asUfo(chunkMetadata->ufo);
+      uint64_t offset = ((uint64_t)chunkMetadata->address) - (uint64_t) ufGetValuePointer(ufo);
 
-    uint32_t bitIndex = offset / (ufo->config.stride * ufo->config.objectsAtOnce);
-    ufo->writebackMmapBase[bitIndex >> 3] |= 1 << (bitIndex & 7);
+      uint32_t bitIndex = offset / (ufo->config.stride * ufo->config.objectsAtOnce);
+      ufo->writebackMmapBase[bitIndex >> 3] |= 1 << (bitIndex & 7);
 
-    memcpy(ufo->writebackMmapBase + ufo->writebackMmapBitmapLength, chunkMetadata->address, chunkMetadata->size);
+      memcpy(ufo->writebackMmapBase + ufo->writebackMmapBitmapLength, chunkMetadata->address, chunkMetadata->size);
+    }
   }
 
   madvise(chunkMetadata->address, chunkMetadata->size, MADV_DONTNEED); // also possible: MADV_FREE
@@ -334,6 +337,8 @@ static int readHandleUfEvent(ufInstance* i){
           .address = (void *) faultAtLoadBoundaryAbsolute,
           .ufo     = ufo
   };
+  if(!ufo->config.readOnly)
+    blake3(copySource, fillSizeBytes, chunkMetadata.sha);
 
   struct uffdio_copy copy = (struct uffdio_copy){
       .src = (uint64_t) copySource,
@@ -342,8 +347,8 @@ static int readHandleUfEvent(ufInstance* i){
       .mode = 0};
   tryPerrNegOne(res, ufCopy(i, &copy), "error copying", error);
 
-  //TODO CMYK 2020.05.26 : Blake 2 or 3 would be faster, but this was handy
-  blake3(copySource, fillSizeBytes, chunkMetadata.sha);
+  if(!ufo->config.readOnly) // read only chunks don't need hashes
+    blake3(copySource, fillSizeBytes, chunkMetadata.sha);
 
   assert(check_totals(i));
 
@@ -359,6 +364,7 @@ static int readHandleUfEvent(ufInstance* i){
   return -1;
 }
 
+#ifndef NDEBUG
 static bool nonOverlapping(ufInstance* i, ufObject* ufo){
   bool isOverlapping = false;
 
@@ -378,6 +384,7 @@ static bool nonOverlapping(ufInstance* i, ufObject* ufo){
 
   return isOverlapping;
 }
+#endif
 
 #define UFFD_IOCTLS_NEEDED      \
 	((__u64)1 << _UFFDIO_WAKE |		\
@@ -752,6 +759,7 @@ ufObjectConfig_t makeObjectConfig0(uint32_t headerSize, uint64_t ct, uint32_t st
   conf->stride = stride;
   conf->elementCt = ct;
   conf->headerSize = headerSize;
+  conf->readOnly = false;
 
   // If pageSize is zero, perhaps the framework was never initialized?
   assert(pageSize > 0);
@@ -954,9 +962,11 @@ ufObject_t ufLookupObjectByMemberAddress(ufInstance_t instance, void* ptr){
 
   ufObject* ufo = asUfo(e.valuePtr);
 
+  #ifndef NDEBUG
   const uint64_t ptrI = (uint64_t) ptr;
   assert(ptrI >= ufo->startI);
   assert(ptrI < ufo->startI + ufo->trueSize);
+  #endif
 
   return ufo;
 }

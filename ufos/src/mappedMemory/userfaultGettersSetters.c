@@ -11,6 +11,9 @@ void ufSetUserConfig(ufObjectConfig_t config, ufUserData userData){
   asObjectConfig(config)->userConfig = userData;
 }
 
+void ufSetReadOnly(ufObjectConfig_t config){
+  asObjectConfig(config)->readOnly = true;
+}
 
 char* ufGetHeaderPointer(ufObject_t object){
   ufObject* o = asUfo(object);
