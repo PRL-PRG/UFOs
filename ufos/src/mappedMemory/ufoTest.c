@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include "ufos_c.h"
+#include "../unstdLib/errors.h"
 
 int testpopulate(void* userData, uint64_t startValueIdx, uint64_t endValueIdx, unsigned char* target){
   uint64_t* t = (uint64_t*) target;
