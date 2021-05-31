@@ -38,14 +38,14 @@ int main(int argc, char **argv) {
   // begin_ufo_log();
 
   UfoCore ufoCore = ufo_new_core("/tmp/", 50l*1024*1024, 100l*1024*1024);
-  UfoPrototype prototype = ufo_new_prototype(64, sizeof(uint64_t), 1024*1024);
+
+  UfoPrototype prototype = ufo_new_prototype(64, sizeof(uint64_t), 1024*1024, true);
 
   uint64_t ct = 1024ull*1024*1024*2 + 1, sz = ct*8 ;
   // uint64_t ct = 1ull*1024*1024 + 1, sz = ct*8 ;
   UfoObj o = ufo_new(&ufoCore, &prototype, ct, &ct, testpopulate);
 
   // uint64_t* h = (uint64_t*) ufo_header_ptr(&o);
-  // ufSetReadOnly(config);
 
   uint64_t* ptr = (uint64_t*) ufo_body_ptr(&o);
   uint64_t sum = 0;

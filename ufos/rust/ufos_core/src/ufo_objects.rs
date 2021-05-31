@@ -12,6 +12,8 @@ use log::{debug, error, trace};
 use num::Integer;
 
 use crate::mmap_wrapers;
+use crate::once_await::OnceAwait;
+use crate::once_await::OnceFulfiller;
 
 use super::errors::*;
 use super::math::*;
@@ -45,7 +47,7 @@ pub struct UfoIdGen {
 
 type DataHash = blake3::Hash;
 
-fn hash_function(data: &[u8]) -> DataHash {
+pub fn hash_function(data: &[u8]) -> DataHash {
     if data.len() > 128 * 1024 {
         // On large blocks we can get significant gains from parallelism
         blake3::Hasher::new()
@@ -83,6 +85,7 @@ pub struct UfoObjectConfigPrototype {
     pub header_size: usize,
     pub stride: usize,
     pub min_load_ct: Option<usize>,
+    pub read_only: bool,
 }
 
 impl UfoObjectConfigPrototype {
@@ -90,11 +93,13 @@ impl UfoObjectConfigPrototype {
         header_size: usize,
         stride: usize,
         min_load_ct: Option<usize>,
+        read_only: bool,
     ) -> UfoObjectConfigPrototype {
         UfoObjectConfigPrototype {
             header_size,
             stride,
             min_load_ct,
+            read_only,
         }
     }
 
@@ -103,6 +108,7 @@ impl UfoObjectConfigPrototype {
             self.header_size,
             ct,
             self.stride,
+            self.read_only,
             self.min_load_ct,
             populate,
         )
@@ -119,6 +125,7 @@ pub struct UfoObjectConfig {
     pub(crate) elements_loaded_at_once: usize,
     pub(crate) element_ct: usize,
     pub(crate) true_size: usize,
+    pub(crate) read_only: bool,
 }
 
 impl UfoObjectConfig {
@@ -126,6 +133,7 @@ impl UfoObjectConfig {
         header_size: usize,
         element_ct: usize,
         stride: usize,
+        read_only: bool,
         min_load_ct: Option<usize>,
         populate: Box<UfoPopulateFn>,
     ) -> UfoObjectConfig {
@@ -145,6 +153,7 @@ impl UfoObjectConfig {
         UfoObjectConfig {
             header_size,
             stride,
+            read_only,
 
             header_size_with_padding,
             true_size,
@@ -220,7 +229,7 @@ pub(crate) struct UfoChunk {
     object: Weak<Mutex<UfoObject>>,
     offset: UfoOffset,
     length: Option<NonZeroUsize>,
-    hash: DataHash,
+    hash: Arc<OnceAwait<Option<DataHash>>>,
 }
 
 impl UfoChunk {
@@ -228,21 +237,21 @@ impl UfoChunk {
         arc: &WrappedUfoObject,
         object: &MutexGuard<UfoObject>,
         offset: UfoOffset,
-        initial_data: &[u8],
+        length: usize,
     ) -> UfoChunk {
         assert!(
-            offset.absolute_offset() + initial_data.len() <= object.mmap.length(),
+            offset.absolute_offset() + length <= object.mmap.length(),
             "{} + {} > {}",
             offset.absolute_offset(),
-            initial_data.len(),
+            length,
             object.mmap.length()
         );
         UfoChunk {
             ufo_id: object.id,
             object: Arc::downgrade(arc),
             offset,
-            length: NonZeroUsize::new(initial_data.len()),
-            hash: hash_function(initial_data),
+            length: NonZeroUsize::new(length),
+            hash: Arc::new(OnceAwait::new()),
         }
     }
 
@@ -256,6 +265,10 @@ impl UfoChunk {
         })
     }
 
+    pub fn hash_fulfiller(&self) -> impl OnceFulfiller<Option<DataHash>>{
+        self.hash.clone()
+    }
+
     pub fn free_and_writeback_dirty(&mut self) -> Result<usize> {
         if let Some(length) = self.length {
             let length = length.get();
@@ -266,14 +279,19 @@ impl UfoChunk {
                     self.ufo_id, self.offset.absolute_offset() , length
                 );
 
-                let calculated_hash = obj
-                    .mmap
-                    .with_slice(self.offset.absolute_offset(), length, hash_function)
-                    .unwrap(); // it should never be possible for this to fail
-                trace!(target: "ufo_object", "writeback hash matches {}", self.hash == calculated_hash);
-                if self.hash != calculated_hash {
-                    let o = &mut *obj;
-                    o.writeback(self)?;
+                match self.hash.get() {
+                    None => {}
+                    Some(hash) => {
+                        let calculated_hash = obj
+                            .mmap
+                            .with_slice(self.offset.absolute_offset(), length, hash_function)
+                            .unwrap(); // it should never be possible for this to fail
+                        trace!(target: "ufo_object", "writeback hash matches {}", hash == &calculated_hash);
+                        if hash != &calculated_hash {
+                            let o = &mut *obj;
+                            o.writeback(self)?;
+                        }
+                    }
                 }
 
                 unsafe {
@@ -336,7 +354,8 @@ impl UfoFileWriteback {
         assert!(bitmap_bytes.trailing_zeros() >= page_size.trailing_zeros());
 
         // round the mmap up to the nearest chunk size
-        // when loading we need to give back chunks this large so even though no useful user data may be in the last chunk we still need to have this available for in the readback chunk
+        // when loading we need to give back chunks this large so even though no useful user data may
+        // be in the last chunk we still need to have this available for in the readback chunk
         let data_bytes = up_to_nearest(cfg.element_ct * cfg.stride, chunk_size);
         let total_bytes = bitmap_bytes + data_bytes;
 

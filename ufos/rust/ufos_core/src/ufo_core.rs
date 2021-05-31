@@ -15,6 +15,9 @@ use crossbeam::sync::WaitGroup;
 use segment_map::{Segment, SegmentMap};
 use userfaultfd::Uffd;
 
+use crate::once_await::OnceFulfiller;
+use crate::populate_workers::{PopulateWorkers, RequestWorker, ShouldRun};
+
 use super::errors::*;
 use super::mmap_wrapers::*;
 use super::ufo_objects::*;
@@ -165,15 +168,20 @@ impl UfoCore {
         });
 
         trace!(target: "ufo_core", "starting threads");
-        let pop_core = Arc::clone(&core);
-        std::thread::Builder::new()
-            .name("Ufo Core".to_string())
-            .spawn(move || UfoCore::populate_loop(pop_core))?;
+        let pop_core = core.clone();
+        let pop_workers =  PopulateWorkers::new("Ufo Core", 
+        move |request_worker| UfoCore::populate_loop(pop_core.clone(), request_worker));
+        pop_workers.request_worker();
+        PopulateWorkers::spawn_worker(pop_workers.clone());
+        
+        // std::thread::Builder::new()
+        //     .name("Ufo Core".to_string())
+        //     .spawn(move || UfoCore::populate_loop(pop_core))?;
 
-        let msg_core = Arc::clone(&core);
+        let msg_core = core.clone();
         std::thread::Builder::new()
             .name("Ufo Msg".to_string())
-            .spawn(move || UfoCore::msg_loop(msg_core, recv))?;
+            .spawn(move || UfoCore::msg_loop(msg_core, pop_workers, recv))?;
 
         Ok(core)
     }
@@ -224,17 +232,14 @@ impl UfoCore {
             .unwrap_or_else(|| Err(UfoLookupErr::UfoNotFound))
     }
 
-    fn populate_loop(this: Arc<UfoCore>) {
+    fn populate_loop(this: Arc<UfoCore>, request_worker: &dyn RequestWorker) {
         trace!(target: "ufo_core", "Started pop loop");
         fn populate_impl(
             core: &UfoCore,
             buffer: &mut UfoWriteBuffer,
             addr: *mut c_void,
         ) -> Result<(), UfoPopulateError> {
-            // this is needed to actually unlock the mutex lock
-            fn droplockster<T>(_lock: MutexGuard<T>) {}
-
-            let state = &mut *core.get_locked_state().unwrap();
+            let mut state = core.get_locked_state().unwrap();
 
             let ptr_int = addr as usize;
 
@@ -264,10 +269,10 @@ impl UfoCore {
                 start, (pop_end-start) * config.stride, populate_offset.as_ptr_int());
 
             // unlock the ufo before freeing because that might need to grab the lock on the ufo
-            droplockster(ufo);
+            Mutex::unlock(ufo);
 
             // Before we perform the load ensure that there is capacity
-            UfoCore::ensure_capcity(&core.config, state, load_size);
+            UfoCore::ensure_capcity(&core.config, &mut *state, load_size);
 
             // Reacquire our lock and the config
             let ufo = ufo_arc.lock().unwrap();
@@ -304,22 +309,42 @@ impl UfoCore {
                 &ufo_arc,
                 &ufo,
                 populate_offset,
-                // Make sure to take a slice of the raw data. the kernel operates in page sized chunks but the UFO ends where it ends
-                &raw_data[0..populate_size],
+                populate_size,
+                // config.read_only,
             );
+            let hash_fulfiller = chunk.hash_fulfiller();
             state.loaded_chunks.add(chunk);
             trace!(target: "ufo_core", "chunk saved");
+
+            // release the lock before calculating the hash so other workers can proceed
+            Mutex::unlock(state);
+
+            if config.read_only {
+                hash_fulfiller.try_init(None);
+            }else{
+                // Make sure to take a slice of the raw data. the kernel operates in page sized chunks but the UFO ends where it ends
+                let calculated_hash = hash_function(&raw_data[0..populate_size]);
+                hash_fulfiller.try_init(Some(calculated_hash));
+            }
 
             Ok(())
         }
 
         let uffd = &this.uffd;
+        // Per-worker buffer
         let mut buffer = UfoWriteBuffer::new();
 
         loop {
+            match request_worker.await_work() {
+                ShouldRun::Running => {},
+                ShouldRun::Shutdown => {
+                    return;
+                },
+            }
             match uffd.read_event() {
                 Ok(Some(event)) => match event {
                     userfaultfd::Event::Pagefault { rw: _, addr } => {
+                        request_worker.request_worker(); // while we work someone else waits
                         populate_impl(&*this, &mut buffer, addr).expect("Error during populate");
                     }
                     e => panic!("Recieved an event we did not register for {:?}", e),
@@ -345,7 +370,7 @@ impl UfoCore {
         }
     }
 
-    fn msg_loop(this: Arc<UfoCore>, recv: Receiver<UfoInstanceMsg>) {
+    fn msg_loop<F>(this: Arc<UfoCore>, populate_pool: Arc<PopulateWorkers<F>>, recv: Receiver<UfoInstanceMsg>) {
         trace!(target: "ufo_core", "Started msg loop");
         fn allocate_impl(
             this: &Arc<UfoCore>,
@@ -482,7 +507,7 @@ impl UfoCore {
             Ok(())
         }
 
-        fn shutdown_impl(this: &Arc<UfoCore>) {
+        fn shutdown_impl<F>(this: &Arc<UfoCore>, populate_pool: Arc<PopulateWorkers<F>>) {
             info!(target: "ufo_core", "shutting down");
             let keys: Vec<UfoId> = {
                 let state = &mut *this.get_locked_state().expect("err on shutdown");
@@ -491,6 +516,7 @@ impl UfoCore {
 
             keys.iter()
                 .for_each(|k| free_impl(this, *k).expect("err on free"));
+            populate_pool.shutdown();
         }
 
         loop {
@@ -508,7 +534,7 @@ impl UfoCore {
                         free_impl(&this, ufo_id).expect("Free Error")
                     }
                     UfoInstanceMsg::Shutdown(_) => {
-                        shutdown_impl(&this);
+                        shutdown_impl(&this, populate_pool);
                         drop(recv);
                         info!(target: "ufo_core", "closing msg loop");
                         return /*done*/;

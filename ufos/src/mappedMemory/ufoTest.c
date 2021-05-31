@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
   if(ufo_core_is_error(&ufoCore))
     goto error;
 
-  UfoPrototype ufoPrototype = ufo_new_prototype(64, sizeof(uint64_t), (rand() & 0xffff) + 1);
+  UfoPrototype ufoPrototype = ufo_new_prototype(64, sizeof(uint64_t), (rand() & 0xffff) + 1, false);
   // ufo_free_prototype(ufoPrototype);
   if(ufo_prototype_is_error(&ufoPrototype))
     goto proto_error; 

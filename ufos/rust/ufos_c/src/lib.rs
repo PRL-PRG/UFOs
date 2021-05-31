@@ -168,6 +168,7 @@ impl UfoPrototype {
         header_size: libc::size_t,
         stride: libc::size_t,
         min_load_ct: libc::size_t,
+        read_only: bool,
     ) -> UfoPrototype {
         std::panic::catch_unwind(|| {
             let min_load_ct = Some(min_load_ct).filter(|x| *x > 0);
@@ -175,6 +176,7 @@ impl UfoPrototype {
                 header_size,
                 stride,
                 min_load_ct,
+                read_only,
             ))
         })
         .unwrap_or_else(|_| Self::none())

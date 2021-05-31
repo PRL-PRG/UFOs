@@ -17,8 +17,9 @@ impl UfoCore {
         header_size: usize,
         stride: usize,
         min_load_ct: Option<usize>,
+        read_only: bool,
     ) -> UfoObjectConfigPrototype {
-        UfoObjectConfigPrototype::new_prototype(header_size, stride, min_load_ct)
+        UfoObjectConfigPrototype::new_prototype(header_size, stride, min_load_ct, read_only)
     }
 
     pub fn new_ufo(
@@ -106,6 +107,7 @@ mod tests {
         header_size: usize,
         body_size: usize,
         min_load: usize,
+        read_only: bool,
     ) -> Result<(UfoCore, UfoHandle), UfoAllocateErr>
     where
         T: Sized + Integer + TryFrom<usize>,
@@ -119,7 +121,7 @@ mod tests {
         let core = UfoCore::new_ufo_core(config).expect("error getting core");
 
         let ufo_prototype =
-            UfoObjectConfigPrototype::new_prototype(header_size, size_of::<T>(), Some(min_load));
+            UfoObjectConfigPrototype::new_prototype(header_size, size_of::<T>(), Some(min_load), read_only);
 
         let o = core.new_ufo(
             &ufo_prototype,
@@ -141,7 +143,7 @@ mod tests {
 
     #[test]
     fn it_works() -> Result<(), UfoAllocateErr> {
-        let (core, o) = basic_test_object::<u32>(0, 1000 * 1000, 4096)?;
+        let (core, o) = basic_test_object::<u32>(0, 1000 * 1000, 4096, false)?;
 
         let arr = unsafe {
             std::slice::from_raw_parts_mut(o.body_ptr().unwrap().cast::<u32>(), 1000 * 1000)
@@ -157,7 +159,7 @@ mod tests {
 
     #[test]
     fn with_header() -> Result<(), UfoAllocateErr> {
-        let (core, o) = basic_test_object::<u32>(1, 1000 * 1000, 4096)?;
+        let (core, o) = basic_test_object::<u32>(1, 1000 * 1000, 4096, false)?;
 
         unsafe { assert_eq!(*o.header_ptr().unwrap().cast::<u32>(), 0) };
 
@@ -176,7 +178,7 @@ mod tests {
     #[test]
     fn reverse_iterate() -> Result<(), UfoAllocateErr> {
         let ct = 1000 * 1000;
-        let (core, o) = basic_test_object::<u32>(1, ct, 4096)?;
+        let (core, o) = basic_test_object::<u32>(1, ct, 4096, false)?;
 
         unsafe { assert_eq!(*o.header_ptr().unwrap().cast::<u32>(), 0) };
 
@@ -207,7 +209,7 @@ mod tests {
         //     .unwrap();
 
         let ct = 1000 * 1000 * 2000;
-        let (core, o) = basic_test_object::<u64>(0, ct, 1024 * 1024)?;
+        let (core, o) = basic_test_object::<u64>(0, ct, 1024 * 1024, false)?;
 
         let arr =
             unsafe { std::slice::from_raw_parts_mut(o.body_ptr().unwrap().cast::<u64>(), ct) };
@@ -233,7 +235,7 @@ mod tests {
         //     .unwrap();
 
         let ct = 1000 * 1000 * 200;
-        let (core, o) = basic_test_object::<u64>(0, ct, 1024 * 1024)?;
+        let (core, o) = basic_test_object::<u64>(0, ct, 1024 * 1024, false)?;
 
         let arr =
             unsafe { std::slice::from_raw_parts_mut(o.body_ptr().unwrap().cast::<u64>(), ct) };
@@ -263,7 +265,7 @@ mod tests {
         //     .unwrap();
 
         let ct = 1024 * 1024 * 200;
-        let (core, o) = basic_test_object::<u64>(0, ct, 4096 * 4)?;
+        let (core, o) = basic_test_object::<u64>(0, ct, 4096 * 4, false)?;
 
         let arr =
             unsafe { std::slice::from_raw_parts_mut(o.body_ptr().unwrap().cast::<u64>(), ct) };
