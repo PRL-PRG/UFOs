@@ -1,17 +1,17 @@
 use std::result::Result;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::{alloc, ffi::c_void};
 use std::{
-    borrow::BorrowMut,
     collections::{HashMap, VecDeque},
     sync::MutexGuard,
 };
-use std::{cmp::min, ops::Deref};
+use std::{cmp::min, ops::Deref, vec::Vec};
 
 use log::{debug, info, trace, warn};
 
 use crossbeam::channel::{Receiver, Sender};
 use crossbeam::sync::WaitGroup;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use segment_map::{Segment, SegmentMap};
 use userfaultfd::Uffd;
 
@@ -99,15 +99,30 @@ impl UfoChunks {
     fn free_until_low_water_mark(&mut self) -> anyhow::Result<usize> {
         debug!(target: "ufo_core", "Freeing memory");
         let low_water_mark = self.config.low_watermark;
-        while self.used_memory > low_water_mark {
-            match self.loaded_chunks.pop_front().borrow_mut() {
+
+        let mut to_free = Vec::new();
+        let mut will_free_bytes = 0;
+
+        while self.used_memory - will_free_bytes > low_water_mark {
+            match self.loaded_chunks.pop_front() {
                 None => anyhow::bail!("nothing to free"),
                 Some(chunk) => {
-                    let size = chunk.free_and_writeback_dirty()?;
-                    self.used_memory -= size;
+                    let size = chunk.size(); // chunk.free_and_writeback_dirty()?;
+                    will_free_bytes += size;
+                    to_free.push(chunk);
+                    // self.used_memory -= size;
                 }
             }
         }
+
+        let freed_memory = to_free
+            .into_par_iter()
+            .map(|mut chunk| chunk.free_and_writeback_dirty())
+            .reduce(|| Ok(0), |a, b| Ok(a? + b?))?;
+
+        self.used_memory -= freed_memory;
+        assert!(self.used_memory <= low_water_mark);
+
         Ok(self.used_memory)
     }
 }
@@ -118,7 +133,7 @@ pub struct UfoCoreConfig {
     pub low_watermark: usize,
 }
 
-pub type WrappedUfoObject = Arc<Mutex<UfoObject>>;
+pub type WrappedUfoObject = Arc<RwLock<UfoObject>>;
 
 pub struct UfoCoreState {
     object_id_gen: UfoIdGen,
@@ -169,11 +184,12 @@ impl UfoCore {
 
         trace!(target: "ufo_core", "starting threads");
         let pop_core = core.clone();
-        let pop_workers =  PopulateWorkers::new("Ufo Core", 
-        move |request_worker| UfoCore::populate_loop(pop_core.clone(), request_worker));
+        let pop_workers = PopulateWorkers::new("Ufo Core", move |request_worker| {
+            UfoCore::populate_loop(pop_core.clone(), request_worker)
+        });
         pop_workers.request_worker();
         PopulateWorkers::spawn_worker(pop_workers.clone());
-        
+
         // std::thread::Builder::new()
         //     .name("Ufo Core".to_string())
         //     .spawn(move || UfoCore::populate_loop(pop_core))?;
@@ -239,6 +255,7 @@ impl UfoCore {
             buffer: &mut UfoWriteBuffer,
             addr: *mut c_void,
         ) -> Result<(), UfoPopulateError> {
+            // fn droplockster<T>(_: T){}
             let mut state = core.get_locked_state().unwrap();
 
             let ptr_int = addr as usize;
@@ -246,7 +263,7 @@ impl UfoCore {
             // blindly unwrap here because if we get a message for an address we don't have then it is explodey time
             // clone the arc so we aren't borrowing the state
             let ufo_arc = state.objects_by_segment.get(&ptr_int).unwrap().clone();
-            let ufo = ufo_arc.lock().unwrap();
+            let ufo = ufo_arc.read().unwrap();
 
             let fault_offset = UfoOffset::from_addr(ufo.deref(), addr);
 
@@ -268,14 +285,9 @@ impl UfoCore {
             debug!(target: "ufo_core", "fault at {}, populate {} bytes at {:#x}",
                 start, (pop_end-start) * config.stride, populate_offset.as_ptr_int());
 
-            // unlock the ufo before freeing because that might need to grab the lock on the ufo
-            Mutex::unlock(ufo);
-
             // Before we perform the load ensure that there is capacity
             UfoCore::ensure_capcity(&core.config, &mut *state, load_size);
 
-            // Reacquire our lock and the config
-            let ufo = ufo_arc.lock().unwrap();
             let config = &ufo.config;
 
             let raw_data = ufo
@@ -321,7 +333,7 @@ impl UfoCore {
 
             if config.read_only {
                 hash_fulfiller.try_init(None);
-            }else{
+            } else {
                 // Make sure to take a slice of the raw data. the kernel operates in page sized chunks but the UFO ends where it ends
                 let calculated_hash = hash_function(&raw_data[0..populate_size]);
                 hash_fulfiller.try_init(Some(calculated_hash));
@@ -335,11 +347,8 @@ impl UfoCore {
         let mut buffer = UfoWriteBuffer::new();
 
         loop {
-            match request_worker.await_work() {
-                ShouldRun::Running => {},
-                ShouldRun::Shutdown => {
-                    return;
-                },
+            if ShouldRun::Shutdown == request_worker.await_work() {
+                return;
             }
             match uffd.read_event() {
                 Ok(Some(event)) => match event {
@@ -370,7 +379,11 @@ impl UfoCore {
         }
     }
 
-    fn msg_loop<F>(this: Arc<UfoCore>, populate_pool: Arc<PopulateWorkers<F>>, recv: Receiver<UfoInstanceMsg>) {
+    fn msg_loop<F>(
+        this: Arc<UfoCore>,
+        populate_pool: Arc<PopulateWorkers<F>>,
+        recv: Receiver<UfoInstanceMsg>,
+    ) {
         trace!(target: "ufo_core", "Started msg loop");
         fn allocate_impl(
             this: &Arc<UfoCore>,
@@ -450,7 +463,7 @@ impl UfoCore {
                 writeback_util: writeback,
             };
 
-            let ufo = Arc::new(Mutex::new(ufo));
+            let ufo = Arc::new(RwLock::new(ufo));
 
             state.objects_by_id.insert(id, ufo.clone());
             state.objects_by_segment.insert(segment, ufo.clone());
@@ -466,7 +479,7 @@ impl UfoCore {
                 .get(&ufo_id)
                 .map(Ok)
                 .unwrap_or_else(|| Err(anyhow::anyhow!("unknown ufo")))?
-                .lock()
+                .write()
                 .map_err(|_| anyhow::anyhow!("lock poisoned"))?);
 
             debug!(target: "ufo_core", "resetting {:?}", ufo.id);
@@ -485,7 +498,7 @@ impl UfoCore {
                 .remove(&ufo_id)
                 .map(Ok)
                 .unwrap_or_else(|| Err(anyhow::anyhow!("No such Ufo")))?;
-            let ufo = ufo.lock().map_err(|_| anyhow::anyhow!("Broken Ufo Lock"))?;
+            let ufo = ufo.write().map_err(|_| anyhow::anyhow!("Broken Ufo Lock"))?;
 
             debug!(target: "ufo_core", "freeing {:?}", ufo.id);
 

@@ -47,21 +47,21 @@ pub struct UfoHandle {
 
 impl UfoHandle {
     pub fn header_ptr(&self) -> Result<*mut std::ffi::c_void, UfoLookupErr> {
-        Ok(self.ufo.lock()?.header_ptr())
+        Ok(self.ufo.read()?.header_ptr())
     }
 
     pub fn body_ptr(&self) -> Result<*mut std::ffi::c_void, UfoLookupErr> {
-        Ok(self.ufo.lock()?.body_ptr())
+        Ok(self.ufo.read()?.body_ptr())
     }
 
     pub fn reset(&self) -> Result<(), UfoLookupErr> {
-        let waiter = self.ufo.lock()?.reset()?;
+        let waiter = self.ufo.write()?.reset()?;
         waiter.wait();
         Ok(())
     }
 
     pub fn free(self) -> Result<(), UfoLookupErr> {
-        let waiter = self.ufo.lock()?.free()?;
+        let waiter = self.ufo.write()?.free()?;
         waiter.wait();
         Ok(())
     }
@@ -71,7 +71,7 @@ impl Drop for UfoHandle {
     #[allow(unused_must_use)]
     fn drop(&mut self) {
         // If the lock fails then there is something majorly wrong going on, don't panic inside a panic
-        if let Ok(ufo) = self.ufo.lock() {
+        if let Ok(ufo) = self.ufo.write() {
             ufo.free(); // may have failed if the core is shutdown
         }
     }

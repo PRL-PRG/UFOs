@@ -3,8 +3,8 @@
 mod errors;
 mod math;
 mod mmap_wrapers;
-mod populate_workers;
 mod once_await;
+mod populate_workers;
 mod return_checks;
 mod ufo_core;
 mod ufo_objects;

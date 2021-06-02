@@ -1,4 +1,4 @@
-use std::sync::{Arc, MutexGuard};
+use std::sync::{Arc, RwLockWriteGuard};
 
 use anyhow::Result;
 
@@ -201,11 +201,11 @@ opaque_c_type!(UfoObj, WrappedUfoObject);
 impl UfoObj {
     fn with_ufo<F, T, E>(&self, f: F) -> Option<T>
     where
-        F: FnOnce(MutexGuard<UfoObject>) -> Result<T, E>
+        F: FnOnce(RwLockWriteGuard<UfoObject>) -> Result<T, E>
     {
         self.deref()
             .and_then(|ufo| {
-                    ufo.lock().ok()
+                    ufo.write().ok()
                     .map(f)?.ok()
             })
     }
@@ -243,7 +243,7 @@ impl UfoObj {
     pub extern "C" fn ufo_free(self) {
         std::panic::catch_unwind(|| {
             self.deref()
-            .and_then(|ufo| ufo.lock().ok()?.free().ok())
+            .and_then(|ufo| ufo.write().ok()?.free().ok())
             .map(|w| w.wait())
             .unwrap_or(())
         }).unwrap_or(())

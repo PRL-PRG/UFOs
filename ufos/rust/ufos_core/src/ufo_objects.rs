@@ -1,7 +1,11 @@
 use std::io::Error;
 use std::num::NonZeroUsize;
-use std::sync::{Arc, Mutex, Weak};
-use std::{lazy::SyncLazy, sync::MutexGuard};
+use std::sync::RwLock;
+use std::sync::RwLockReadGuard;
+use std::sync::atomic::AtomicU8;
+use std::sync::atomic::Ordering;
+use std::sync::{Arc, Weak};
+use std::lazy::SyncLazy;
 
 use anyhow::Result;
 use crossbeam::sync::WaitGroup;
@@ -226,7 +230,7 @@ impl UfoOffset {
 
 pub(crate) struct UfoChunk {
     ufo_id: UfoId,
-    object: Weak<Mutex<UfoObject>>,
+    object: Weak<RwLock<UfoObject>>,
     offset: UfoOffset,
     length: Option<NonZeroUsize>,
     hash: Arc<OnceAwait<Option<DataHash>>>,
@@ -235,7 +239,7 @@ pub(crate) struct UfoChunk {
 impl UfoChunk {
     pub fn new(
         arc: &WrappedUfoObject,
-        object: &MutexGuard<UfoObject>,
+        object: &RwLockReadGuard<UfoObject>,
         offset: UfoOffset,
         length: usize,
     ) -> UfoChunk {
@@ -265,7 +269,7 @@ impl UfoChunk {
         })
     }
 
-    pub fn hash_fulfiller(&self) -> impl OnceFulfiller<Option<DataHash>>{
+    pub fn hash_fulfiller(&self) -> impl OnceFulfiller<Option<DataHash>> {
         self.hash.clone()
     }
 
@@ -273,7 +277,7 @@ impl UfoChunk {
         if let Some(length) = self.length {
             let length = length.get();
             if let Some(obj) = self.object.upgrade() {
-                let mut obj = obj.lock().unwrap();
+                let obj = obj.read().unwrap();
 
                 trace!(target: "ufo_object", "free chunk {:?}@{} ({}b)",
                     self.ufo_id, self.offset.absolute_offset() , length
@@ -288,8 +292,7 @@ impl UfoChunk {
                             .unwrap(); // it should never be possible for this to fail
                         trace!(target: "ufo_object", "writeback hash matches {}", hash == &calculated_hash);
                         if hash != &calculated_hash {
-                            let o = &mut *obj;
-                            o.writeback(self)?;
+                            obj.writeback(self)?;
                         }
                     }
                 }
@@ -332,6 +335,15 @@ pub(crate) struct UfoFileWriteback {
     chunk_size: usize,
     total_bytes: usize,
     bitmap_bytes: usize,
+}
+
+// someday make this atomic_from_mut
+fn atomic_bitset(target: &mut u8, mask: u8) {
+    unsafe {
+        let t = &mut *(target as *mut u8 as *mut AtomicU8);
+        t.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |x| Some(x | mask))
+            .unwrap();
+    }
 }
 
 impl UfoFileWriteback {
@@ -415,7 +427,8 @@ impl UfoFileWriteback {
 
             assert!(live_data.len() == expected_size);
 
-            *bitmap_ptr |= chunk_bit;
+            atomic_bitset(bitmap_ptr, chunk_bit);
+            // *bitmap_ptr |= chunk_bit;
             writeback_arr.copy_from_slice(live_data);
             trace!(target: "ufo_object", "writeback");
         }))
@@ -468,9 +481,7 @@ pub struct UfoObject {
 }
 
 impl UfoObject {
-    fn writeback(&mut self, chunk: &UfoChunk) -> Result<()> {
-        //TODO: Flag that we wrote out this chunk
-        //TODO: Test for written out chunks
+    fn writeback(&self, chunk: &UfoChunk) -> Result<()> {
         chunk
             .with_slice(self, |live_data| {
                 debug!(target: "ufo_object", "writeback {:?}@{:#x}:{}",
