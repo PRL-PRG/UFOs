@@ -11,7 +11,8 @@ edition = "2018"
 
 [dependencies]
 # userfaultfd = "0.2.0" # requires libclang1 installed
-#userfaultfd = { git = "https://github.com/electroCutie/userfaultfd-rs", branch = "readwrite_fix" }
+userfaultfd = { git = "https://github.com/electroCutie/userfaultfd-rs", branch = "readwrite_fix" }
+# userfaultfd = { path = "/home/ckerr/workspace/userfaultfd-rs/" }
 anyhow = "1.0.38"
 blake3 = { version = "0.3.7", features = ["rayon"] }
 crossbeam = "0.8.0"
@@ -23,7 +24,6 @@ num = "0.3.1" # for One
 promissory = "0.1"
 segment-map = "0.1.1" # for maps over ranges
 thiserror = "1.0"
-userfaultfd = { path = "/home/ckerr/workspace/userfaultfd-rs/" }
 
 # stderrlog = "0.5.1"
 
