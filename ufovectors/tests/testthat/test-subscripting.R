@@ -1,574 +1,153 @@
 context("UFO vector subscripting")
 
-# FIXME test 0s
-
-test_that("ufo null subscript", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- NULL
-
-  reference <- integer(0)
+test_ufo_subscript <- function (n, subscript, ufo_constructor, named=FALSE, index_type=as.integer) {
+  ufo <- ufo_constructor(n)
+  data <- index_type(1:n)
+  if (named) {
+      ufo <- setNames(ufo, as.character(1:n))
+      data <- setNames(data, as.character(1:n))
+  }
   result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo boolean subscript all true", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- TRUE
-
-  reference <- 1:100000
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo boolean subscript all false", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- FALSE
-
-  reference <- integer(0)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-                                  #!!!
-  expect_equal(result, reference) #!!!
-})
-  # ── Warning (test-operators.R:35:3): ufo binary * ───────────────────────────────
-  # NAs produced by integer overflow
-  # Backtrace:
-  #  1. ufovectors::ufo_multiply(ufo, argument) test-operators.R:35:2
-  #  2. ufovectors:::.ufo_binary(...)
-  # ── Warning (test-operators.R:36:3): ufo binary * ───────────────────────────────
-  # NAs produced by integer overflow
-
-test_that("ufo boolean subscript half and half", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- c(FALSE, TRUE)
-
-  reference <- (1:100000)[subscript]
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo boolean subscript true-true-false", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- c(TRUE, TRUE, FALSE)
-
-  reference <- (1:100000)[subscript]
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-
-test_that("ufo boolean subscript true-false-NA", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- c(TRUE, FALSE, NA)
-
-  reference <- (1:100000)[subscript]
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo integer subscript a zero", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- 0
-
-  reference <- integer(0)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo integer subscript a couple of zeros", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- c(0, 0)
-
-  reference <- integer(0)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo integer subscript a couple of zeros mixed in with non-zeros", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- c(0, 1, 0, 100000)
-
-  reference <- as.integer(c(1, 100000))
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo integer subscript length=0", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- as.integer(0)
-
-  reference <- integer(0)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo integer subscript length=1", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- as.integer(42)
-
-  reference <- as.integer(42)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo integer subscript length=small subset", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- as.integer(c(4, 10, 7, 100))
-
-  reference <- as.integer(c(4, 10, 7, 100))
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo integer subscript length=small subset with NAs", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- as.integer(c(4, 10, NA, 7, NA, 100, NA))
-
-  reference <- as.integer(c(4, 10, NA, 7, NA, 100, NA))
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo integer subscript length=large subset", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- as.integer(c(1:1000, 2000:5000, 10:1000, 6000:10000))
-
-  reference <- as.integer(c(1:1000, 2000:5000, 10:1000, 6000:10000))
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo integer subscript length=one negative", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- as.integer(-10)
-
-  reference <- (1:100000)[-10]
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-
-test_that("ufo integer subscript length=a few negative", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- as.integer(c(-10, -100, -100, -1000))
-
-  reference <- (1:100000)[c(-10, -100, -100, -1000)]
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-
-test_that("ufo integer subscript length=many negative", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- as.integer(-c(1:1000, 2000:5000, 10:1000, 6000:10000))
-
-  reference <-
-    (1:100000)[as.integer(-c(1:1000, 2000:5000, 10:1000, 6000:10000))]
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-
-test_that("ufo integer subscript length=all negative", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- as.integer(-as.integer(1:100000))
-
-  reference <- integer(0)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo numeric subscript a zero", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- 0
-
-  reference <- numeric(0)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo numeric subscript a couple of zeros", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- c(0, 0)
-
-  reference <- numeric(0)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo numeric subscript a couple of zeros mixed in with non-zeros", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- c(0, 1, 0, 100000)
-
-  reference <- c(1, 100000)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo numeric subscript length=0", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- as.numeric(0)
-
-  reference <- numeric(0)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo numeric subscript length=1", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- as.numeric(42)
-
-  reference <- as.numeric(42)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo numeric subscript length=small subset", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- c(4, 10, 7, 100)
-
-  reference <- c(4, 10, 7, 100)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo numeric subscript length=small subset and NAs", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- c(4, 10, NA, 7, NA, 100, 100, NA)
-
-  reference <- c(4, 10, NA, 7, NA, 100, 100, NA)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo numeric subscript length=large subset", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- c(1:1000, 2000:5000, 10:1000, 6000:10000)
-
-  reference <- c(1:1000, 2000:5000, 10:1000, 6000:10000)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo numeric subscript length=one negative", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- as.numeric(-10)
-
-  reference <- (1:100000)[-10]
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-
-test_that("ufo numeric subscript length=a few negative", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- c(-10, -100, -100, -1000)
-
-  reference <- (1:100000)[c(-10, -100, -100, -1000)]
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo numeric subscript length=many negative", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- -c(1:1000, 2000:5000, 10:1000, 6000:10000)
-
-  reference <- (1:100000)[-c(1:1000, 2000:5000, 10:1000, 6000:10000)]
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-
-test_that("ufo numeric subscript length=all negative", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- -as.numeric(1:100000)
-
-  reference <- numeric(0)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo string subscript no names one element", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- "butts"
-
-  reference <- as.integer(NA)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo string subscript no names many elements", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-
-  subscript <- c("a", "b", "c")
-
-  reference <- as.integer(c(NA, NA, NA))
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo string hash subscript one element", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-  ufo_names <- paste0("N", 1:100000)
-  ufo <- setNames(ufo, ufo_names)
-
-  subscript <- "N42"
-
-  reference <- as.integer(42)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo string hash subscript one NA element", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-  ufo_names <- paste0("N", 1:100000)
-  ufo <- setNames(ufo, ufo_names)
-
-  subscript <- as.character(NA)
-
-  reference <- as.integer(NA)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-# test_that("ufo hash string subscript length=zero", {
-#   ufo <- ufo_integer(100000)
-#   ufo[1:100000] <- 1:100000
-#   ufo_names <- paste0("N", 1:100000)
-#   ufo <- setNames(ufo, ufo_names)
-
-#   subscript <- character(0)
-
-#   reference <- integer(0)
-#   result <- ufovectors::ufo_subscript(ufo, subscript)
-
-#   expect_equal(result, reference)
-# })
-
-test_that("ufo string hash subscript length=small subset", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-  ufo_names <- paste0("N", 1:100000)
-  ufo <- setNames(ufo, ufo_names)
-
-  subscript <- c("N4", "N10", "N7", "N100", "N100")
-
-  reference <- c(4, 10, 7, 100, 100)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo string hash subscript length=small subset with NAs", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-  ufo_names <- paste0("N", 1:100000)
-  ufo <- setNames(ufo, ufo_names)
-
-  subscript <- c("N4", NA, "N10", NA, "N7", "N100", "N100", NA)
-
-  reference <- c(4, NA, 10, NA, 7, 100, 100, NA)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  print(result)
-
-  expect_equal(result, reference)
-})
-
-
-test_that("ufo string hash subscript length=large subset", {
-  ufo <- ufo_integer(100000)
-  ufo[1:100000] <- 1:100000
-  ufo_names <- paste0("N", 1:100000)
-  ufo <- setNames(ufo, ufo_names)
-
-  subscript <- paste0("N", c(1:1000, 2000:5000, 10:1000, 6000:10000))
-
-  reference <- c(1:1000, 2000:5000, 10:1000, 6000:10000)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo string loop subscript one element", {
-  ufo <- ufo_integer(16)
-  ufo[1:16] <- 1:16
-  ufo_names <- paste0("N", 1:16)
-  ufo <- setNames(ufo, ufo_names)
-
-  subscript <- "N7"
-
-  reference <- as.integer(7)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo string loop subscript NA element", {
-  ufo <- ufo_integer(16)
-  ufo[1:16] <- 1:16
-  ufo_names <- paste0("N", 1:16)
-  ufo <- setNames(ufo, ufo_names)
-
-  subscript <- as.character(NA)
-
-  reference <- as.integer(NA)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo string loop subscript length=zero", {
-  ufo <- ufo_integer(16)
-  ufo[1:16] <- 1:16
-  ufo_names <- paste0("N", 1:16)
-  ufo <- setNames(ufo, ufo_names)
-
-  subscript <- character(0)
-
-  reference <- integer(0)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo string loop subscript length=small subset", {
-  ufo <- ufo_integer(16)
-  ufo[1:16] <- 1:16
-  ufo_names <- paste0("N", 1:16)
-  ufo <- setNames(ufo, ufo_names)
-
-  subscript <- c("N4", "N10", "N7", "N7")
-
-  reference <- c(4, 10, 7, 7)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo string loop subscript length=small subset with NAs", {
-  ufo <- ufo_integer(16)
-  ufo[1:16] <- 1:16
-  ufo_names <- paste0("N", 1:16)
-  ufo <- setNames(ufo, ufo_names)
-
-  subscript <- c("N4", NA, "N10", NA, "N7", "N7", NA)
-
-  reference <- c(4, NA, 10, NA, 7, 7, NA)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  print(result)
-
-  expect_equal(result, reference)
-})
-
-test_that("ufo string loop subscript length=large subset", {
-  ufo <- ufo_integer(16)
-  ufo[1:16] <- 1:16
-  ufo_names <- paste0("N", 1:16)
-  ufo <- setNames(ufo, ufo_names)
-
-  subscript <- paste0("N", c(1:8, 12:16, 9:11))
-
-  reference <- c(1:8, 12:16, 9:11)
-  result <- ufovectors::ufo_subscript(ufo, subscript)
-
-  expect_equal(result, reference)
-})
+  expected <- data[subscript]
+  if (named) {
+      # subscripting does not return names, so remove those from expected
+      expected <- setNames(expected, NULL)
+  }
+  expect_equal(result, expected)
+}
+
+test_that("ufo integer subscript: null",                         {test_ufo_subscript(n=100000, NULL,                ufo_integer  )})
+
+test_that("ufo integer subscript: logical(0)",                   {test_ufo_subscript(n=100000, logical(0),          ufo_integer  )})
+test_that("ufo integer subscript: F",                            {test_ufo_subscript(n=100000, c(T),                ufo_integer  )})
+test_that("ufo integer subscript: T",                            {test_ufo_subscript(n=100000, c(F),                ufo_integer  )})
+test_that("ufo integer subscript: logical(NA)",                  {test_ufo_subscript(n=100000, as.logical(NA),      ufo_integer  )})
+test_that("ufo integer subscript: F,F",                          {test_ufo_subscript(n=100000, c(F, F),             ufo_integer  )})
+test_that("ufo integer subscript: F,T",                          {test_ufo_subscript(n=100000, c(F, T),             ufo_integer  )})
+test_that("ufo integer subscript: T,F",                          {test_ufo_subscript(n=100000, c(T, F),             ufo_integer  )})
+test_that("ufo integer subscript: T,T",                          {test_ufo_subscript(n=100000, c(T, T),             ufo_integer  )})
+test_that("ufo integer subscript: F,NA",                         {test_ufo_subscript(n=100000, c(F, NA),            ufo_integer  )})
+test_that("ufo integer subscript: NA,F",                         {test_ufo_subscript(n=100000, c(NA, F),            ufo_integer  )})
+test_that("ufo integer subscript: NA,T",                         {test_ufo_subscript(n=100000, c(NA, T),            ufo_integer  )})
+test_that("ufo integer subscript: T,NA",                         {test_ufo_subscript(n=100000, c(T, NA),            ufo_integer  )})
+test_that("ufo integer subscript: F,F,F",                        {test_ufo_subscript(n=100000, c(F, F, F),          ufo_integer  )})
+test_that("ufo integer subscript: F,F,T",                        {test_ufo_subscript(n=100000, c(F, F, T),          ufo_integer  )})
+test_that("ufo integer subscript: F,T,F",                        {test_ufo_subscript(n=100000, c(F, T, F),          ufo_integer  )})
+test_that("ufo integer subscript: F,T,T",                        {test_ufo_subscript(n=100000, c(F, T, T),          ufo_integer  )})
+test_that("ufo integer subscript: T,F,F",                        {test_ufo_subscript(n=100000, c(T, F, F),          ufo_integer  )})
+test_that("ufo integer subscript: T,F,T",                        {test_ufo_subscript(n=100000, c(T, F, T),          ufo_integer  )})
+test_that("ufo integer subscript: T,T,F",                        {test_ufo_subscript(n=100000, c(T, T, F),          ufo_integer  )})
+test_that("ufo integer subscript: T,T,T",                        {test_ufo_subscript(n=100000, c(T, T, T),          ufo_integer  )})
+test_that("ufo integer subscript: F,F,NA",                       {test_ufo_subscript(n=100000, c(F, F, NA),         ufo_integer  )})
+test_that("ufo integer subscript: F,NA,F",                       {test_ufo_subscript(n=100000, c(F, NA, F),         ufo_integer  )})
+test_that("ufo integer subscript: F,NA,NA",                      {test_ufo_subscript(n=100000, c(F, NA, NA),        ufo_integer  )})
+test_that("ufo integer subscript: NA,F,F",                       {test_ufo_subscript(n=100000, c(NA, F, F),         ufo_integer  )})
+test_that("ufo integer subscript: NA,F,NA",                      {test_ufo_subscript(n=100000, c(NA, F, NA),        ufo_integer  )})
+test_that("ufo integer subscript: NA,NA,F",                      {test_ufo_subscript(n=100000, c(NA, NA, F),        ufo_integer  )})
+test_that("ufo integer subscript: F,F,T",                        {test_ufo_subscript(n=100000, c(F, F, T),          ufo_integer  )})
+test_that("ufo integer subscript: F,NA,T",                       {test_ufo_subscript(n=100000, c(F, NA, T),         ufo_integer  )})
+test_that("ufo integer subscript: NA,F,T",                       {test_ufo_subscript(n=100000, c(NA, F, T),         ufo_integer  )})
+test_that("ufo integer subscript: NA,NA,T",                      {test_ufo_subscript(n=100000, c(NA, NA, T),        ufo_integer  )})
+test_that("ufo integer subscript: F,T,NA",                       {test_ufo_subscript(n=100000, c(F, T, NA),         ufo_integer  )})
+test_that("ufo integer subscript: NA,T,F",                       {test_ufo_subscript(n=100000, c(NA, T, F),         ufo_integer  )})
+test_that("ufo integer subscript: NA,T,NA",                      {test_ufo_subscript(n=100000, c(NA, T, NA),        ufo_integer  )})
+test_that("ufo integer subscript: F,NA,T",                       {test_ufo_subscript(n=100000, c(F, NA, T),         ufo_integer  )})
+test_that("ufo integer subscript: NA,T,T",                       {test_ufo_subscript(n=100000, c(NA, T, T),         ufo_integer  )})
+test_that("ufo integer subscript: T,F,NA",                       {test_ufo_subscript(n=100000, c(T, F, NA),         ufo_integer  )})
+test_that("ufo integer subscript: T,NA,F",                       {test_ufo_subscript(n=100000, c(T, NA, F),         ufo_integer  )})
+test_that("ufo integer subscript: T,NA,NA",                      {test_ufo_subscript(n=100000, c(T, NA, NA),        ufo_integer  )})
+test_that("ufo integer subscript: T,NA,T",                       {test_ufo_subscript(n=100000, c(T, NA, T),         ufo_integer  )})
+test_that("ufo integer subscript: T,T,NA",                       {test_ufo_subscript(n=100000, c(T, T, NA),         ufo_integer  )})
+test_that("ufo integer subscript: T,NA,NA",                      {test_ufo_subscript(n=100000, c(T, NA, NA),        ufo_integer  )})
+test_that("ufo integer subscript: T..",                          {test_ufo_subscript(n=100000, rep(T, 100000),      ufo_integer  )})
+test_that("ufo integer subscript: F..",                          {test_ufo_subscript(n=100000, rep(F, 100000),      ufo_integer  )})
+test_that("ufo integer subscript: T,F..",                        {test_ufo_subscript(n=100000, rep(c(T,F), 100000), ufo_integer  )})
+test_that("ufo integer subscript: F,T..",                        {test_ufo_subscript(n=100000, rep(c(F,T), 100000), ufo_integer  )})
+
+test_that("ufo integer subscript: int integer(0)",               {test_ufo_subscript(n=100000, integer(0),                                                        ufo_integer  )})
+test_that("ufo integer subscript: int 0",                        {test_ufo_subscript(n=100000, as.integer(0),                                                     ufo_integer  )})
+test_that("ufo integer subscript: int 1",                        {test_ufo_subscript(n=100000, as.integer(1),                                                     ufo_integer  )})
+test_that("ufo integer subscript: int 10",                       {test_ufo_subscript(n=100000, as.integer(10),                                                    ufo_integer  )})
+test_that("ufo integer subscript: int 42",                       {test_ufo_subscript(n=100000, as.integer(42),                                                    ufo_integer  )})
+test_that("ufo integer subscript: int 0,0",                      {test_ufo_subscript(n=100000, as.integer(c(0,0)),                                                ufo_integer  )})
+test_that("ufo integer subscript: int 0,1,0,N",                  {test_ufo_subscript(n=100000, as.integer(c(1,0, 1, 100000)),                                     ufo_integer  )})
+test_that("ufo integer subscript: int 1,10,100,1000,100",        {test_ufo_subscript(n=100000, as.integer(c(1,10, 100, 1000, 100)),                               ufo_integer  )})
+test_that("ufo integer subscript: int -1",                       {test_ufo_subscript(n=100000, as.integer(-1),                                                    ufo_integer  )})
+test_that("ufo integer subscript: int -10",                      {test_ufo_subscript(n=100000, as.integer(-10),                                                   ufo_integer  )})
+test_that("ufo integer subscript: int -42",                      {test_ufo_subscript(n=100000, as.integer(-42),                                                   ufo_integer  )})
+test_that("ufo integer subscript: int -1,-10,-100,-1000,-100",   {test_ufo_subscript(n=100000, as.integer(-c(1, 10, 100, 1000, 100)),                             ufo_integer  )})
+test_that("ufo integer subscript: int few",                      {test_ufo_subscript(n=100000, as.integer(c(4, 10, 7, 100)),                                      ufo_integer  )})
+test_that("ufo integer subscript: int many",                     {test_ufo_subscript(n=100000, as.integer(c(1:1000, 2000:5000, 10:1000, 6000:10000)),             ufo_integer  )})
+test_that("ufo integer subscript: int all",                      {test_ufo_subscript(n=100000, as.integer(1:100000),                                              ufo_integer  )})
+test_that("ufo integer subscript: int few with NAs",             {test_ufo_subscript(n=100000, as.integer(c(4, 10, NA, 7, NA, 100, NA)),                          ufo_integer  )})
+test_that("ufo integer subscript: int many with NAs",            {test_ufo_subscript(n=100000, as.integer(c(1:1000, NA, 2000:5000, NA, 10:1000, NA, 6000:10000)), ufo_integer  )})
+test_that("ufo integer subscript: int all with NAs",             {test_ufo_subscript(n=100000, as.integer(c(1:100000, NA)),                                       ufo_integer  )})
+test_that("ufo integer subscript: int few negative",             {test_ufo_subscript(n=100000, as.integer(-c(4, 10, 7, 100)),                                     ufo_integer  )})
+test_that("ufo integer subscript: int many negative",            {test_ufo_subscript(n=100000, as.integer(-c(1:1000, 2000:5000, 10:1000, 6000:10000)),            ufo_integer  )})
+test_that("ufo integer subscript: int all negative",             {test_ufo_subscript(n=100000, as.integer(-(1:100000)),                                           ufo_integer  )})
+
+test_that("ufo integer subscript: num integer(0)",               {test_ufo_subscript(n=100000, numeric(0),                                                        ufo_integer  )})
+test_that("ufo integer subscript: num 0",                        {test_ufo_subscript(n=100000, as.numeric(0),                                                     ufo_integer  )})
+test_that("ufo integer subscript: num 1",                        {test_ufo_subscript(n=100000, as.numeric(1),                                                     ufo_integer  )})
+test_that("ufo integer subscript: num 10",                       {test_ufo_subscript(n=100000, as.numeric(10),                                                    ufo_integer  )})
+test_that("ufo integer subscript: num 42",                       {test_ufo_subscript(n=100000, as.numeric(42),                                                    ufo_integer  )})
+test_that("ufo integer subscript: num 0,0",                      {test_ufo_subscript(n=100000, as.numeric(c(0,0)),                                                ufo_integer  )})
+test_that("ufo integer subscript: num 0,1,0,N",                  {test_ufo_subscript(n=100000, as.numeric(c(1,0, 1, 100000)),                                     ufo_integer  )})
+test_that("ufo integer subscript: num 1,10,100,1000,100",        {test_ufo_subscript(n=100000, as.numeric(c(1,10, 100, 1000, 100)),                               ufo_integer  )})
+test_that("ufo integer subscript: num -1",                       {test_ufo_subscript(n=100000, as.numeric(-1),                                                    ufo_integer  )})
+test_that("ufo integer subscript: num -10",                      {test_ufo_subscript(n=100000, as.numeric(-10),                                                   ufo_integer  )})
+test_that("ufo integer subscript: num -42",                      {test_ufo_subscript(n=100000, as.numeric(-42),                                                   ufo_integer  )})
+test_that("ufo integer subscript: num -1,-10,-100,-1000,-100",   {test_ufo_subscript(n=100000, as.numeric(-c(1, 10, 100, 1000, 100)),                             ufo_integer  )})
+test_that("ufo integer subscript: num few",                      {test_ufo_subscript(n=100000, as.numeric(c(4, 10, 7, 100)),                                      ufo_integer  )})
+test_that("ufo integer subscript: num many",                     {test_ufo_subscript(n=100000, as.numeric(c(1:1000, 2000:5000, 10:1000, 6000:10000)),             ufo_integer  )})
+test_that("ufo integer subscript: num all",                      {test_ufo_subscript(n=100000, as.numeric(1:100000),                                              ufo_integer  )})
+test_that("ufo integer subscript: num few with NAs",             {test_ufo_subscript(n=100000, as.numeric(c(4, 10, NA, 7, NA, 100, NA)),                          ufo_integer  )})
+test_that("ufo integer subscript: num many with NAs",            {test_ufo_subscript(n=100000, as.numeric(c(1:1000, NA, 2000:5000, NA, 10:1000, NA, 6000:10000)), ufo_integer  )})
+test_that("ufo integer subscript: num all with NAs",             {test_ufo_subscript(n=100000, as.numeric(c(1:100000, NA)),                                       ufo_integer  )})
+test_that("ufo integer subscript: num few negative",             {test_ufo_subscript(n=100000, as.numeric(-c(4, 10, 7, 100)),                                     ufo_integer  )})
+test_that("ufo integer subscript: num many negative",            {test_ufo_subscript(n=100000, as.numeric(-c(1:1000, 2000:5000, 10:1000, 6000:10000)),            ufo_integer  )})
+test_that("ufo integer subscript: num all negative",             {test_ufo_subscript(n=100000, as.numeric(-(1:100000)),                                           ufo_integer  )})
+test_that("ufo integer subscript: num 0.1",                      {test_ufo_subscript(n=100000, as.numeric(0.1),                                                   ufo_integer  )})
+test_that("ufo integer subscript: num 1.1",                      {test_ufo_subscript(n=100000, as.numeric(1.1),                                                   ufo_integer  )})
+test_that("ufo integer subscript: num 10.5",                     {test_ufo_subscript(n=100000, as.numeric(10.5),                                                  ufo_integer  )})
+test_that("ufo integer subscript: num 42.9",                     {test_ufo_subscript(n=100000, as.numeric(42.9),                                                  ufo_integer  )})
+test_that("ufo integer subscript: num -0.1",                     {test_ufo_subscript(n=100000, as.numeric(-0.1),                                                  ufo_integer  )})
+test_that("ufo integer subscript: num -1.1",                     {test_ufo_subscript(n=100000, as.numeric(-1.1),                                                  ufo_integer  )})
+test_that("ufo integer subscript: num -10.5",                    {test_ufo_subscript(n=100000, as.numeric(-10.5),                                                 ufo_integer  )})
+test_that("ufo integer subscript: num -42.9",                    {test_ufo_subscript(n=100000, as.numeric(-42.9),                                                 ufo_integer  )})
+
+test_that("ufo integer subscript: str character(0)",             {test_ufo_subscript(n=100000, character(0),                                                        ufo_integer  )})
+test_that("ufo integer subscript: str 0",                        {test_ufo_subscript(n=100000, as.character(0),                                                     ufo_integer  )})
+test_that("ufo integer subscript: str 1",                        {test_ufo_subscript(n=100000, as.character(1),                                                     ufo_integer  )})
+test_that("ufo integer subscript: str 10",                       {test_ufo_subscript(n=100000, as.character(10),                                                    ufo_integer  )})
+test_that("ufo integer subscript: str 42",                       {test_ufo_subscript(n=100000, as.character(42),                                                    ufo_integer  )})
+test_that("ufo integer subscript: str 0,0",                      {test_ufo_subscript(n=100000, as.character(c(0,0)),                                                ufo_integer  )})
+test_that("ufo integer subscript: str 0,1,0,N",                  {test_ufo_subscript(n=100000, as.character(c(1,0, 1, 100000)),                                     ufo_integer  )})
+test_that("ufo integer subscript: str 1,10,100,1000,100",        {test_ufo_subscript(n=100000, as.character(c(1,10, 100, 1000, 100)),                               ufo_integer  )})
+test_that("ufo integer subscript: str few",                      {test_ufo_subscript(n=100000, as.character(c(4, 10, 7, 100)),                                      ufo_integer  )})
+test_that("ufo integer subscript: str many",                     {test_ufo_subscript(n=100000, as.character(c(1:1000, 2000:5000, 10:1000, 6000:10000)),             ufo_integer  )})
+test_that("ufo integer subscript: str all",                      {test_ufo_subscript(n=100000, as.character(1:100000),                                              ufo_integer  )})
+test_that("ufo integer subscript: str few with NAs",             {test_ufo_subscript(n=100000, as.character(c(4, 10, NA, 7, NA, 100, NA)),                          ufo_integer  )})
+test_that("ufo integer subscript: str many with NAs",            {test_ufo_subscript(n=100000, as.character(c(1:1000, NA, 2000:5000, NA, 10:1000, NA, 6000:10000)), ufo_integer  )})
+test_that("ufo integer subscript: str all with NAs",             {test_ufo_subscript(n=100000, as.character(c(1:100000, NA)),                                       ufo_integer  )})
+
+test_that("ufo integer +names subscript: str character(0)",      {test_ufo_subscript(n=100000, character(0),                                                        ufo_integer, named=T )})
+test_that("ufo integer +names subscript: str 0",                 {test_ufo_subscript(n=100000, as.character(0),                                                     ufo_integer, named=T )})
+test_that("ufo integer +names subscript: str 1",                 {test_ufo_subscript(n=100000, as.character(1),                                                     ufo_integer, named=T )})
+test_that("ufo integer +names subscript: str 10",                {test_ufo_subscript(n=100000, as.character(10),                                                    ufo_integer, named=T )})
+test_that("ufo integer +names subscript: str 42",                {test_ufo_subscript(n=100000, as.character(42),                                                    ufo_integer, named=T )})
+test_that("ufo integer +names subscript: str 0,0",               {test_ufo_subscript(n=100000, as.character(c(0,0)),                                                ufo_integer, named=T )})
+test_that("ufo integer +names subscript: str 0,1,0,N",           {test_ufo_subscript(n=100000, as.character(c(1,0, 1, 100000)),                                     ufo_integer, named=T )})
+test_that("ufo integer +names subscript: str 1,10,100,1000,100", {test_ufo_subscript(n=100000, as.character(c(1,10, 100, 1000, 100)),                               ufo_integer, named=T )})
+test_that("ufo integer +names subscript: str few",               {test_ufo_subscript(n=100000, as.character(c(4, 10, 7, 100)),                                      ufo_integer, named=T )})
+test_that("ufo integer +names subscript: str many",              {test_ufo_subscript(n=100000, as.character(c(1:1000, 2000:5000, 10:1000, 6000:10000)),             ufo_integer, named=T )})
+test_that("ufo integer +names subscript: str all",               {test_ufo_subscript(n=100000, as.character(1:100000),                                              ufo_integer, named=T )})
+test_that("ufo integer +names subscript: str few with NAs",      {test_ufo_subscript(n=100000, as.character(c(4, 10, NA, 7, NA, 100, NA)),                          ufo_integer, named=T )})
+test_that("ufo integer +names subscript: str many with NAs",     {test_ufo_subscript(n=100000, as.character(c(1:1000, NA, 2000:5000, NA, 10:1000, NA, 6000:10000)), ufo_integer, named=T )})
+test_that("ufo integer +names subscript: str all with NAs",      {test_ufo_subscript(n=100000, as.character(c(1:100000, NA)),                                       ufo_integer, named=T )})
+
+test_that("ufo numeric subscript: null",                         {test_ufo_subscript(n=100000, NULL,                ufo_numeric   )})
+test_that("ufo logical subscript: null",                         {test_ufo_subscript(n=100000, NULL,                ufo_logical   )})
+test_that("ufo complex subscript: null",                         {test_ufo_subscript(n=100000, NULL,                ufo_complex   )})
+test_that("ufo raw subscript: null",                             {test_ufo_subscript(n=100000, NULL,                ufo_raw       )})
+test_that("ufo character subscript: null",                       {test_ufo_subscript(n=100000, NULL,                ufo_character )})
