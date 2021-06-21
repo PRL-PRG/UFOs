@@ -623,7 +623,7 @@ SEXP logical_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 
 		Rboolean value = LOGICAL_ELT(subscript, vector_index % subscript_length);
 
-		if(!(result_index < result_length)) {
+		if(!(result_index <= result_length)) {
 			UNPROTECT(1);
 			Rf_error("Attempting to index vector with an out-of-range index %d (length: %d).", result_index);
 		}
