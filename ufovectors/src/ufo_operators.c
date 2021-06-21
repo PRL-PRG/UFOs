@@ -605,7 +605,7 @@ SEXP logical_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 	SEXPTYPE vector_type      = TYPEOF(vector);
 
 	if (subscript_length == 0) {
-		return allocVector(vector_type, 0);
+		return allocVector(INTSXP, 0);
 	}
 
 	R_xlen_t result_length         = logical_subscript_length(vector, subscript); // FIXME makes sure used only once
@@ -615,7 +615,7 @@ SEXP logical_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 
 	if (result_length == 0) {
 		UNPROTECT(1);
-		return allocVector(vector_type, 0);
+		return allocVector(INTSXP, 0);
 	}
 
 	for (R_xlen_t vector_index = 0; vector_index < vector_length; vector_index++) { // XXX consider iterating by region
@@ -1003,7 +1003,7 @@ SEXP copy_selected_values_according_to_integer_indices(SEXP source, SEXP target,
 
 	make_sure(TYPEOF(indices_into_source) == INTSXP, Rf_error, 
 	 		  "Index vector was expected to be of type INTSXP, but found %i.",
-	 		  TYPEOF(indices_into_source)); // TODO pretty print
+	 		  type2char(TYPEOF(indices_into_source)));
 
 	R_xlen_t index_length = XLENGTH(indices_into_source);
 	R_xlen_t source_length = XLENGTH(source);
@@ -1064,7 +1064,7 @@ SEXP copy_selected_values_according_to_integer_indices(SEXP source, SEXP target,
 	default:
 		Rf_error("Cannot copy selected values from vector of type %i to "
 		         "vector of type %i", 
-		         TYPEOF(source), TYPEOF(target)); // TODO pretty print
+		         type2char(TYPEOF(source)), type2char(TYPEOF(target)));
 	}
 
 	return target;
@@ -1077,7 +1077,7 @@ SEXP copy_selected_values_according_to_real_indices(SEXP source, SEXP target, SE
 
 	make_sure(TYPEOF(indices_into_source) == REALSXP, Rf_error, 
 	 		  "Index vector was expected to be of type REALSXP, but found %i.",
-	 		  TYPEOF(indices_into_source)); // TODO pretty print
+	 		  type2char(TYPEOF(indices_into_source)));
 
 	R_xlen_t index_length = XLENGTH(indices_into_source);
 	R_xlen_t source_length = XLENGTH(source);
@@ -1138,7 +1138,7 @@ SEXP copy_selected_values_according_to_real_indices(SEXP source, SEXP target, SE
 	default:
 		Rf_error("Cannot copy selected values from vector of type %i to "
 		         "vector of type %i", 
-		         TYPEOF(source), TYPEOF(target)); // TODO pretty print
+		         type2char(TYPEOF(source)), type2char(TYPEOF(target)));
 	}
 
 	return target;
@@ -1154,7 +1154,8 @@ SEXP ufo_subset_copy_into_new_ufo(SEXP vector, SEXP/*INT|REAL*/ indices, int32_t
 	case REALSXP:
 		return copy_selected_values_according_to_real_indices(vector, result, indices);
 	default:
-		Rf_error("unreachable");
+		Rf_error("Cannot copy a subset from one vector to another: index of invalid type %s", 
+		         type2char(TYPEOF(indices)));
 		return R_NilValue;
 	}
 }
@@ -1295,7 +1296,7 @@ SEXP write_values_into_vector_at_integer_indices(SEXP target, SEXP indices_into_
 
 	make_sure(TYPEOF(indices_into_target) == INTSXP, Rf_error, 
 	 		  "Index vector was expected to be of type INTSXP, but found %i.",
-	 		  TYPEOF(indices_into_target)); // TODO pretty print
+	 		  type2char(TYPEOF(indices_into_target)));
 
 	R_xlen_t index_length = XLENGTH(indices_into_target);
 	R_xlen_t source_length = XLENGTH(source);
@@ -1371,7 +1372,7 @@ SEXP write_values_into_vector_at_integer_indices(SEXP target, SEXP indices_into_
 	default:
 		Rf_error("Cannot copy selected values from vector of type %i to "
 		         "vector of type %i", 
-		         TYPEOF(source), TYPEOF(target)); // TODO pretty print
+		         type2char(TYPEOF(source)), type2char(TYPEOF(target)));
 	}
 
 	return target;
@@ -1386,7 +1387,7 @@ SEXP write_values_into_vector_at_real_indices(SEXP target, SEXP indices_into_tar
 
 	make_sure(TYPEOF(indices_into_target) == INTSXP, Rf_error, 
 	 		  "Index vector was expected to be of type INTSXP, but found %i.",
-	 		  TYPEOF(indices_into_target)); // TODO pretty print
+	 		  type2char(TYPEOF(indices_into_target)));
 
 	R_xlen_t index_length = XLENGTH(indices_into_target);
 	R_xlen_t source_length = XLENGTH(source);
@@ -1463,7 +1464,7 @@ SEXP write_values_into_vector_at_real_indices(SEXP target, SEXP indices_into_tar
 	default:
 		Rf_error("Cannot copy selected values from vector of type %i to "
 		         "vector of type %i", 
-		         TYPEOF(source), TYPEOF(target)); // TODO pretty print
+		         type2char(TYPEOF(source)), type2char(TYPEOF(target)));
 	}
 
 	return target;
@@ -1482,7 +1483,8 @@ SEXP ufo_subset_assign(SEXP vector, SEXP subscript, SEXP values, SEXP min_load_c
 	case REALSXP:
 		return write_values_into_vector_at_real_indices(vector, indices, values);
 	default:
-		Rf_error("unreachable");
+		Rf_error("Cannot subset assign: index of invalid type %s", 
+		         type2char(TYPEOF(indices)));
 		return R_NilValue;
 	}
 }
