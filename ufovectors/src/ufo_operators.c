@@ -782,7 +782,7 @@ SEXP looped_string_subscript(SEXP vector, SEXP names, SEXP subscript, int32_t mi
 	R_xlen_t names_length = XLENGTH(names);
 	R_xlen_t subscript_length = XLENGTH(subscript);
 
-	SEXP integer_subscript = PROTECT(ufo_empty(INTSXP, subscript_length, false, min_load_count));
+	SEXP integer_subscript = PROTECT(ufo_empty(INTSXP, subscript_length, true, min_load_count));
 	for (R_xlen_t subscript_index = 0; subscript_index < subscript_length; subscript_index++) { // TODO hashing implementation
 
 		SEXP subscript_element = STRING_ELT(subscript, subscript_index);

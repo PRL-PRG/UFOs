@@ -505,7 +505,7 @@ SEXP/*REALSXP:R_xlen_t*/ irash_all_member_indices(irash_t irash, examined_string
 
 	//R_xlen_t result_length = irash_count_members(irash, strings);
 	R_xlen_t result_length = strings.length; // because this just is positional, right?
-	SEXP/*REALSXP:R_xlen_t*/ result = PROTECT(ufo_empty(REALSXP, result_length, false, min_load_count));
+	SEXP/*REALSXP:R_xlen_t*/ result = PROTECT(ufo_empty(REALSXP, result_length, true, min_load_count));
 
 	for (R_xlen_t si = 0, ri = 0; si < strings.length; si++) {
 		examined_string_t string = make_examined_string_from(strings, si);
@@ -519,9 +519,9 @@ SEXP/*REALSXP:R_xlen_t*/ irash_all_member_indices(irash_t irash, examined_string
 		R_xlen_t index;
 		bool is_member = irash_member(irash, string, &index);
 
-		if (!is_member) continue;
-
-		SET_REAL_ELT(result, ri, index + 1); // FIXME this +1 stuff will lead tor overflows, must fix
+		if (is_member) {
+			SET_REAL_ELT(result, ri, index + 1); // FIXME this +1 stuff will lead tor overflows, must fix
+		}
 		ri++;
 	}
 
