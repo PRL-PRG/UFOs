@@ -752,7 +752,7 @@ SEXP negative_real_subscript(SEXP vector, SEXP subscript, int32_t min_load_count
 		if (subscript_value == 0) 			  continue;
 		if (ISNAN(subscript_value))           continue;
 		if (-subscript_value > vector_length) continue;
-		SET_LOGICAL_ELT(bitmap, (R_xlen_t) -subscript_value - 1, FALSE);
+		SET_LOGICAL_ELT(bitmap, (R_xlen_t) (-subscript_value - 1), FALSE);
 	}
 
 	SEXP indices = logical_subscript(vector, bitmap, min_load_count);
