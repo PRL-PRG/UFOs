@@ -947,8 +947,7 @@ test_that("ufo character+names subscript: hash str character(0)",      {test_ufo
 test_that("ufo character+names subscript: hash str 0",                 {test_ufo_subscript(n=100000, as.character(0),                                                     ufo_character, named=T)})
 test_that("ufo character+names subscript: hash str 1",                 {test_ufo_subscript(n=100000, as.character(1),                                                     ufo_character, named=T)})
 test_that("ufo character+names subscript: hash str 10",                {test_ufo_subscript(n=100000, as.character(10),                                                    ufo_character, named=T)})
-test_that("ufo character+names subscript: hash str 42",                {test_ufo_subscript(n=100000
-, as.character(42),                                                    ufo_character, named=T)})
+test_that("ufo character+names subscript: hash str 42",                {test_ufo_subscript(n=100000, as.character(42),                                                    ufo_character, named=T)})
 test_that("ufo character+names subscript: hash str N+1",               {test_ufo_subscript(n=100000, as.character(100001),                                                ufo_character, named=T)})
 test_that("ufo character+names subscript: hash str 0,0",               {test_ufo_subscript(n=100000, as.character(c(0, 0)),                                               ufo_character, named=T)})
 test_that("ufo character+names subscript: hash str 0,1,0,N,0",         {test_ufo_subscript(n=100000, as.character(c(0, 1, 0, 100000, 0)),                                 ufo_character, named=T)})

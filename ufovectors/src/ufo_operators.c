@@ -635,11 +635,9 @@ SEXP logical_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 		result_index++;
 	}
 
-	for (R_xlen_t si = vector_length; si < subscript_length; si++) {
+	for (; result_index < result_length; result_index++) {
 		if (result_vector_is_long) SET_REAL_ELT(result, result_index, NA_REAL);
-		else         		       SET_INTEGER_ELT(result, result_index, NA_INTEGER);
-
-		result_index++;
+		else         		       SET_INTEGER_ELT(result, result_index, NA_INTEGER); // BUG HERE - checking fix
 	}
 
 	UNPROTECT(1);

@@ -211,6 +211,8 @@ SEXP ufo_new(ufo_source_t* source) {
     	__reset_vector(ufo);
     }
 
+    printf("UFO=%p\n", (void *) ufo);
+
     UNPROTECT(1);
     return ufo;
 }
