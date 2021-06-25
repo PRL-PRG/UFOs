@@ -318,7 +318,7 @@ inline static void safely_set_raw(SEXP/*RAWSXP*/ vector, R_xlen_t index, Rbyte v
  */
 inline static void safely_set_string(SEXP/*STRSXP*/ vector, R_xlen_t index, SEXP/*CHARSXP*/ value) {
 
-	make_sure(TYPEOF(vector) == STRSXP && TYPEOF(vector) == CHARSXP,
+	make_sure(TYPEOF(vector) == STRSXP && TYPEOF(value) == CHARSXP,
 	          Rf_error, 
 	          "Attempting to set a %s vector %p as an element of vector %p of "
 			  "type %s (expecting a character vector to be set as an element "
@@ -547,10 +547,10 @@ inline static Rbyte safely_get_raw(SEXP/*RAWSXP*/ vector, R_xlen_t index) {
  */
 inline static SEXP/*CHARSXP*/ safely_get_string(SEXP/*STRSXP*/ vector, R_xlen_t index) {
 
-	make_sure(TYPEOF(vector) == RAWSXP, 
+	make_sure(TYPEOF(vector) == STRSXP, 
 	          Rf_error, 
-	          "Attempting to retrieve an Rbyte value from vector %p of "
-			  "type %s (expecting a raw vector)",
+	          "Attempting to retrieve a character vector from vector %p of "
+			  "type %s (expecting a string vector)",
 			  vector, type2char(TYPEOF(vector)));
 
 	make_sure(XLENGTH(vector) >= index, 
