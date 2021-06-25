@@ -22,10 +22,10 @@ inline static void safer_set_integer(SEXP/*INTSXP*/ vector, R_xlen_t index, int 
 	          "Attempting to set an int value to vector %p of type SEXP<%s>", 
 			  vector, type2char(TYPEOF(vector)));
 
-	make_sure(XLENGTH(vector) < index, 
+	make_sure(XLENGTH(vector) >= index, 
 	          Rf_error, 
 			  "Attempting to assign value %i to int vector %p of type "
-			  "SEXP<%s> with at an out-of-bounds index %l (>= %l)", 
+			  "SEXP<%s> with at an out-of-bounds index %li (>= %li)", 
 			  value, vector, type2char(TYPEOF(vector)), index, 
 			  XLENGTH(vector));
 
@@ -48,10 +48,10 @@ inline static int safer_get_integer(SEXP/*INTSXP*/ vector, R_xlen_t index) {
 	          "Attempting to set an int value to vector %p of type SEXP<%s>", 
 			  vector, type2char(TYPEOF(vector)));
 
-	make_sure(XLENGTH(vector) < index, 
+	make_sure(XLENGTH(vector) >= index, 
 	          Rf_error, 
 			  "Attempting to index int vector %p of type SEXP<%s> with at an "
-			  "out-of-bounds index %l (>= %l)", 
+			  "out-of-bounds index %li (>= %li)", 
 			  vector, type2char(TYPEOF(vector)), index, XLENGTH(vector));
 
 	return INTEGER_ELT(vector, index);
