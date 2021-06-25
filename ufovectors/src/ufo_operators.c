@@ -6,6 +6,8 @@
 #include <R_ext/Itermacros.h>
 
 #include "make_sure.h"
+#include "safer.h"
+
 #include "ufo_empty.h"
 #include "rash.h"
 #include "ufo_coerce.h"
@@ -630,14 +632,14 @@ SEXP logical_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 
 		if (value == FALSE)		   continue;
 		if (result_vector_is_long) SET_REAL_ELT   (result, result_index, value == TRUE ? vector_index + 1: NA_REAL); // assert
-		else             		   SET_INTEGER_ELT(result, result_index, value == TRUE ? vector_index + 1: NA_INTEGER);
+		else             		   safer_set_integer(result, result_index, value == TRUE ? vector_index + 1: NA_INTEGER);
 
 		result_index++;
 	}
 
 	for (; result_index < result_length; result_index++) {
 		if (result_vector_is_long) SET_REAL_ELT(result, result_index, NA_REAL);
-		else         		       SET_INTEGER_ELT(result, result_index, NA_INTEGER); // BUG HERE - checking fix
+		else         		       safer_set_integer(result, result_index, NA_INTEGER);
 	}
 
 	UNPROTECT(1);
@@ -879,7 +881,7 @@ int get_integer_by_integer_index(SEXP vector, R_xlen_t vector_length, int index)
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
 	make_sure(vector_index < vector_length, Rf_error, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	return INTEGER_ELT(vector, vector_index);
+	return safer_get_integer(vector, vector_index);
 }
 
 int get_integer_by_real_index(SEXP vector, R_xlen_t vector_length, double index) {
@@ -889,7 +891,7 @@ int get_integer_by_real_index(SEXP vector, R_xlen_t vector_length, double index)
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
 	make_sure(vector_index < vector_length, Rf_error, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	return INTEGER_ELT(vector, vector_index);
+	return safer_get_integer(vector, vector_index);
 }
 
 double get_real_by_integer_index(SEXP vector, R_xlen_t vector_length, int index) {

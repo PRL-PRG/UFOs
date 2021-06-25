@@ -9,4 +9,3 @@
 #else
 #define make_sure(condition, reporter, ...)
 #endif
-	 
