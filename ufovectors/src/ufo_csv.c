@@ -173,9 +173,10 @@ ufo_vector_type_t token_type_to_ufo_type(token_type_t type) {
     }
 }
 
-SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp, SEXP/*LGLSXP*/ headers_sexp, SEXP/*INTSXP*/ record_row_offsets_at_interval_sexp, SEXP/*INTSXP*/ initial_buffer_size_sexp, SEXP/*LGLSXP*/ add_class_to_columns_sexp) {
+SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*LGLSXP*/ read_only_sexp, SEXP/*INTSXP*/ min_load_count_sexp, SEXP/*LGLSXP*/ headers_sexp, SEXP/*INTSXP*/ record_row_offsets_at_interval_sexp, SEXP/*INTSXP*/ initial_buffer_size_sexp, SEXP/*LGLSXP*/ add_class_to_columns_sexp) {
 
     bool headers = __extract_boolean_or_die(headers_sexp);
+    bool read_only = __extract_boolean_or_die(read_only_sexp);
     bool add_class_to_columns = __extract_boolean_or_die(add_class_to_columns_sexp);
     const char *path = __extract_path_or_die(path_sexp);
     long record_row_offsets_at_interval = __extract_int_or_die(record_row_offsets_at_interval_sexp);
@@ -276,6 +277,7 @@ SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*INTSXP*/ min_load_count_sexp, SEXP/
         source->vector_size = csv_metadata->rows;
         source->dimensions = 0;
         source->dimensions_length = 0;
+        source->read_only = read_only;
 
         int32_t min_load_count = __extract_int_or_die(min_load_count_sexp);
         source->min_load_count = (min_load_count == 0) ? min_load_count : __1MB_of_elements(source->element_size);

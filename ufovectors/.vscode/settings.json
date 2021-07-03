@@ -5,7 +5,7 @@
         "type_traits": "c",
         "compare": "c"
     },
-    "R.dir": "/opt/R-4.0.5",
+    "R.dir": "/opt/R-4.1.0",
     "R.cmd": "${config:R.dir}/bin/R" ,
     "R.binary": "${config:R.dir}/bin/exec/R" ,
     "R.script": "${config:R.dir}/bin/Rscript",

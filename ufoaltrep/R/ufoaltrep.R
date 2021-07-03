@@ -25,6 +25,15 @@ altrep_ufo_vector_bin <- function(type, path) {
   stop(paste0("Unknown UFO vector type: ", type))
 }
 
+altrep_integer_seq <- function(from, to, by=1) {
+  .Call("altrep_intsxp_seq", as.integer(from), as.integer(to), as.integer(by))
+}
+
+altrep_numeric_seq <- function(from, to, by=1) {
+  .Call("altrep_realsxp_seq", as.integer(from), as.integer(to), as.integer(by))
+}
+
+
 altrep_ufo_integer_bin <- function(path) {
   .check_path(path)
   .Call("altrep_ufo_vectors_intsxp_bin", path.expand(path))

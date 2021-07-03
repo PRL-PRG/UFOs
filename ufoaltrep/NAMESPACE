@@ -14,4 +14,7 @@ export(altrep_ufo_matrix_logical_bin)
 export(altrep_ufo_matrix_raw_bin)
 export(altrep_ufo_matrix_vector_bin)
 
+export(altrep_numeric_seq)
+export(altrep_integer_seq)
+
 export(altrep_ufo_set_debug_mode)

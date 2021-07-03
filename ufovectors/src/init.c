@@ -13,18 +13,18 @@ static const R_CallMethodDef CallEntries[] = {
 
     // Constructors for vectors that partially materialize on-demand from
     // binary files.
-    {"ufo_vectors_intsxp_bin",      (DL_FUNC) &ufo_vectors_intsxp_bin,          2},
-    {"ufo_vectors_realsxp_bin",     (DL_FUNC) &ufo_vectors_realsxp_bin,         2},
-    {"ufo_vectors_cplxsxp_bin",     (DL_FUNC) &ufo_vectors_cplxsxp_bin,         2},
-    {"ufo_vectors_lglsxp_bin",      (DL_FUNC) &ufo_vectors_lglsxp_bin,          2},
-    {"ufo_vectors_rawsxp_bin",      (DL_FUNC) &ufo_vectors_rawsxp_bin,          2},
+    {"ufo_vectors_intsxp_bin",      (DL_FUNC) &ufo_vectors_intsxp_bin,          3},
+    {"ufo_vectors_realsxp_bin",     (DL_FUNC) &ufo_vectors_realsxp_bin,         3},
+    {"ufo_vectors_cplxsxp_bin",     (DL_FUNC) &ufo_vectors_cplxsxp_bin,         3},
+    {"ufo_vectors_lglsxp_bin",      (DL_FUNC) &ufo_vectors_lglsxp_bin,          3},
+    {"ufo_vectors_rawsxp_bin",      (DL_FUNC) &ufo_vectors_rawsxp_bin,          3},
 
     // Constructors for matrices composed of the above-mentioned vectors.
-    {"ufo_matrix_intsxp_bin",       (DL_FUNC) &ufo_matrix_intsxp_bin,           4},
-    {"ufo_matrix_realsxp_bin",      (DL_FUNC) &ufo_matrix_realsxp_bin,          4},
-    {"ufo_matrix_cplxsxp_bin",      (DL_FUNC) &ufo_matrix_cplxsxp_bin,          4},
-    {"ufo_matrix_lglsxp_bin",       (DL_FUNC) &ufo_matrix_lglsxp_bin,           4},
-    {"ufo_matrix_rawsxp_bin",       (DL_FUNC) &ufo_matrix_rawsxp_bin,           4},
+    {"ufo_matrix_intsxp_bin",       (DL_FUNC) &ufo_matrix_intsxp_bin,           5},
+    {"ufo_matrix_realsxp_bin",      (DL_FUNC) &ufo_matrix_realsxp_bin,          5},
+    {"ufo_matrix_cplxsxp_bin",      (DL_FUNC) &ufo_matrix_cplxsxp_bin,          5},
+    {"ufo_matrix_lglsxp_bin",       (DL_FUNC) &ufo_matrix_lglsxp_bin,           5},
+    {"ufo_matrix_rawsxp_bin",       (DL_FUNC) &ufo_matrix_rawsxp_bin,           5},
 
 	// Constructors for empty vectors.
 	{"ufo_intsxp_empty",      		(DL_FUNC) &ufo_intsxp_empty,          		3},
@@ -35,8 +35,8 @@ static const R_CallMethodDef CallEntries[] = {
 	{"ufo_strsxp_empty",      		(DL_FUNC) &ufo_strsxp_empty,          		3},
 	{"ufo_vecsxp_empty",      		(DL_FUNC) &ufo_vecsxp_empty,          		2},
 
-    {"ufo_intsxp_seq",      		(DL_FUNC) &ufo_intsxp_empty,          		4},
-	{"ufo_realsxp_seq",     		(DL_FUNC) &ufo_realsxp_empty,         		4},
+    {"ufo_intsxp_seq",      		(DL_FUNC) &ufo_intsxp_seq,          		5},
+	{"ufo_realsxp_seq",     		(DL_FUNC) &ufo_realsxp_seq,         		5},
     
     // CSV support
     {"ufo_csv",                     (DL_FUNC) &ufo_csv,                         6},

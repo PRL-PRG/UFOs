@@ -17,6 +17,21 @@ This repository contains four R packages:
 - `ufovectors` - an example implementation of file-backed vectors (and matrices) using `ufos` (depends on the first package)
 - `ufoaltrep` - an analogous implementation of file-backed vector to `ufovectors` using ALTREP
 
+## Prerequisites
+
+Check if your operating system restricts who can call `userfaultfd`:
+
+```bash
+cat /proc/sys/vm/unprivileged_userfaultfd
+```
+
+*0* means only privileged users can call `userfaultfd` and UFOs will only work for privileged users. 
+To allow unprivileged users to call `userfaultfd`:
+
+```
+sysctl -w vm.unprivileged_userfaultfd=1
+```
+
 ## Installation
 
 ```bash
@@ -54,3 +69,24 @@ For usage information, the reader is referred to specific package vignettes:
 
 - R 3.6.0 or higher
 - Linux 4.3 or higher (we currently do not support other operating systems)
+
+## Troubleshooting
+
+```
+syscall/userfaultfd: Operation not permitted
+error initializing User-Fault file descriptor: Invalid argument
+Error: package or namespace load failed for ‘ufos’:
+ .onLoad failed in loadNamespace() for 'ufos', details:
+  call: .initialize()
+  error: Error initializing the UFO framework (-1)
+```
+
+The user has insufficient privileges to execute a userfaultfd system call. 
+
+One likely culprit is that a global sysctl knob "vm.unprivileged_userfaultfd" to control
+whether userfaultfd is allowed by unprivileged users was added to kernel settings. 
+If `/proc/sys/vm/unprivileged_userfaultfd` is 0, do:
+
+```
+sysctl -w vm.unprivileged_userfaultfd=1
+```
