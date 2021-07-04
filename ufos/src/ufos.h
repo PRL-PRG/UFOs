@@ -1,6 +1,7 @@
 #pragma once
 
-#include "mappedMemory/userfaultCore.h"
+//#include "mappedMemory/userfaultCore.h"
+#include "rust/ufos_c/target/ufos_c.h"
 
 #include <R.h>
 #include <Rinternals.h>
@@ -19,12 +20,12 @@ typedef enum {
 } ufo_vector_type_t;
 
 // Function types for ufo_source_t
-typedef void (*ufo_destructor_t)(ufUserData*);
+typedef void (*ufo_destructor_t)(UfoPopulateData*);
 
 // Source definition
 typedef struct {
-    ufUserData*         data;
-    ufPopulateRange     population_function;
+    UfoPopulateData     data;
+    UfoPopulateCallout  population_function;
     ufo_destructor_t    destructor_function;
     ufo_vector_type_t   vector_type;
     //ufUpdateRange     update_function;

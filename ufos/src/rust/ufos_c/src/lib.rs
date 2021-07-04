@@ -5,6 +5,8 @@ use anyhow::Result;
 use libc::c_void;
 use ufos_core::{UfoCoreConfig, UfoObjectConfigPrototype, UfoPopulateError, WrappedUfoObject, UfoObject};
 
+
+
 macro_rules! opaque_c_type {
     ($wrapper_name:ident, $wrapped_type:ty) => {
         impl $wrapper_name {
@@ -59,6 +61,8 @@ pub struct UfoCore {
 }
 opaque_c_type!(UfoCore, Arc<ufos_core::UfoCore>);
 
+type UfoPopulateData = *mut c_void;
+type UfoPopulateCallout = extern "C" fn(UfoPopulateData, libc::size_t, libc::size_t, *mut libc::c_uchar) -> i32;
 
 impl UfoCore {
     #[no_mangle]
@@ -115,6 +119,55 @@ impl UfoCore {
             .unwrap_or_else(UfoObj::none)
         }).unwrap_or_else(|_| UfoObj::none())
     }
+
+    #[no_mangle]
+    pub extern "C" fn ufo_new_no_prototype(
+        &self,
+        header_size: libc::size_t,
+        stride: libc::size_t,
+        min_load_ct: libc::size_t,
+        read_only: bool,
+        ct: libc::size_t,
+        callback_data: UfoPopulateData,
+        populate: UfoPopulateCallout,
+    ) -> UfoObj {
+        std::panic::catch_unwind(|| {
+            let min_load_ct = Some(min_load_ct).filter(|x| *x > 0);
+            let prototype = UfoObjectConfigPrototype::new_prototype(
+                header_size,
+                stride,
+                min_load_ct,
+                read_only,
+            );
+
+        let callback_data_int = callback_data as usize;
+            let populate = move |start, end, to_populate| {
+                let ret = populate(
+                    callback_data_int as *mut c_void,
+                    start,
+                    end,
+                    to_populate,
+                );
+
+                if ret != 0 {
+                    Err(UfoPopulateError)
+                }else{
+                    Ok(())
+                }
+            };
+            let r = self
+                .deref()
+                .map(move |core| {
+                    core.allocate_ufo(prototype.new_config(ct, Box::new(populate)))
+                });
+            match r {
+                Some(Ok(ufo)) => UfoObj::wrap(ufo),
+                _ => UfoObj::none(),
+            }
+        })
+        .unwrap_or_else(|_| UfoObj::none())
+    }
+
 
     #[no_mangle]
     pub extern "C" fn ufo_new(

@@ -6,11 +6,12 @@
 
 #include "ufos.h"
 #include "R_ext.h"
-#include "mappedMemory/userfaultCore.h"
+//#include "mappedMemory/userfaultCore.h"
+#include "rust/ufos_c/target/ufos_c.h"
 
 #include "make_sure.h"
 
-ufInstance_t __ufo_system;
+UfoCore __ufo_system;
 int __framework_initialized = 0;
 
 typedef SEXP (*__ufo_specific_vector_constructor)(ufo_source_t*);
@@ -18,12 +19,8 @@ typedef SEXP (*__ufo_specific_vector_constructor)(ufo_source_t*);
 SEXP ufo_shutdown() {
     if (__framework_initialized) {
         __framework_initialized = 0;
-
         // Actual shutdown
-        int result = ufShutdown(__ufo_system, 1 /*free=true*/);
-        if (result != 0) {
-            Rf_error("Error shutting down the UFO framework (%i)", result);
-        }
+        int result = ufo_core_shutdown(__ufo_system);
     }
     return R_NilValue;
 }
@@ -33,19 +30,11 @@ SEXP ufo_initialize() {
         __framework_initialized = 1;
 
         // Actual initialization
-        __ufo_system = ufMakeInstance();
-        if (__ufo_system == NULL) {
-            Rf_error("Error initializing the UFO framework (null instance)");
-        }
         size_t high = 2 * 1024 * 1024 * 1024;
         size_t low = 1 * 1024 * 1024 * 1024;
-        int result = ufSetMemoryLimits(__ufo_system, high, low);
-        if (result != 0) {
-            Rf_error("Error setting memory limits for the UFO framework (%i)", result);
-        }
-        result = ufInit(__ufo_system);
-        if (result != 0) {
-            Rf_error("Error initializing the UFO framework (%i)", result);
+        __ufo_system = ufo_new_core("/tmp/", high, low);
+        if (ufo_core_is_error(__ufo_system)) {
+            Rf_error("Error initializing the UFO framework");
         }
     }
     return R_NilValue;
@@ -82,35 +71,33 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
     		  "Sizes don't match at ufo_alloc (%li vs expected %li).", size - sexp_header_size - sexp_metadata_size,
 			  	  	  	  	  	  	  	  	  	  	  	  	  	  	   source->vector_size *  source->element_size);
 
-    ufObjectConfig_t cfg = makeObjectConfig0(sexp_header_size + sexp_metadata_size,
-                                             source->vector_size,
-                                             __get_stride_from_type_or_die(source->vector_type),
-                                             source->min_load_count);
+    UfoObj object = ufo_new_no_prototype(
+        __ufo_system,
+        sexp_header_size + sexp_metadata_size,
+        __get_stride_from_type_or_die(source->vector_type),
+        source->min_load_count,
+        source->read_only,
+        source->vector_size,
+        source->data, // populate data
+        source->population_function
+    );
 
-    ufSetPopulateFunction(cfg, source->population_function);
-    ufSetUserConfig(cfg, source->data);
-
-    if (source->read_only) {
-        ufSetReadOnly(cfg);
+    if (ufo_is_error(object)) {
+        Rf_error("Could not create UFO (%i)", status);
     }
 
-    ufObject_t object;
-    int status = ufCreateObject(__ufo_system, cfg, &object);
-    __validate_status_or_die(status);
-
-
-    return ufGetHeaderPointer(object);
+    return ufo_header_ptr(object);
 }
 
 void __ufo_free(R_allocator_t *allocator, void *ptr) {
-    ufObject_t object = ufLookupObjectByMemberAddress(__ufo_system, ptr);
-    if (object == NULL) {
+    UfoObj object = ufo_get_by_address(__ufo_system, ptr);
+    if (ufo_is_error(object)) {
         Rf_error("Tried freeing a UFO, "
-                 "but the provided address is not a UFO header address.");
+                 "but the provided address is not a UFO address.");
     }
     ufo_source_t* source = (ufo_source_t*) allocator->data;
     source->destructor_function(source->data);
-    ufDestroyObject(object);
+    ufo_free(object);
     if (source->dimensions != NULL) {
         free(source->dimensions);
     }

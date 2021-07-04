@@ -1,19 +1,18 @@
 #include "../include/ufos.h"
-#include "../include/mappedMemory/userfaultCore.h"
+//#include "../include/mappedMemory/userfaultCore.h"
+#include "../include/ufos_c.h"
 #include "ufoseq.h"
 
-void destroy_data(ufUserData *data) {
+void destroy_data(UfoPopulateData *data) {
     ufo_seq_data_t *ufo_seq_data = (ufo_seq_data_t*) data;
     free(ufo_seq_data);
 }
 
-int populate(uint64_t startValueIdx, uint64_t endValueIdx,
-             ufPopulateCallout callout, ufUserData userData, char* target) {
-
+int32_t populate(UfoPopulateData userData, uint64_t startValueIdx, uint64_t endValueIdx, char* target) {
     ufo_seq_data_t* data = (ufo_seq_data_t*) userData;
 
-    for (size_t i = 0; i < endValueIdx - startValueIdx; i++) {
-        ((int *) target)[i] = data->from + data->by * (i + startValueIdx);
+    for (size_t i = startValueIdx; i < endValueIdx; i++) {
+        ((int *) target)[i] = data->from + (data->by * i);
     }
 
     return 0;
@@ -30,7 +29,7 @@ SEXP/*INTXP*/ ufo_seq(SEXP/*INTXP*/ from, SEXP/*INTXP*/ to, SEXP/*INTXP*/ by) {
     int to_value = INTEGER_ELT(to, 0);
     int by_value = INTEGER_ELT(by, 0);
 
-    source->vector_size = (to_value - from_value) / by_value + 1;
+    source->vector_size = ((to_value - from_value) / by_value) + 1;
 
     source->dimensions = NULL;
     source->dimensions_length = 0;
@@ -41,7 +40,7 @@ SEXP/*INTXP*/ ufo_seq(SEXP/*INTXP*/ from, SEXP/*INTXP*/ to, SEXP/*INTXP*/ by) {
     data->from = from_value;
     data->to = to_value;
     data->by = by_value;
-    source->data = (ufUserData) data;
+    source->data = (UfoPopulateData) data;
 
     source->destructor_function = &destroy_data;
     source->population_function = &populate;

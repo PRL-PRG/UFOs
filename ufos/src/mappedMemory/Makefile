@@ -1,45 +1,28 @@
 #mkInclude = sparseList.h ../unstdLib/*.h
 #CC=gcc
-UFO_KEY = -D__UFOs_CoreDev__ -DMAKE_SURE
-PKG_LIBS = -pthread
-OBJ = sparseList.o userfaultCore.o userfaultGettersSetters.o oroboros.o blake3/blake3.a
-CFLAGS = -fpic -g -O2 -Wall -Werror -DNDEBUG
+# LDLIBS = -L. -lufos_c -pthread
+LDLIBS = -Wl,--no-as-needed -lpthread -lrt -ldl -lm -lstdc++ libufos_c.a
+#LDFLAGS = "-Wl,-rpath=\$$ORIGIN/" -Wl,-z,origin
+LDFLAGS = 
+CFLAGS = -fpic -g -O2 -Wall -Werror -DNDEBUG -I../rust/ufos_c/target/
 #CFLAGS = -Og -ggdb -Wall -Werror -fPIC
-LIB = libmappedMemory.a
-LIBS = -lcrypto
 
-all: $(LIB) strideTest sparseListTest userfaultSpeedTest ufoTest ufoSpeedTest
-
-library: $(LIB)
+all: userfaultSpeedTest ufoTest ufoSpeedTest
 
 mostlyclean: clean
 
 clean:
-	$(RM) *.o
-	$(RM) *.a
-	$(MAKE) -C blake3 clean
+	$(RM) *.o userfaultSpeedTest ufoTest ufoSpeedTest
 
 %.o: %.c
-	$(CC) $(CFLAGS) $(UFO_KEY) -c -o $@ $< $(LIBS)
-
-$(LIB): $(OBJ)
-	$(AR) -rcs $@ $^
-
-blake3/blake3.a:
-	$(MAKE) -C blake3
-
-strideTest: stride.o
-	$(CC) $(CFLAGS) -o $@ $^
-
-sparseListTest: sparseListTest.o sparseList.o
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 userfaultSpeedTest: userfaultSpeed.o $(OBJ)
-	$(CC) $(CFLAGS) $(PKG_LIBS) -o $@ $^ $(LIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-ufoTest: ufoTest.o $(OBJ)
-	$(CC) $(CFLAGS) $(PKG_LIBS) -o $@ $^ $(LIBS)
+ufoTest:  ufoTest.o $(OBJ)
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-ufoSpeedTest: ufoSpeedTest.o $(OBJ)
-	$(CC) $(CFLAGS) $(PKG_LIBS) -o $@ $^ $(LIBS)
+ufoSpeedTest: ufoSpeedTest.o $(OBJ) 
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 

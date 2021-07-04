@@ -10,7 +10,7 @@
 #include <R.h>
 #include <Rinternals.h>
 
-#include "../include/ufos.h"
+#include "../include/ufos_c.h"
 #include "helpers.h"
 #include "debug.h"
 
@@ -27,7 +27,7 @@ typedef struct {
 } ufo_csv_column_source_t;
 
 
-int load_column_from_csv(uint64_t start, uint64_t end, ufPopulateCallout cf, ufUserData user_data, char* target) {
+int32_t load_column_from_csv(UfoPopulateData user_data, uint64_t start, uint64_t end, char* target) {
 
     ufo_csv_column_source_t* data = (ufo_csv_column_source_t *) user_data;
     //size_t size_of_memory_fragment = end - start + 1;
@@ -271,7 +271,7 @@ SEXP ufo_csv(SEXP/*STRSXP*/ path_sexp, SEXP/*LGLSXP*/ read_only_sexp, SEXP/*INTS
 
         source->population_function = load_column_from_csv;
         source->destructor_function = destroy_column;
-        source->data = (ufUserData *) data;
+        source->data = (UfoPopulateData) data;
         source->vector_type = token_type_to_ufo_type(csv_metadata->column_types[column]);
         source->element_size = token_type_size(source->vector_type);
         source->vector_size = csv_metadata->rows;

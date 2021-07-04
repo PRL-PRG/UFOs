@@ -7,8 +7,7 @@
 #include "../ufo_metadata.h"
 #include "../debug.h"
 
-int __load_from_file(uint64_t start, uint64_t end, ufPopulateCallout cf,
-                     ufUserData user_data, char* target) {
+int32_t __load_from_file(UfoPopulateData user_data, uint64_t start, uint64_t end, char* target) {
 
     ufo_file_source_data_t* cfg = (ufo_file_source_data_t*) user_data;
 

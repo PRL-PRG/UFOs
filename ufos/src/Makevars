@@ -1,18 +1,28 @@
 MkInclude = $(R_HOME)/etc${R_ARCH}/Makeconf
 
+#TODO: detect from environment instead?
+DEBUGGING=1
+#DEBUGGING=0
+
 #PKG_CXXFLAGS =
 #PKG_CPPFLAGS = -pthread
-PKG_CFLAGS = -DMAKE_SURE
-PKG_LIBS = -pthread -LmappedMemory -lmappedMemory -LmappedMemory/blake3 -l:blake3.a -lcrypto -g -O0 -Wall -Werror
-CFLAGS = -O0 -ggdb -fpic -Wall -Werror
-#-Og -ggdb -Wall -Werror -fPIC
+PKG_LIBS = 
+ifeq ($(DEBUGGING), 1)
+	CFLAGS = -Og -ggdb -fPIC -Wall -Werror
+	PKG_CFLAGS = -DMAKE_SURE -g -Og -Wall -Werror
+else
+	CFLAGS = -O2 -fpic -Wall -Werror
+	PKG_CFLAGS = -DMAKE_SURE -O2 -Wall -Werror
+endif
 
 SOURCES_C = init.c ufos.c R_ext.c
 
 OBJECTS = $(SOURCES_C:.c=.o)
 
-SUBDIRS = mappedMemory mappedMemory/blake3
-SUBLIBS = $(SUBDIRS:=.a)
+#SUBDIRS = mappedMemory mappedMemory/blake3
+#SUBLIBS = $(SUBDIRS:=.a)
+SUBDIRS = rust
+SUBLIBS = rust/ufos_c/libufos_c.a
 
 all: $(SHLIB)
 $(SHLIB): $(OBJECTS) sublibs

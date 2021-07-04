@@ -31,8 +31,8 @@ thiserror = "1.0"
 # [build-dependencies]
 # cbindgen = "0.18.0"
 
-[build]
-target_os = "linux"
+# [build]
+# target_os = "linux"
 
 
 [profile.release]

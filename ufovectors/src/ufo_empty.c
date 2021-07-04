@@ -11,7 +11,7 @@
 #include "helpers.h"
 #include "debug.h"
 
-#include "../include/mappedMemory/userfaultCore.h"
+#include "../include/ufos_c.h"
 
 #include "make_sure.h"
 
@@ -20,7 +20,7 @@ typedef struct {
 	bool              populate_with_na;
 } data_t;
 
-int __populate_empty(uint64_t start, uint64_t end, ufPopulateCallout cf, ufUserData user_data, char* target) {
+int32_t __populate_empty(UfoPopulateData user_data, uint64_t start, uint64_t end, char* target) {
 	data_t data = *((data_t*) user_data);	
 
 	if (__get_debug_mode()) {
@@ -113,7 +113,7 @@ int __populate_empty(uint64_t start, uint64_t end, ufPopulateCallout cf, ufUserD
 	return 1;
 }
 
-void __destroy_empty(ufUserData *user_data) {
+void __destroy_empty(UfoPopulateData user_data) {
     int64_t *type = (int64_t *) user_data;
 
     if (__get_debug_mode()) {
@@ -144,7 +144,7 @@ SEXP ufo_empty(ufo_vector_type_t type, R_xlen_t size, bool populate_with_na, int
     data_t *data = (data_t *) malloc(sizeof(data_t));
     data->type = type;
 	data->populate_with_na = populate_with_na;
-    source->data = (ufUserData *) data;
+    source->data = (UfoPopulateData) data;
 
     ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
     SEXP result = ufo_new(source);
