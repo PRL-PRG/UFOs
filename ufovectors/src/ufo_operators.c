@@ -5,7 +5,7 @@
 #include <Rinternals.h>
 #include <R_ext/Itermacros.h>
 
-#include "make_sure.h"
+#include "safety_first.h"
 #include "safety_first.h"
 
 #include "ufo_empty.h"
@@ -301,11 +301,11 @@ SEXP ufo_neg_result (SEXP x, SEXP min_load_count) {
 #define MIN(x, y) (x >= y ? y : x)
 
 SEXP uncompact_intrange(R_xlen_t start, R_xlen_t end, R_xlen_t size) {
-	make_sure(start > 0, Rf_error, "Uncompact intrange start must be > 0");
-	make_sure(end >= start, Rf_error, "Uncompact intrange end must be >= start");
+	make_sure(start > 0, "Uncompact intrange start must be > 0");
+	make_sure(end >= start, "Uncompact intrange end must be >= start");
 
 	R_xlen_t length = end - start + 1;
-	make_sure(size >= length, Rf_error, "Uncompact intrange size must be >= end - start + 1");
+	make_sure(size >= length, "Uncompact intrange size must be >= end - start + 1");
 
 	SEXP vector = PROTECT(allocVector(INTSXP, size));
 	for (R_xlen_t i = 0; i < length; i++) {
@@ -317,12 +317,12 @@ SEXP uncompact_intrange(R_xlen_t start, R_xlen_t end, R_xlen_t size) {
 }
 
 SEXP uncompact_intrange_fill(SEXP vector, R_xlen_t start, R_xlen_t end) {
-	make_sure(start > 0, Rf_error, "Uncompact intrange start must be > 0");
-	make_sure(end >= start, Rf_error, "Uncompact intrange end must be >= start");
+	make_sure(start > 0, "Uncompact intrange start must be > 0");
+	make_sure(end >= start, "Uncompact intrange end must be >= start");
 
 	R_xlen_t length = XLENGTH(vector);
 	R_xlen_t fill_length = end - start + 1;
-	make_sure(fill_length <= length, Rf_error, "Uncompact intrange size must be >= end - start + 1");
+	make_sure(fill_length <= length, "Uncompact intrange size must be >= end - start + 1");
 
 	for (R_xlen_t i = 0; i < fill_length; i++) {
 		safely_set_integer(vector, length - fill_length + i, start + i);
@@ -565,7 +565,7 @@ R_xlen_t string_subscript_length(SEXP vector, SEXP subscript) {
 }
 
 R_xlen_t ufo_subscript_dimension_length(SEXP vector, SEXP subscript, SEXP min_load_count_sexp) {
-	make_sure(isVector(vector) || isList(vector) || isLanguage(vector), Rf_error, "subscripting on non-vector");
+	make_sure(isVector(vector) || isList(vector) || isLanguage(vector), "subscripting on non-vector");
 
 	SEXPTYPE subscript_type = TYPEOF(subscript);
 	switch(subscript_type) {
@@ -841,7 +841,7 @@ SEXP string_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) { // 
 }
 
 SEXP ufo_subscript(SEXP vector, SEXP subscript, SEXP min_load_count_sexp) {
-	make_sure(isVector(vector) || isList(vector) || isLanguage(vector), Rf_error, "subscripting on non-vector");
+	make_sure(isVector(vector) || isList(vector) || isLanguage(vector), "subscripting on non-vector");
 
 	int32_t min_load_count = (int32_t) __extract_int_or_die(min_load_count_sexp); // XXX do value checks
 	SEXPTYPE subscript_type   = TYPEOF(subscript);
@@ -864,7 +864,7 @@ int get_integer_by_integer_index(SEXP vector, R_xlen_t vector_length, int index)
 		return NA_INTEGER;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,  
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
 	return safely_get_integer(vector, vector_index);
 }
@@ -874,7 +874,7 @@ int get_integer_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t inde
 		return NA_INTEGER;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
 	return safely_get_integer(vector, vector_index);
 }
@@ -884,7 +884,7 @@ double get_real_by_integer_index(SEXP vector, R_xlen_t vector_length, int index)
 		return NA_REAL;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
 	return safely_get_real(vector, vector_index);
 }
@@ -894,7 +894,7 @@ double get_real_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t inde
 		return NA_REAL;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
 	return safely_get_real(vector, vector_index);
 }
@@ -904,7 +904,7 @@ Rboolean get_logical_by_integer_index(SEXP vector, R_xlen_t vector_length, int i
 		return NA_LOGICAL;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
 	return safely_get_logical(vector, vector_index);
 }
@@ -914,7 +914,7 @@ Rboolean get_logical_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t
 		return NA_LOGICAL;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
 	return safely_get_logical(vector, vector_index);
 }
@@ -924,7 +924,7 @@ Rcomplex get_complex_by_integer_index(SEXP vector, R_xlen_t vector_length, int i
 		return complex(NA_REAL, NA_REAL);
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
 	return safely_get_complex(vector, vector_index);
 }
@@ -934,7 +934,7 @@ Rcomplex get_complex_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t
 		return complex(NA_REAL, NA_REAL);
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
 	return safely_get_complex(vector, vector_index);
 }
@@ -944,7 +944,7 @@ Rbyte get_raw_by_integer_index(SEXP vector, R_xlen_t vector_length, int index) {
 		return (Rbyte) 0x0;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
 	return safely_get_raw(vector, vector_index);
 }
@@ -954,7 +954,7 @@ Rbyte get_raw_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t index)
 		return (Rbyte) 0x0;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
 	return safely_get_raw(vector, vector_index);
 }
@@ -964,7 +964,7 @@ SEXP/*CHARSXP*/ get_string_by_integer_index(SEXP/*STRSXP*/ vector, R_xlen_t vect
 		return NA_STRING;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
 	return safely_get_string(vector, vector_index);
 }
@@ -975,25 +975,25 @@ SEXP/*CHARSXP*/ get_string_by_real_index(SEXP/*STRSXP*/ vector, R_xlen_t vector_
 		return NA_STRING;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			"Index out of bounds %d >= %d.", vector_index, vector_length);
 	return safely_get_string(vector, vector_index);
 }
 
 // XXX Can copy by region for contiguous, ordered areas of memory
 SEXP copy_selected_values_according_to_integer_indices(SEXP source, SEXP target, SEXP indices_into_source) {
-	make_sure(TYPEOF(source) == TYPEOF(target), Rf_error, 
+	make_sure(TYPEOF(source) == TYPEOF(target), 
 			  "Source and target vector must have the same type to copy "
 			  "selected values from one to the other.");
 
-	make_sure(TYPEOF(indices_into_source) == INTSXP, Rf_error, 
+	make_sure(TYPEOF(indices_into_source) == INTSXP, 
 	 		  "Index vector was expected to be of type INTSXP, but found %i.",
 	 		  type2char(TYPEOF(indices_into_source)));
 
 	R_xlen_t index_length = XLENGTH(indices_into_source);
 	R_xlen_t source_length = XLENGTH(source);
 
-	make_sure(XLENGTH(target) == index_length, Rf_error, 
+	make_sure(XLENGTH(target) == index_length, 
 			  "The target vector must be the same size as the index vector "
 			  "when copying selected values between two vectors.");
 
@@ -1056,18 +1056,18 @@ SEXP copy_selected_values_according_to_integer_indices(SEXP source, SEXP target,
 }
 
 SEXP copy_selected_values_according_to_real_indices(SEXP source, SEXP target, SEXP indices_into_source) {
-	make_sure(TYPEOF(source) == TYPEOF(target), Rf_error, 
+	make_sure(TYPEOF(source) == TYPEOF(target), 
 			  "Source and target vector must have the same type to copy "
 			  "selected values from one to the other.");
 
-	make_sure(TYPEOF(indices_into_source) == REALSXP, Rf_error, 
+	make_sure(TYPEOF(indices_into_source) == REALSXP,
 	 		  "Index vector was expected to be of type REALSXP, but found %i.",
 	 		  type2char(TYPEOF(indices_into_source)));
 
 	R_xlen_t index_length = XLENGTH(indices_into_source);
 	R_xlen_t source_length = XLENGTH(source);
 
-	make_sure(XLENGTH(target) == index_length, Rf_error, 
+	make_sure(XLENGTH(target) == index_length,
 			  "The target vector must be the same size as the index vector "
 			  "when copying selected values between two vectors.");
 
@@ -1156,7 +1156,7 @@ void set_integer_by_integer_index(SEXP vector, R_xlen_t vector_length, int index
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
 	safely_set_integer(vector, vector_index, value);
 }
@@ -1166,7 +1166,7 @@ void set_integer_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t ind
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length); // TODO redundant
 	safely_set_integer(vector, vector_index, value);
 }
@@ -1176,7 +1176,7 @@ void set_real_by_integer_index(SEXP vector, R_xlen_t vector_length, int index, d
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length); // TODO redundant
 	safely_set_real(vector, vector_index, value);
 }
@@ -1186,7 +1186,7 @@ void set_real_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t index,
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length); // TODO redundant
 	safely_set_real(vector, vector_index, value);
 }
@@ -1196,7 +1196,7 @@ void set_complex_by_integer_index(SEXP vector, R_xlen_t vector_length, int index
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
 	safely_set_complex(vector, vector_index, value);
 }
@@ -1206,7 +1206,7 @@ void set_complex_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t ind
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
 	safely_set_complex(vector, vector_index, value);
 }
@@ -1216,7 +1216,7 @@ void set_logical_by_integer_index(SEXP vector, R_xlen_t vector_length, int index
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
 	safely_set_logical(vector, vector_index, value);
 }
@@ -1226,7 +1226,7 @@ void set_logical_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t ind
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
 	safely_set_logical(vector, vector_index, value);
 }
@@ -1236,7 +1236,7 @@ void set_raw_by_integer_index(SEXP vector, R_xlen_t vector_length, int index, Rb
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
 	safely_set_raw(vector, vector_index, value);
 }
@@ -1246,7 +1246,7 @@ void set_raw_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t index, 
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
 	safely_set_raw(vector, vector_index, value);
 }
@@ -1257,7 +1257,7 @@ void set_string_by_integer_index(SEXP vector, R_xlen_t vector_length, int index,
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
 	safely_set_string(vector, vector_index, value);
 }
@@ -1267,7 +1267,7 @@ void set_string_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t inde
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
 	safely_set_string(vector, vector_index, value);
 }
@@ -1287,12 +1287,12 @@ SEXP write_values_into_vector_at_integer_indices(SEXP target, SEXP indices_into_
 	R_xlen_t source_length = XLENGTH(source);
 	R_xlen_t target_length = XLENGTH(target);
 
-	make_sure(source_length <= index_length, Rf_error, 
+	make_sure(source_length <= index_length,
 			  "The source vector must be the same size or smaller than "
 			  "the index vector when copying selected values "
 			  "into a vector.");
 
-	make_sure(index_length % source_length == 0, Rf_error, 
+	make_sure(index_length % source_length == 0,
 			  "The source vector's size must be a multiple of "
 			  "the index vector when copying selected values "
 			  "into a vector.");
@@ -1370,7 +1370,7 @@ SEXP write_values_into_vector_at_real_indices(SEXP target, SEXP indices_into_tar
 	// 		  "values from one into the other.");
 	// XXX Does coercion now
 
-	make_sure(TYPEOF(indices_into_target) == INTSXP, Rf_error, 
+	make_sure(TYPEOF(indices_into_target) == INTSXP,
 	 		  "Index vector was expected to be of type INTSXP, but found %i.",
 	 		  type2char(TYPEOF(indices_into_target)));
 
@@ -1378,7 +1378,7 @@ SEXP write_values_into_vector_at_real_indices(SEXP target, SEXP indices_into_tar
 	R_xlen_t source_length = XLENGTH(source);
 	R_xlen_t target_length = XLENGTH(target);
 
-	make_sure(source_length <= index_length, Rf_error, 
+	make_sure(source_length <= index_length,
 			  "The source vector must be the same size or smaller than "
 			  "the index vector when copying selected values "
 			  "into a vector.");

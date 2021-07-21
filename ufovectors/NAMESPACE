@@ -8,6 +8,7 @@ export(ufo_complex)
 export(ufo_logical)
 export(ufo_raw)
 export(ufo_character)
+export(ufo_vector)
 
 export(ufo_integer_bin)
 export(ufo_numeric_bin)
@@ -27,6 +28,10 @@ export(ufo_integer_seq)
 export(ufo_numeric_seq)
 
 export(ufo_csv)
+
+# Chunking functions
+export(ufo_map)
+export(ufo_mapply)
 
 # Operators as custom functions
 export(ufo_add)
@@ -95,7 +100,7 @@ if (isTRUE(getOption("ufovectors.add_class"))) {
 
 export(ufo_subscript)
 export(ufo_subset)
-export(ufo_subset_assign)
+export(ufo_mutate)
 
 # Helpers
 export(ufo_store_bin)

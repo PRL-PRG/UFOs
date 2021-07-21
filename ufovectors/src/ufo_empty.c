@@ -13,7 +13,7 @@
 
 #include "../include/mappedMemory/userfaultCore.h"
 
-#include "make_sure.h"
+#include "safety_first.h"
 
 typedef struct {
     ufo_vector_type_t type;
@@ -140,7 +140,7 @@ SEXP ufo_empty(ufo_vector_type_t type, R_xlen_t size, bool populate_with_na, int
     source->min_load_count = __select_min_load_count(min_load_count, source->element_size);
 	source->read_only = false;
 
-    make_sure(sizeof(ufo_vector_type_t) <= sizeof(int64_t), Rf_error, "Cannot fit vector type information into ufUserData pointer.");
+    make_sure(sizeof(ufo_vector_type_t) <= sizeof(int64_t), "Cannot fit vector type information into ufUserData pointer.");
     data_t *data = (data_t *) malloc(sizeof(data_t));
     data->type = type;
 	data->populate_with_na = populate_with_na;

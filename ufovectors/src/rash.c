@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-#include "make_sure.h"
+#include "safety_first.h"
 #include "ufo_empty.h"
 
 //-----------------------------------------------------------------------------
@@ -44,7 +44,7 @@
 //--------------------------------------------------------------------------------
 
 inline static void ensure_type(SEXP sexp, SEXPTYPE expected_type) {
-	make_sure(TYPEOF(sexp) == expected_type, Rf_error,
+	(TYPEOF(sexp) == expected_type, Rf_error,
 			"expected %s but found %s",
 			type2char(expected_type),
 			type2char(TYPEOF(sexp)));
@@ -155,7 +155,7 @@ examined_string_vector_t make_examined_string_vector_from(SEXP/*STRSXP*/ strings
 
 examined_string_t make_examined_string_from(examined_string_vector_t strings, R_xlen_t index) {
 	ensure_type(strings.sexp, STRSXP);
-	make_sure(strings.length > index, Rf_error, "index %li out of bounds %li", index, strings.length);
+	make_sure(strings.length > index, "index %li out of bounds %li", index, strings.length);
 
 	SEXP/*CHARSXP*/ string = STRING_ELT(strings.sexp, index);
 	ensure_type(string, CHARSXP);
@@ -357,7 +357,7 @@ bool irash_add(irash_t irash, R_xlen_t index_of_element_in_origin) {
 	ensure_type(irash.origin.sexp, STRSXP);
 
 	make_sure(index_of_element_in_origin >= 0 && index_of_element_in_origin < irash.origin.length,
-			  Rf_error, "index out of range");
+			  "index out of range");
 
 	examined_string_t new_element =
 			make_examined_string_from(irash.origin, index_of_element_in_origin);
@@ -409,7 +409,7 @@ bool irash_add(irash_t irash, R_xlen_t index_of_element_in_origin) {
  */
 bool irash_add_all(irash_t irash, examined_string_vector_t strings) {
 	make_sure(irash.origin.sexp == strings.sexp,
-			  Rf_error, "cannot add from vector other than origin");
+			  "cannot add from vector other than origin");
 
 	ensure_type(irash.hash_to_index_table, REALSXP);
 	ensure_type(irash.origin.sexp, STRSXP);

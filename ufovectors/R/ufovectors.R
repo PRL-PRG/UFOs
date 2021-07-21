@@ -225,6 +225,19 @@ ufo_csv <- function(path, read_only = FALSE, min_load_count = 0, check_names=T, 
 }
 # todo row.names
 
+ufo_vector <- function(mode = "logical", length = 0, populate_with_NAs = FALSE, min_load_count = 0, add_class = .check_add_class()) {
+  allowed_vector_types <- c("integer", "numeric", "logical", "complex", "raw", "character")
+  if(!mode %in% allowed_vector_types) {
+    stop("Vector mode ", mode, " is not supported by UFOs.");
+  }
+
+  constructor <- paste0("ufo_", mode, "_empty")
+  .add_class(.Call(constructor, 
+                   as.numeric(length),
+                   as.logical(populate_with_NAs),
+                   as.integer(.expect_exactly_one(min_load_count))))
+}
+
 ufo_integer <- function(size, populate_with_NAs = FALSE, min_load_count = 0, add_class = .check_add_class()) {
   .add_class(.Call("ufo_intsxp_empty",
                   as.numeric(size),
