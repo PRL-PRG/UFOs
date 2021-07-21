@@ -166,7 +166,7 @@ ufo_vector_bin <- function(type, path, read_only = FALSE, min_load_count = 0, ad
   if (missing(type)) stop("Missing vector type.")
 
   if (type == "integer") return(ufo_integer_bin(path, read_only, min_load_count, add_class))
-  if (type == "numeric") return(ufo_numeric_bin(path, read_only, min_load_count, add_class))
+  if (type == "numeric" || type == "double") return(ufo_numeric_bin(path, read_only, min_load_count, add_class))
   if (type == "complex") return(ufo_complex_bin(path, read_only, min_load_count, add_class))
   if (type == "logical") return(ufo_logical_bin(path, read_only, min_load_count, add_class))
   if (type == "raw")     return(ufo_raw_bin    (path, read_only, min_load_count, add_class))
@@ -178,7 +178,7 @@ ufo_matrix_bin <- function(type, path, rows, cols, read_only = FALSE, min_load_c
   if (missing(type)) stop("Missing matrix type.")
 
   if (type == "integer") return(ufo_matrix_integer_bin(path), rows, cols, read_only, min_load_count, add_class)
-  if (type == "numeric") return(ufo_matrix_numeric_bin(path), rows, cols, read_only, min_load_count, add_class)
+  if (type == "numeric" || type == "double") return(ufo_matrix_numeric_bin(path), rows, cols, read_only, min_load_count, add_class)
   if (type == "complex") return(ufo_matrix_complex_bin(path), rows, cols, read_only, min_load_count, add_class)
   if (type == "logical") return(ufo_matrix_logical_bin(path), rows, cols, read_only, min_load_count, add_class)
   if (type == "raw")     return(ufo_matrix_raw_bin(path),     rows, cols, read_only, min_load_count, add_class)
@@ -226,16 +226,25 @@ ufo_csv <- function(path, read_only = FALSE, min_load_count = 0, check_names=T, 
 # todo row.names
 
 ufo_vector <- function(mode = "logical", length = 0, populate_with_NAs = FALSE, min_load_count = 0, add_class = .check_add_class()) {
-  allowed_vector_types <- c("integer", "numeric", "logical", "complex", "raw", "character")
+  allowed_vector_types <- c("integer", "double", "logical", "complex", "raw", "character")
   if(!mode %in% allowed_vector_types) {
-    stop("Vector mode ", mode, " is not supported by UFOs.");
+    stop("Vector mode ", mode, " is not supported by UFOs.")
   }
 
-  constructor <- paste0("ufo_", mode, "_empty")
+  vector_type = if (mode == "integer") "intsxp"
+    else if (mode == "double" || mode == "numeric") "realsxp"
+    else if (mode == "logical") "lglsxp"
+    else if (mode == "complex") "cplxsxp"
+    else if (mode == "raw") "rawsxp"
+    else if (mode == "character" || mode == "string") "strsxp"
+    else stop("Vector mode ", mode, " is not supported by UFOs.")
+
+  constructor <- paste0("ufo_", vector_type, "_empty")
   .add_class(.Call(constructor, 
                    as.numeric(length),
                    as.logical(populate_with_NAs),
-                   as.integer(.expect_exactly_one(min_load_count))))
+                   as.integer(.expect_exactly_one(min_load_count))), 
+            "ufo", add_class)
 }
 
 ufo_integer <- function(size, populate_with_NAs = FALSE, min_load_count = 0, add_class = .check_add_class()) {

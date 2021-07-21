@@ -30,8 +30,7 @@ export(ufo_numeric_seq)
 export(ufo_csv)
 
 # Chunking functions
-export(ufo_map)
-export(ufo_mapply)
+export(ufo_apply)
 
 # Operators as custom functions
 export(ufo_add)

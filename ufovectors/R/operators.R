@@ -50,11 +50,6 @@ ufo_mutate <- function(x, subscript, values, ..., drop=FALSE, min_load_count=0) 
 # Applying functions by chunks
 #-----------------------------------------------------------------------------
 
-ufo_map <- function(f, ...) {  
-  f <- match.fun(f)
-  ufo_mapply(FUN = f, ..., SIMPLIFY = FALSE)
-}
-
 # Example:
 # arguments:
 # - [p, q, r]
@@ -63,11 +58,11 @@ ufo_map <- function(f, ...) {
 # Expected output:
 # list:
 # - [[1]] [f(p, a, x), f(q, b, y), f(r, c, x), f(p, d, y)]
-ufo_mapply <- function(FUN, ..., MoreArgs = NULL, SIMPLIFY = TRUE, USE.NAMES = TRUE, chunk_size=100000) {
-  
+ufo_apply <- function(FUN, ..., MoreArgs = NULL, USE.NAMES = TRUE, chunk_size=100000) {
+
   # List of vectors that we can create UFOs around.
   allowed_vector_types <- 
-    c("integer", "numeric", "logical", "complex", "raw", "character")
+    c("integer", "double", "logical", "complex", "raw", "character")
 
   # Convert input arguments to a single list.
   # - [[1]] [p, q, r]
@@ -75,13 +70,20 @@ ufo_mapply <- function(FUN, ..., MoreArgs = NULL, SIMPLIFY = TRUE, USE.NAMES = T
   # - [[3]] [x, y]
   input_vectors <- list(...)
 
+  # Nothing to process.
+  if (length(input_vectors) == 0) {
+    return(list())
+  }
+
   # The vectors we return all need to be as large as the largest input vector.
   return_vector_length <- max(mapply(length, input_vectors));
-  number_of_chunks <- ceiling(result_size / chunk_size);
+  number_of_chunks <- ceiling(return_vector_length/ chunk_size);
 
   # Initially the type of the result is not known, so NULL.
   # There is one NULL for each input vector.
-  results <- Map(function(input_vector) NULL, input_vectors)
+  # results <- Map(function(input_vector) NULL, input_vectors)
+  # Actually there's only one result vector.
+  result <- NULL
 
   # Create a UFO for each input vector (of a supported type).
   for (chunk in 0:(.base_subtract(number_of_chunks, 1))) {
@@ -100,61 +102,68 @@ ufo_mapply <- function(FUN, ..., MoreArgs = NULL, SIMPLIFY = TRUE, USE.NAMES = T
     input_chunks <- Map(function(input_vector) {
       .Call("ufo_get_chunk", input_vector, 
                              chunk, chunk_size, 
-                             result_size)
+                             return_vector_length)
     }, input_vectors)
+
+    #browser()
 
     # Execute function f for the chunk and store the result in 
     # reasonably-sized vectors first.
-    result_chunks = do.call(Map, append(f, input_chunks))
+    arguments <- append(list(FUN), input_chunks)
+    result_chunk = do.call(mapply, arguments)
 
     # If this is the first chunk, for each input vector, create a vector to 
     # write all results into. At this point we can determine the return type of
     # the result by inferring it from the type of the first result chunk. We 
     # ASSUME that all returned chunks will have the same type.
     if (chunk == 0) {
-      results <- Map(function(result_chunk) {
+      #result <- Map(function(result_chunk) {
         result_type <- typeof(result_chunk)
         # If the data cannot be constructed as a UFO, warn the user, but
         # proceed nevertheless, using an ordinary vector (which may explode
         # the memory).
-        if(!chunked_result %in% allowed_vector_types) {
-          warning("Vector type ", result_type, "is not supported by ",
+        result <- if(!result_type %in% allowed_vector_types) {
+          warning("Vector type ", result_type, " is not supported by ",
                   "UFOs. Returning an ordinary R object instead.")
           vector(result_type, return_vector_length)
         # Otherwise create a UFO to store the result.
         } else {
           ufo_vector(result_type, return_vector_length)
         }
-      }, result_chunks)
+      #}, result_chunks)
     }
 
     # When the loop is finished, the function f should have been applied to all
     # chunks of all input vectors. The results should be inside `results`.
 
     # Write values of result chunks into result vectors.
-    for (i in 1:length(result_chunks)) {
+    #for (i in 1:length(input_chunks)) {
       # The range to write the changes into is calculated by `ufo_get_chunk`
       # and attached to each input_chunk. We retrieve it here.
-      input_chunk <- input_chunks[[i]]
-      index_start <- attr(result_chunk, 'start_index')
-      index_end <- attr(result_chunk, 'end_index')
+      input_chunk <- input_chunks[[1]]
+      index_start <- attr(input_chunk, 'start_index')
+      index_end <- attr(input_chunk, 'end_index')
       index_range <- index_start:index_end
       # Write the results of f for the chunk into the 
       # approporiate space in one of the result vectors.
-      results[[i]][index_range] <- result_chunks[[i]]  
-    }
+      result[index_range] <- result_chunk
+    #}
   }  
 
   # Do Map exit stuff.
-  if (USE.NAMES && length(dots)) {
-      if (is.null(names1 <- names(dots[[1L]])) && is.character(dots[[1L]])) 
-          names(results) <- dots[[1L]]
-      else if (!is.null(names1)) 
-          names(results) <- names1
+  if (USE.NAMES && length(input_vectors)) {
+      if (is.null(names1 <- names(input_vectors[[1L]])) 
+          && is.character(input_vectors[[1L]])) {
+          names(result) <- input_vectors[[1L]]
+      } else if (!is.null(names1)) {
+          names(result) <- names1
+      }
   }
-  if (!isFALSE(SIMPLIFY) && length(results)) 
-      simplify2array(results, higher = (SIMPLIFY == "array"))
-  else results
+  #if (!isFALSE(SIMPLIFY) && length(results)) 
+  #    simplify2array(results, higher = (SIMPLIFY == "array"))
+  #else results
+
+  result
 }
 
 #-----------------------------------------------------------------------------
