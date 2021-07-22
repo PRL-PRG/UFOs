@@ -1,4 +1,4 @@
-context("UFO vector in place mutation")
+context("UFO vector assignment")
 
 test_ufo_assign <- function (data, subscript, ufo_constructor) {
   new_data_length <- length(data[subscript])
