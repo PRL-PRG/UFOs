@@ -8,8 +8,8 @@ test_ufo_assign <- function (data, subscript, ufo_constructor) {
   ufo <- ufo_constructor(length(data))
   #ufo[seq_len(length(data))] <- data
 
-  #ufo[subscript] <- new_data
-  ufo[ufo_subscript(ufo, subscript)] <- new_data
+  ufo[subscript] <- new_data
+  #ufo[ufo_subscript(ufo, subscript)] <- new_data
 
   reference_vector <- vector(typeof(ufo), length(data))
   reference_vector[subscript] <- new_data

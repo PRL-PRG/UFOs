@@ -46,8 +46,9 @@ ufo_subscript <- function(x, subscript, min_load_count=0) {
 # when we do, I think.# Unless we really dig into it and re-create it from 
 # scratch. This would perhaps be nicer, but subset assign works out of the box,
 # provided the subscript is small enough. If the subscript is big, there is 
-# v[ufo_subscript(v, i)] <- v as a potential workaround. Another alternative is
-# to explicitly mutate in-place with ufo_mutate.
+# v[ufo_subscript(v, i)] <- v as a potential workaround, but it will cause the
+# subscript to be re-created anyway, to change to 0-indexing, so... Another 
+# alternative is to explicitly mutate in-place with ufo_mutate.
 
 # Warnign: buggy.
 ufo_mutate <- function(x, subscript, values, ..., drop=FALSE, min_load_count=0) { # drop ignored for ordinary vectors, it seems?
