@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
 
   uint64_t ct = 1024ull*1024*1024*2 + 1, sz = ct*8 ;
   // uint64_t ct = 1ull*1024*1024 + 1, sz = ct*8 ;
-  UfoObj o = ufo_new(&ufoCore, &prototype, ct, &ct, testpopulate);
+  UfoObj o = ufo_new_with_prototype(&ufoCore, &prototype, ct, &ct, testpopulate);
 
   // uint64_t* h = (uint64_t*) ufo_header_ptr(&o);
 

@@ -108,16 +108,28 @@ impl UfoCore {
     }
 
     #[no_mangle]
-    pub extern "C" fn ufo_get_by_address(&self, ptr: usize) -> UfoObj{
+    pub extern "C" fn ufo_get_by_address(&self, ptr: *mut libc::c_void) -> UfoObj{
         std::panic::catch_unwind(|| {
             self.deref()
             .and_then( |core| {
                 let ufo = core
-                    .get_ufo_by_address(ptr).ok()?;
+                    .get_ufo_by_address(ptr as usize).ok()?;
                 Some(UfoObj::wrap(ufo))
             })
             .unwrap_or_else(UfoObj::none)
         }).unwrap_or_else(|_| UfoObj::none())
+    }
+
+    #[no_mangle]
+    pub extern "C" fn ufo_address_is_ufo_object(&self, ptr: *mut libc::c_void) -> bool{
+        std::panic::catch_unwind(|| {
+            self.deref()
+            .and_then( |core| {
+                core.get_ufo_by_address(ptr as usize).ok()?;
+                Some(true)
+            })
+            .unwrap_or(false)
+        }).unwrap_or(false)
     }
 
     #[no_mangle]
@@ -170,7 +182,7 @@ impl UfoCore {
 
 
     #[no_mangle]
-    pub extern "C" fn ufo_new(
+    pub extern "C" fn ufo_new_with_prototype(
         &self,
         prototype: &UfoPrototype,
         ct: libc::size_t,

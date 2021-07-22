@@ -4,7 +4,7 @@
 LDLIBS = -Wl,--no-as-needed -lpthread -lrt -ldl -lm -lstdc++ libufos_c.a
 #LDFLAGS = "-Wl,-rpath=\$$ORIGIN/" -Wl,-z,origin
 LDFLAGS = 
-CFLAGS = -fpic -g -O2 -Wall -Werror -DNDEBUG -I../rust/ufos_c/target/
+CFLAGS = -fpic -g -O2 -Wall -Werror -DNDEBUG -I../../rust/ufos_c/target/
 #CFLAGS = -Og -ggdb -Wall -Werror -fPIC
 
 all: userfaultSpeedTest ufoTest ufoSpeedTest

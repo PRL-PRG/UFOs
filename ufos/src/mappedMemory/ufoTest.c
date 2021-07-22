@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
     uint64_t ct = 1024ull*1024*((rand() & 0xffull) + 1), sz = ct*8;
     UNUSED(sz);
 
-    UfoObj o = ufo_new(&ufoCore, &ufoPrototype, ct, &ct, testpopulate);
+    UfoObj o = ufo_new_with_prototype(&ufoCore, &ufoPrototype, ct, &ct, testpopulate);
     if(ufo_is_error(&o))
       goto bad_ufo;
 

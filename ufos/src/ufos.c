@@ -7,7 +7,7 @@
 #include "ufos.h"
 #include "R_ext.h"
 //#include "mappedMemory/userfaultCore.h"
-#include "rust/ufos_c/target/ufos_c.h"
+#include "ufos_c.h"
 
 #include "make_sure.h"
 
@@ -20,7 +20,7 @@ SEXP ufo_shutdown() {
     if (__framework_initialized) {
         __framework_initialized = 0;
         // Actual shutdown
-        int result = ufo_core_shutdown(__ufo_system);
+        ufo_core_shutdown(__ufo_system);
     }
     return R_NilValue;
 }
@@ -30,10 +30,10 @@ SEXP ufo_initialize() {
         __framework_initialized = 1;
 
         // Actual initialization
-        size_t high = 2 * 1024 * 1024 * 1024;
-        size_t low = 1 * 1024 * 1024 * 1024;
+        size_t high = 2l * 1024 * 1024 * 1024;
+        size_t low = 1l * 1024 * 1024 * 1024;
         __ufo_system = ufo_new_core("/tmp/", high, low);
-        if (ufo_core_is_error(__ufo_system)) {
+        if (ufo_core_is_error(&__ufo_system)) {
             Rf_error("Error initializing the UFO framework");
         }
     }
@@ -72,7 +72,7 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
 			  	  	  	  	  	  	  	  	  	  	  	  	  	  	   source->vector_size *  source->element_size);
 
     UfoObj object = ufo_new_no_prototype(
-        __ufo_system,
+        &__ufo_system,
         sexp_header_size + sexp_metadata_size,
         __get_stride_from_type_or_die(source->vector_type),
         source->min_load_count,
@@ -82,16 +82,16 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
         source->population_function
     );
 
-    if (ufo_is_error(object)) {
-        Rf_error("Could not create UFO (%i)", status);
+    if (ufo_is_error(&object)) {
+        Rf_error("Could not create UFO");
     }
 
-    return ufo_header_ptr(object);
+    return ufo_header_ptr(&object);
 }
 
 void __ufo_free(R_allocator_t *allocator, void *ptr) {
-    UfoObj object = ufo_get_by_address(__ufo_system, ptr);
-    if (ufo_is_error(object)) {
+    UfoObj object = ufo_get_by_address(&__ufo_system, ptr);
+    if (ufo_is_error(&object)) {
         Rf_error("Tried freeing a UFO, "
                  "but the provided address is not a UFO address.");
     }
@@ -139,38 +139,19 @@ int __vector_will_be_scalarized(SEXPTYPE type, size_t length) {
     return length == 1 && (type == REALSXP || type == INTSXP || type == LGLSXP);
 }
 
-// FIXME This is copied from userfaultCore. Maybe userfault can expose some sort
-// of callout stub function for me?
-int __callout_stub(ufPopulateCalloutMsg* msg){
-    switch(msg->cmd){
-        case ufResolveRangeCmd:
-            return 0; // Not yet implemented, but this is advisory only so no
-                      // error
-        case ufExpandRange:
-            return ufWarnNoChange; // Not yet implemented, but callers have to
-                                   // deal with this anyway, even spuriously
-        default:
-            return ufBadArgs;
-    }
-    __builtin_unreachable();
-}
-
 void __prepopulate_scalar(SEXP scalar, ufo_source_t* source) {
-    source->population_function(0, source->vector_size, __callout_stub,
-                                source->data, DATAPTR(scalar));
+    source->population_function(DATAPTR(scalar), 0, source->vector_size,
+                                source->data);
 }
 
 void __reset_vector(SEXP vector) {
-	 ufObject_t object = ufLookupObjectByMemberAddress(__ufo_system, vector);
-	 if (object == NULL) {
+	 UfoObj object = ufo_get_by_address(&__ufo_system, vector);
+	 if (ufo_is_error(&object)) {
 	     Rf_error("Tried resetting a UFO, "
 	              "but the provided address is not a UFO header address.");
 	 }
 
-	 int result = ufResetObject(object);
-	 if (result != 0) {
-		 Rf_error("Tried resetting a UFO, but something went wrong.");
-	 }
+	 ufo_reset(&object);
 }
 
 SEXP ufo_new(ufo_source_t* source) {
@@ -194,7 +175,7 @@ SEXP ufo_new(ufo_source_t* source) {
 
     // Workaround for strings being populated with empty string pointers in vectorAlloc3.
     // Reset will remove all values from the vector and get rid of the temporary files on disk.
-    if (type == STRSXP && ufIsObject(__ufo_system, ufo)) {
+    if (type == STRSXP && ufo_address_is_ufo_object(&__ufo_system, ufo)) {
     	__reset_vector(ufo);
     }
 
@@ -236,7 +217,7 @@ SEXP ufo_new_multidim(ufo_source_t* source) {
 
 SEXP is_ufo(SEXP x) {
 	SEXP/*LGLSXP*/ response = PROTECT(allocVector(LGLSXP, 1));
-	if(ufIsObject(__ufo_system, x)) {
+	if(ufo_address_is_ufo_object(&__ufo_system, x)) {
 		SET_LOGICAL_ELT(response, 0, 1);//TODO Rtrue and Rfalse
 	} else {
 		SET_LOGICAL_ELT(response, 0, 0);
@@ -245,6 +226,3 @@ SEXP is_ufo(SEXP x) {
 	return response;
 }
 
-SEXP is_read_only(SEXP x) {
-    // TODO
-}

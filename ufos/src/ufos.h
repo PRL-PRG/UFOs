@@ -1,7 +1,7 @@
 #pragma once
 
 //#include "mappedMemory/userfaultCore.h"
-#include "rust/ufos_c/target/ufos_c.h"
+#include "ufos_c.h"
 
 #include <R.h>
 #include <Rinternals.h>

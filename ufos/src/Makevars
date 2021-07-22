@@ -6,43 +6,30 @@ DEBUGGING=1
 
 #PKG_CXXFLAGS =
 #PKG_CPPFLAGS = -pthread
-PKG_LIBS = 
+#PKG_LIBS = 
+PKG_LIBS = -Wl,--no-as-needed -lpthread -lrt -ldl -lm -lstdc++ libufos_c.a
 ifeq ($(DEBUGGING), 1)
-	CFLAGS = -Og -ggdb -fPIC -Wall -Werror
-	PKG_CFLAGS = -DMAKE_SURE -g -Og -Wall -Werror
+	PKG_CFLAGS = -DMAKE_SURE -Og -ggdb -fPIC -Wall -Werror -DNDEBUG -I../rust/ufos_c/target/
 else
-	CFLAGS = -O2 -fpic -Wall -Werror
-	PKG_CFLAGS = -DMAKE_SURE -O2 -Wall -Werror
+	PKG_CFLAGS = -DMAKE_SURE -O2 -fpic -Wall -Werror -DNDEBUG -I../rust/ufos_c/target/
 endif
 
 SOURCES_C = init.c ufos.c R_ext.c
 
 OBJECTS = $(SOURCES_C:.c=.o)
 
-#SUBDIRS = mappedMemory mappedMemory/blake3
-#SUBLIBS = $(SUBDIRS:=.a)
-SUBDIRS = rust
-SUBLIBS = rust/ufos_c/libufos_c.a
-
 all: $(SHLIB)
-$(SHLIB): $(OBJECTS) sublibs
+$(SHLIB): $(OBJECTS) rust
 
-sublibs: subclean sublibraries
+rust:
+	$(MAKE) -C ../rust
 
-sublibraries: subclean
-	@for d in $(SUBDIRS); do \
-	  (cd $${d} && CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" MAKE="$(MAKE) -f \"$(MkInclude)\" -f Makefile" $(MAKE) -f "$(MkInclude)" -f Makefile library) || exit 1; \
-	done
+rustclean:
+	$(MAKE) -C ../rust clean
 
-clean: subclean
+clean: rustclean
 	@-rm -rf .libs _libs
 	@-rm -f *.o $(SHLIB)
 
-subclean:
-	@-rm -f *.a
-	@for d in $(SUBDIRS); do \
-	  (cd $${d} && MkInclude="$(MkInclude)" $(MAKE) clean) || exit 1; \
-	done
-
-init.o: init.c ufos.h mappedMemory/userfaultCore.h
-ufoTest.o: ufos.c ufos.h mappedMemory/userfaultCore.h
+init.o: init.c ufos.h rust
+ufoTest.o: ufos.c ufos.h rust
