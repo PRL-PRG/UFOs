@@ -18,6 +18,8 @@ SOURCES_C = init.c ufos.c R_ext.c
 
 OBJECTS = $(SOURCES_C:.c=.o)
 
+.PHONY: all rust rustclean clean
+
 all: $(SHLIB)
 $(SHLIB): $(OBJECTS) rust
 
@@ -27,7 +29,7 @@ rust:
 rustclean:
 	$(MAKE) -C ../rust clean
 
-clean: rustclean
+shlib-clean: rustclean
 	@-rm -rf .libs _libs
 	@-rm -f *.o $(SHLIB)
 
