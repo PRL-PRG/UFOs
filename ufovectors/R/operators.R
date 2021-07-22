@@ -56,8 +56,7 @@ ufo_mutate <- function(x, subscript, values, ..., drop=FALSE, min_load_count=0) 
 # - [a, b, c, d]
 # - [x, y]
 # Expected output:
-# list:
-# - [[1]] [f(p, a, x), f(q, b, y), f(r, c, x), f(p, d, y)]
+# - [f(p, a, x), f(q, b, y), f(r, c, x), f(p, d, y)]
 ufo_apply <- function(FUN, ..., MoreArgs = NULL, USE.NAMES = TRUE, chunk_size=100000) {
 
   # List of vectors that we can create UFOs around.
@@ -105,8 +104,6 @@ ufo_apply <- function(FUN, ..., MoreArgs = NULL, USE.NAMES = TRUE, chunk_size=10
                              return_vector_length)
     }, input_vectors)
 
-    #browser()
-
     # Execute function f for the chunk and store the result in 
     # reasonably-sized vectors first.
     arguments <- append(list(FUN), input_chunks)
@@ -117,40 +114,36 @@ ufo_apply <- function(FUN, ..., MoreArgs = NULL, USE.NAMES = TRUE, chunk_size=10
     # the result by inferring it from the type of the first result chunk. We 
     # ASSUME that all returned chunks will have the same type.
     if (chunk == 0) {
-      #result <- Map(function(result_chunk) {
-        result_type <- typeof(result_chunk)
-        # If the data cannot be constructed as a UFO, warn the user, but
-        # proceed nevertheless, using an ordinary vector (which may explode
-        # the memory).
-        result <- if(!result_type %in% allowed_vector_types) {
-          warning("Vector type ", result_type, " is not supported by ",
-                  "UFOs. Returning an ordinary R object instead.")
-          vector(result_type, return_vector_length)
-        # Otherwise create a UFO to store the result.
-        } else {
-          ufo_vector(result_type, return_vector_length)
-        }
-      #}, result_chunks)
+      result_type <- typeof(result_chunk)
+      # If the data cannot be constructed as a UFO, warn the user, but
+      # proceed nevertheless, using an ordinary vector (which may explode
+      # the memory).
+      result <- if(!result_type %in% allowed_vector_types) {
+        warning("Vector type ", result_type, " is not supported by ",
+                "UFOs. Returning an ordinary R object instead.")
+        vector(result_type, return_vector_length)
+      # Otherwise create a UFO to store the result.
+      } else {
+        ufo_vector(result_type, return_vector_length)
+      }
     }
 
     # When the loop is finished, the function f should have been applied to all
     # chunks of all input vectors. The results should be inside `results`.
 
-    # Write values of result chunks into result vectors.
-    #for (i in 1:length(input_chunks)) {
-      # The range to write the changes into is calculated by `ufo_get_chunk`
-      # and attached to each input_chunk. We retrieve it here.
-      input_chunk <- input_chunks[[1]]
-      index_start <- attr(input_chunk, 'start_index')
-      index_end <- attr(input_chunk, 'end_index')
-      index_range <- index_start:index_end
-      # Write the results of f for the chunk into the 
-      # approporiate space in one of the result vectors.
-      result[index_range] <- result_chunk
-    #}
+    # Write values of result chunks into the result vector.
+    # The range to write the changes into is calculated by `ufo_get_chunk`
+    # and attached to each input_chunk. We retrieve it here.
+    input_chunk <- input_chunks[[1]]
+    index_start <- attr(input_chunk, 'start_index')
+    index_end <- attr(input_chunk, 'end_index')
+    index_range <- index_start:index_end
+    # Write the results of f for the chunk into the 
+    # approporiate space in one of the result vector.
+    result[index_range] <- result_chunk
   }  
 
-  # Do Map exit stuff.
+  # Do Map naming exit stuff.
   if (USE.NAMES && length(input_vectors)) {
       if (is.null(names1 <- names(input_vectors[[1L]])) 
           && is.character(input_vectors[[1L]])) {
@@ -159,9 +152,12 @@ ufo_apply <- function(FUN, ..., MoreArgs = NULL, USE.NAMES = TRUE, chunk_size=10
           names(result) <- names1
       }
   }
-  #if (!isFALSE(SIMPLIFY) && length(results)) 
-  #    simplify2array(results, higher = (SIMPLIFY == "array"))
-  #else results
+
+  # We do not support unsimplified results, because the type would not work 
+  # well with UFOs (list of vectors).
+  # if (!isFALSE(SIMPLIFY) && length(results)) 
+  #     simplify2array(results, higher = (SIMPLIFY == "array"))
+  # else results
 
   result
 }
