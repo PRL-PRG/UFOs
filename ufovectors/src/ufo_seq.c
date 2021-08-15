@@ -1,5 +1,4 @@
 #include "../include/ufos.h"
-#include "../include/mappedMemory/userfaultCore.h"
 #include "ufo_seq.h"
 #include "make_sure.h"
 #include "helpers.h"
@@ -10,13 +9,12 @@ typedef struct {
     int by;
 } ufo_seq_data_t;
 
-void destroy_data(ufUserData *data) {
+void destroy_data(void* data) {
     ufo_seq_data_t *ufo_seq_data = (ufo_seq_data_t*) data;
     free(ufo_seq_data);
 }
 
-int populate_integer_seq(uint64_t startValueIdx, uint64_t endValueIdx,
-             ufPopulateCallout callout, ufUserData userData, char* target) {
+int populate_integer_seq(void* userData, uintptr_t startValueIdx, uintptr_t endValueIdx, unsigned char* target) {
 
     ufo_seq_data_t* data = (ufo_seq_data_t*) userData;
 
@@ -27,9 +25,7 @@ int populate_integer_seq(uint64_t startValueIdx, uint64_t endValueIdx,
     return 0;
 }
 
-int populate_double_seq(uint64_t startValueIdx, uint64_t endValueIdx,
-             ufPopulateCallout callout, ufUserData userData, char* target) {
-
+int populate_double_seq(void* userData, uintptr_t startValueIdx, uintptr_t endValueIdx, unsigned char* target) {
     ufo_seq_data_t* data = (ufo_seq_data_t*) userData;
 
     for (size_t i = 0; i < endValueIdx - startValueIdx; i++) {
@@ -75,7 +71,7 @@ SEXP/*:result_type*/ ufo_seq(ufo_vector_type_t result_type, SEXP/*INTXP*/ from, 
     data->from = from_value;
     data->to = to_value;
     data->by = by_value;
-    source->data = (ufUserData) data;
+    source->data = (void*) data;
 
     source->destructor_function = &destroy_data;
 

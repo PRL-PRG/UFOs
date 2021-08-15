@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../include/ufos_c.h"
+#include "../include/ufos.h"
 
 typedef struct {
     const char*         path;

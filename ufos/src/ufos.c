@@ -29,6 +29,8 @@ SEXP ufo_initialize() {
     if (!__framework_initialized) {
         __framework_initialized = 1;
 
+    // ufo_begin_log(); // very verbose rust logging
+
         // Actual initialization
         size_t high = 2l * 1024 * 1024 * 1024;
         size_t low = 1l * 1024 * 1024 * 1024;
@@ -81,6 +83,7 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
         source->data, // populate data
         source->population_function
     );
+
 
     if (ufo_is_error(&object)) {
         Rf_error("Could not create UFO");
@@ -140,8 +143,7 @@ int __vector_will_be_scalarized(SEXPTYPE type, size_t length) {
 }
 
 void __prepopulate_scalar(SEXP scalar, ufo_source_t* source) {
-    source->population_function(DATAPTR(scalar), 0, source->vector_size,
-                                source->data);
+    source->population_function(source->data, 0, source->vector_size, DATAPTR(scalar));
 }
 
 void __reset_vector(SEXP vector) {

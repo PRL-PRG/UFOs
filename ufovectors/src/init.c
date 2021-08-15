@@ -74,12 +74,9 @@ static const R_CallMethodDef CallEntries[] = {
 // Initializes the package and registers the routines with the Rdynload
 // library. Name follows the pattern: R_init_<package_name> 
 void attribute_visible R_init_ufovectors(DllInfo *dll) {
-//    ufo_new = R_GetCCallable("ufos", "ufo_new");
-//    ufo_shutdown = R_GetCCallable("ufos", "ufo_shutdown");
-    //InitUFOAltRepClass(dll);
-    //R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
-    //R_useDynamicSymbols(dll, FALSE);
-    //R_forceSymbols(dll, TRUE);
+    R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
+    R_useDynamicSymbols(dll, FALSE);
+    R_forceSymbols(dll, TRUE);
 }
 
 

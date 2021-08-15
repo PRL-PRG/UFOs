@@ -1,12 +1,13 @@
 #pragma once
 
 //#include "mappedMemory/userfaultCore.h"
-#include "ufos_c.h"
+// #include "ufos_c.h"
 
 #include <R.h>
 #include <Rinternals.h>
 
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef enum {
     UFO_CHAR = CHARSXP,
@@ -19,12 +20,14 @@ typedef enum {
 	UFO_VEC  = VECSXP,
 } ufo_vector_type_t;
 
+typedef int32_t (*UfoPopulateCallout)(void*, uintptr_t, uintptr_t, unsigned char*);
+
 // Function types for ufo_source_t
-typedef void (*ufo_destructor_t)(UfoPopulateData*);
+typedef void (*ufo_destructor_t)(void*);
 
 // Source definition
 typedef struct {
-    UfoPopulateData     data;
+    void*               data;
     UfoPopulateCallout  population_function;
     ufo_destructor_t    destructor_function;
     ufo_vector_type_t   vector_type;

@@ -3,9 +3,6 @@
 #include <stdio.h>
 #include <stdint.h>
 
-//#include "../../include/mappedMemory/userfaultCore.h"
-#include "../../include/ufos_c.h"
-
 /**
  * Load a range of values from a binary file.
  *
@@ -21,9 +18,9 @@
  *         file, 44 if reading failed.
  */
 int32_t __load_from_file(
-    UfoPopulateData user_data,
-    uint64_t start, uint64_t end,
-    char* target);
+    void* user_data,
+    uintptr_t start, uintptr_t end,
+    unsigned char* target);
 
 // int __save_to_file(
 //     UfoPopulateData user_data,

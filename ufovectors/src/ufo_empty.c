@@ -11,8 +11,6 @@
 #include "helpers.h"
 #include "debug.h"
 
-#include "../include/ufos_c.h"
-
 #include "make_sure.h"
 
 typedef struct {
@@ -20,15 +18,15 @@ typedef struct {
 	bool              populate_with_na;
 } data_t;
 
-int32_t __populate_empty(UfoPopulateData user_data, uint64_t start, uint64_t end, char* target) {
-	data_t data = *((data_t*) user_data);	
+static int32_t __populate_empty(void* user_data, uintptr_t start, uintptr_t end, unsigned char* target) {
+	data_t data = *((data_t*) user_data);
 
 	if (__get_debug_mode()) {
 	    REprintf("__populate\n");
-	    REprintf("    vector type: %d\n", data.type);
+	    REprintf("    vector type: %d, data address was %ld\n", data.type, (uintptr_t) user_data);
 	}
 
-	size_t size = end - start;
+	uintptr_t size = end - start;
 	switch (data.type) {
 	case UFO_VEC: {
 		SEXP *sexp_vector = (SEXP *) target;
@@ -109,19 +107,19 @@ int32_t __populate_empty(UfoPopulateData user_data, uint64_t start, uint64_t end
 		Rf_error("Cannot create UFO of type CHARSXP");
 	}}
 
-	REprintf("Unknown vector type %i", data.type);
+	REprintf("Unknown vector type %i\n", data.type);
 	return 1;
 }
 
-void __destroy_empty(UfoPopulateData user_data) {
-    int64_t *type = (int64_t *) user_data;
+void __destroy_empty(void* user_data) {
+    data_t *data = (data_t*) user_data;
 
     if (__get_debug_mode()) {
         REprintf("__destroy_empty\n");
-        REprintf("    vector type: %d\n", type);
+        REprintf("    vector type: %d\n", data->type);
     }
 
-    free(type);
+    free(data);
 }
 
 SEXP ufo_empty(ufo_vector_type_t type, R_xlen_t size, bool populate_with_na, int32_t min_load_count) {
@@ -144,7 +142,7 @@ SEXP ufo_empty(ufo_vector_type_t type, R_xlen_t size, bool populate_with_na, int
     data_t *data = (data_t *) malloc(sizeof(data_t));
     data->type = type;
 	data->populate_with_na = populate_with_na;
-    source->data = (UfoPopulateData) data;
+    source->data = (void*) data;
 
     ufo_new_t ufo_new = (ufo_new_t) R_GetCCallable("ufos", "ufo_new");
     SEXP result = ufo_new(source);

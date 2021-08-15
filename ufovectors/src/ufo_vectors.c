@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <assert.h>
 
 #define USE_RINTERNALS
@@ -15,11 +16,9 @@
 
 #include "make_sure.h"
 
-#include "../include/mappedMemory/userfaultCore.h"
-
 int ufo_initialized = 0;
 
-void __destroy(ufUserData *user_data) {
+void __destroy(void* user_data) {
     ufo_file_source_data_t *data = (ufo_file_source_data_t*) user_data;
     if (__get_debug_mode()) {
         REprintf("__destroy\n");
@@ -47,7 +46,7 @@ ufo_source_t* __make_source_or_die(ufo_vector_type_t type, const char *path, int
 
     source->population_function = &__load_from_file;
     source->destructor_function = &__destroy;
-    source->data = (ufUserData*) data;
+    source->data = (void*) data;
     source->vector_type = type;
     source->element_size = __get_element_size(type);
     source->vector_size = __get_vector_length_from_file_or_die(path, source->element_size);

@@ -1,11 +1,12 @@
+use std::fmt::Debug;
 use std::sync::{Arc, RwLockWriteGuard};
 
 use anyhow::Result;
 
 use libc::c_void;
-use ufos_core::{UfoCoreConfig, UfoObjectConfigPrototype, UfoPopulateError, WrappedUfoObject, UfoObject};
-
-
+use ufos_core::{
+    UfoCoreConfig, UfoObject, UfoObjectConfigPrototype, UfoPopulateError, WrappedUfoObject,
+};
 
 macro_rules! opaque_c_type {
     ($wrapper_name:ident, $wrapped_type:ty) => {
@@ -62,20 +63,21 @@ pub struct UfoCore {
 opaque_c_type!(UfoCore, Arc<ufos_core::UfoCore>);
 
 type UfoPopulateData = *mut c_void;
-type UfoPopulateCallout = extern "C" fn(UfoPopulateData, libc::size_t, libc::size_t, *mut libc::c_uchar) -> i32;
+type UfoPopulateCallout = extern "C" fn(UfoPopulateData, usize, usize, *mut libc::c_uchar) -> i32;
 
 impl UfoCore {
     #[no_mangle]
     pub unsafe extern "C" fn ufo_new_core(
         writeback_temp_path: *const libc::c_char,
-        low_water_mark: libc::size_t,
-        high_water_mark: libc::size_t,
+        low_water_mark: usize,
+        high_water_mark: usize,
     ) -> Self {
         std::panic::catch_unwind(|| {
             let wb = std::ffi::CStr::from_ptr(writeback_temp_path)
-                .to_str().expect("invalid string")
+                .to_str()
+                .expect("invalid string")
                 .to_string();
-            
+
             let mut low_water_mark = low_water_mark;
             let mut high_water_mark = high_water_mark;
 
@@ -108,28 +110,32 @@ impl UfoCore {
     }
 
     #[no_mangle]
-    pub extern "C" fn ufo_get_by_address(&self, ptr: *mut libc::c_void) -> UfoObj{
+    pub extern "C" fn ufo_get_by_address(&self, ptr: *mut libc::c_void) -> UfoObj {
         std::panic::catch_unwind(|| {
             self.deref()
-            .and_then( |core| {
-                let ufo = core
-                    .get_ufo_by_address(ptr as usize).ok()?;
-                Some(UfoObj::wrap(ufo))
-            })
-            .unwrap_or_else(UfoObj::none)
-        }).unwrap_or_else(|_| UfoObj::none())
+                .and_then(|core| {
+                    let ufo = core
+                        .get_ufo_by_address(ptr as usize)
+                        .expect("UFO lookup failed");
+                    Some(UfoObj::wrap(ufo))
+                })
+                .unwrap_or_else(UfoObj::none)
+        })
+        .unwrap_or_else(|_| UfoObj::none())
     }
 
     #[no_mangle]
-    pub extern "C" fn ufo_address_is_ufo_object(&self, ptr: *mut libc::c_void) -> bool{
+    pub extern "C" fn ufo_address_is_ufo_object(&self, ptr: *mut libc::c_void) -> bool {
         std::panic::catch_unwind(|| {
             self.deref()
-            .and_then( |core| {
-                core.get_ufo_by_address(ptr as usize).ok()?;
-                Some(true)
-            })
-            .unwrap_or(false)
-        }).unwrap_or(false)
+                .and_then(|core| {
+                    core.get_ufo_by_address(ptr as usize)
+                        .expect("UFO lookup failed");
+                    Some(true)
+                })
+                .unwrap_or(false)
+        })
+        .unwrap_or(false)
     }
 
     #[no_mangle]
@@ -152,26 +158,19 @@ impl UfoCore {
                 read_only,
             );
 
-        let callback_data_int = callback_data as usize;
+            let callback_data_int = callback_data as usize;
             let populate = move |start, end, to_populate| {
-                let ret = populate(
-                    callback_data_int as *mut c_void,
-                    start,
-                    end,
-                    to_populate,
-                );
+                let ret = populate(callback_data_int as *mut c_void, start, end, to_populate);
 
                 if ret != 0 {
                     Err(UfoPopulateError)
-                }else{
+                } else {
                     Ok(())
                 }
             };
             let r = self
                 .deref()
-                .map(move |core| {
-                    core.allocate_ufo(prototype.new_config(ct, Box::new(populate)))
-                });
+                .map(move |core| core.allocate_ufo(prototype.new_config(ct, Box::new(populate))));
             match r {
                 Some(Ok(ufo)) => UfoObj::wrap(ufo),
                 _ => UfoObj::none(),
@@ -179,7 +178,6 @@ impl UfoCore {
         })
         .unwrap_or_else(|_| UfoObj::none())
     }
-
 
     #[no_mangle]
     pub extern "C" fn ufo_new_with_prototype(
@@ -192,16 +190,11 @@ impl UfoCore {
         std::panic::catch_unwind(|| {
             let callback_data_int = callback_data as usize;
             let populate = move |start, end, to_populate| {
-                let ret = populate(
-                    callback_data_int as *mut c_void,
-                    start,
-                    end,
-                    to_populate,
-                );
+                let ret = populate(callback_data_int as *mut c_void, start, end, to_populate);
 
                 if ret != 0 {
                     Err(UfoPopulateError)
-                }else{
+                } else {
                     Ok(())
                 }
             };
@@ -225,7 +218,6 @@ pub struct UfoPrototype {
     ptr: *mut c_void,
 }
 opaque_c_type!(UfoPrototype, UfoObjectConfigPrototype);
-
 
 impl UfoPrototype {
     #[no_mangle]
@@ -253,7 +245,7 @@ impl UfoPrototype {
     }
 
     #[no_mangle]
-    pub extern "C" fn ufo_free_prototype(self){}
+    pub extern "C" fn ufo_free_prototype(self) {}
 }
 
 #[repr(C)]
@@ -266,13 +258,13 @@ opaque_c_type!(UfoObj, WrappedUfoObject);
 impl UfoObj {
     fn with_ufo<F, T, E>(&self, f: F) -> Option<T>
     where
-        F: FnOnce(RwLockWriteGuard<UfoObject>) -> Result<T, E>
+        F: FnOnce(RwLockWriteGuard<UfoObject>) -> Result<T, E>,
+        E: Debug,
     {
-        self.deref()
-            .and_then(|ufo| {
-                    ufo.write().ok()
-                    .map(f)?.ok()
-            })
+        self.deref().map(|ufo| {
+            let locked_ufo = ufo.write().expect("unable to lock UFO");
+            f(locked_ufo).expect("Function call failed")
+        })
     }
 
     #[no_mangle]
@@ -290,7 +282,7 @@ impl UfoObj {
     pub extern "C" fn ufo_header_ptr(&self) -> *mut std::ffi::c_void {
         std::panic::catch_unwind(|| {
             self.with_ufo(|ufo| Ok::<*mut c_void, ()>(ufo.header_ptr()))
-            .unwrap_or_else(|| std::ptr::null_mut())
+                .unwrap_or_else(|| std::ptr::null_mut())
         })
         .unwrap_or_else(|_| std::ptr::null_mut())
     }
@@ -299,7 +291,7 @@ impl UfoObj {
     pub extern "C" fn ufo_body_ptr(&self) -> *mut std::ffi::c_void {
         std::panic::catch_unwind(|| {
             self.with_ufo(|ufo| Ok::<*mut c_void, ()>(ufo.body_ptr()))
-            .unwrap_or_else(|| std::ptr::null_mut())
+                .unwrap_or_else(|| std::ptr::null_mut())
         })
         .unwrap_or_else(|_| std::ptr::null_mut())
     }
@@ -308,10 +300,16 @@ impl UfoObj {
     pub extern "C" fn ufo_free(self) {
         std::panic::catch_unwind(|| {
             self.deref()
-            .and_then(|ufo| ufo.write().ok()?.free().ok())
-            .map(|w| w.wait())
-            .unwrap_or(())
-        }).unwrap_or(())
+                .map(|ufo| {
+                    ufo.write()
+                        .expect("unable to lock UFO")
+                        .free()
+                        .expect("unable to free UFO")
+                })
+                .map(|w| w.wait())
+                .unwrap_or(())
+        })
+        .unwrap_or(())
     }
 
     #[no_mangle]
