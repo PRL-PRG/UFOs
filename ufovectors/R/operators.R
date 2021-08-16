@@ -3,25 +3,25 @@
 #-----------------------------------------------------------------------------
 
 ufo_add           <- function(x, y) 
-                       if(missing(y)) .ufo_unary (.base_add,           "ufo_neg_result", x) else
-                                      .ufo_binary(.base_add,           "ufo_fit_result", x, y)
+                       if(missing(y)) .ufo_unary (.base_add,           UFO_C_neg_result, x) else
+                                      .ufo_binary(.base_add,           UFO_C_fit_result, x, y)
 ufo_subtract      <- function(x, y)   
-                       if(missing(y)) .ufo_unary (.base_subtract,      "ufo_neg_result", x) else
-                                      .ufo_binary(.base_subtract,      "ufo_fit_result", x, y) 
-ufo_multiply      <- function(x, y)   .ufo_binary(.base_multiply,      "ufo_fit_result", x, y)
-ufo_divide        <- function(x, y)   .ufo_binary(.base_divide,        "ufo_div_result", x, y)
-ufo_int_divide    <- function(x, y)   .ufo_binary(.base_int_divide,    "ufo_mod_result", x, y)
-ufo_power         <- function(x, y)   .ufo_binary(.base_power,         "ufo_div_result", x, y)
-ufo_modulo        <- function(x, y)   .ufo_binary(.base_modulo,        "ufo_mod_result", x, y)
-ufo_less          <- function(x, y)   .ufo_binary(.base_less,          "ufo_rel_result", x, y)
-ufo_less_equal    <- function(x, y)   .ufo_binary(.base_less_equal,    "ufo_rel_result", x, y)
-ufo_greater       <- function(x, y)   .ufo_binary(.base_greater,       "ufo_rel_result", x, y)
-ufo_greater_equal <- function(x, y)   .ufo_binary(.base_greater_equal, "ufo_rel_result", x, y)
-ufo_equal         <- function(x, y)   .ufo_binary(.base_equal,         "ufo_log_result", x, y)
-ufo_unequal       <- function(x, y)   .ufo_binary(.base_unequal,       "ufo_log_result", x, y)
-ufo_or            <- function(x, y)   .ufo_binary(.base_or,            "ufo_log_result", x, y)
-ufo_and           <- function(x, y)   .ufo_binary(.base_and,           "ufo_log_result", x, y)
-ufo_not           <- function(x)      .ufo_unary (.base_not,           "ufo_neg_result", x)
+                       if(missing(y)) .ufo_unary (.base_subtract,      UFO_C_neg_result, x) else
+                                      .ufo_binary(.base_subtract,      UFO_C_fit_result, x, y) 
+ufo_multiply      <- function(x, y)   .ufo_binary(.base_multiply,      UFO_C_fit_result, x, y)
+ufo_divide        <- function(x, y)   .ufo_binary(.base_divide,        UFO_C_div_result, x, y)
+ufo_int_divide    <- function(x, y)   .ufo_binary(.base_int_divide,    UFO_C_mod_result, x, y)
+ufo_power         <- function(x, y)   .ufo_binary(.base_power,         UFO_C_div_result, x, y)
+ufo_modulo        <- function(x, y)   .ufo_binary(.base_modulo,        UFO_C_mod_result, x, y)
+ufo_less          <- function(x, y)   .ufo_binary(.base_less,          UFO_C_rel_result, x, y)
+ufo_less_equal    <- function(x, y)   .ufo_binary(.base_less_equal,    UFO_C_rel_result, x, y)
+ufo_greater       <- function(x, y)   .ufo_binary(.base_greater,       UFO_C_rel_result, x, y)
+ufo_greater_equal <- function(x, y)   .ufo_binary(.base_greater_equal, UFO_C_rel_result, x, y)
+ufo_equal         <- function(x, y)   .ufo_binary(.base_equal,         UFO_C_log_result, x, y)
+ufo_unequal       <- function(x, y)   .ufo_binary(.base_unequal,       UFO_C_log_result, x, y)
+ufo_or            <- function(x, y)   .ufo_binary(.base_or,            UFO_C_log_result, x, y)
+ufo_and           <- function(x, y)   .ufo_binary(.base_and,           UFO_C_log_result, x, y)
+ufo_not           <- function(x)      .ufo_unary (.base_not,           UFO_C_neg_result, x)
 
 
 #-----------------------------------------------------------------------------
@@ -30,16 +30,16 @@ ufo_not           <- function(x)      .ufo_unary (.base_not,           "ufo_neg_
 
 ufo_subset <- function(x, subscript, ..., drop=FALSE, min_load_count=0) { # drop ignored for ordinary vectors, it seems?
   # choice of output type goes here? or inside
-  .Call("ufo_subset", x, subscript, as.integer(min_load_count))
+  .Call(UFO_C_subset, x, subscript, as.integer(min_load_count))
 }
 
 # ufo_subset_assign <- function(x, subscript, values, ..., drop=FALSE, min_load_count=0) { # drop ignored for ordinary vectors, it seems?
 #   # choice of output type goes here? or inside
-#   .Call("ufo_subset_assign", x, subscript, values, as.integer(min_load_count))
+#   .Call(UFO_C_subset_assign, x, subscript, values, as.integer(min_load_count))
 # }
 
 ufo_subscript <- function(x, subscript, min_load_count=0) {
-  .Call("ufo_subscript", x, subscript, as.integer(min_load_count))
+  .Call(UFO_C_subscript, x, subscript, as.integer(min_load_count))
 }
 
 # We can't really do subset_assign equivalent, without triggering copy-on-write
@@ -52,7 +52,7 @@ ufo_subscript <- function(x, subscript, min_load_count=0) {
 
 # Warnign: buggy.
 ufo_mutate <- function(x, subscript, values, ..., drop=FALSE, min_load_count=0) { # drop ignored for ordinary vectors, it seems?
-  .Call("ufo_subset_assign", x, subscript, values, as.integer(min_load_count))
+  .Call(UFO_C_subset_assign, x, subscript, values, as.integer(min_load_count))
 }
 
 #-----------------------------------------------------------------------------
@@ -108,7 +108,7 @@ ufo_apply <- function(FUN, ..., MoreArgs = NULL, USE.NAMES = TRUE, chunk_size=10
     # - [[2]] c, d
     # - [[3]] x, y
     input_chunks <- Map(function(input_vector) {
-      .Call("ufo_get_chunk", input_vector, 
+      .Call(UFO_C_get_chunk, input_vector, 
                              chunk, chunk_size, 
                              return_vector_length)
     }, input_vectors)
@@ -184,8 +184,8 @@ ufo_apply <- function(FUN, ..., MoreArgs = NULL, USE.NAMES = TRUE, chunk_size=10
   number_of_chunks <- ceiling(result_size / chunk_size)
 
   for (chunk in 0:(.base_subtract(number_of_chunks, 1))) {
-    x_chunk <- .Call("ufo_get_chunk", x, chunk, chunk_size, result_size)
-    y_chunk <- .Call("ufo_get_chunk", y, chunk, chunk_size, result_size)
+    x_chunk <- .Call(UFO_C_get_chunk, x, chunk, chunk_size, result_size)
+    y_chunk <- .Call(UFO_C_get_chunk, y, chunk, chunk_size, result_size)
     result[attr(x_chunk, 'start_index'):attr(x_chunk, 'end_index')] <- operation(x_chunk, y_chunk)
   }
 
@@ -202,7 +202,7 @@ ufo_apply <- function(FUN, ..., MoreArgs = NULL, USE.NAMES = TRUE, chunk_size=10
   number_of_chunks <- ceiling(result_size / chunk_size)
 
   for (chunk in 0:(.base_subtract(number_of_chunks, 1))) {
-    x_chunk <- .Call("ufo_get_chunk", x, chunk, chunk_size, result_size)
+    x_chunk <- .Call(UFO_C_get_chunk, x, chunk, chunk_size, result_size)
     result[attr(x_chunk, 'start_index'):attr(x_chunk, 'end_index')] <- operation(x_chunk)
   }
 

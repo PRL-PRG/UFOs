@@ -116,7 +116,7 @@ impl UfoCore {
                 .and_then(|core| {
                     let ufo = core
                         .get_ufo_by_address(ptr as usize)
-                        .expect("UFO lookup failed");
+                        .ok()?; // okay if this fails, we just return "none"
                     Some(UfoObj::wrap(ufo))
                 })
                 .unwrap_or_else(UfoObj::none)
