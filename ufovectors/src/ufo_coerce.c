@@ -7,7 +7,7 @@
 #include <R_ext/PrtUtil.h>
 #include <R_ext/Itermacros.h>
 
-#include "make_sure.h"
+#include "safety_first.h"
 
 //extern char* OutDec;
 //extern const char *EncodeRealDrop0(double x, int w, int d, int e, const char *dec);

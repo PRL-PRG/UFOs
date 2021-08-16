@@ -45,8 +45,10 @@ SEXP ufo_initialize() {
 void __validate_status_or_die (int status) {
     switch(status) {
         case 0: return;
-        default:
+        default: {
+            // Print message for %i that depends on %i
             Rf_error("Could not create UFO (%i)", status);
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 #include "../include/ufos.h"
 #include "ufo_seq.h"
-#include "make_sure.h"
+#include "safety_first.h"
 #include "helpers.h"
 
 typedef struct {
@@ -37,15 +37,15 @@ int populate_double_seq(void* userData, uintptr_t startValueIdx, uintptr_t endVa
 
 SEXP/*:result_type*/ ufo_seq(ufo_vector_type_t result_type, SEXP/*INTXP*/ from, SEXP/*INTXP*/ to, SEXP/*INTXP*/ by, SEXP/*LGLSXP*/ read_only, SEXP/*INTSXP*/ min_load_count) {
 
-    // make_sure(TYPEOF(from) == INTSXP, Rf_error, 
+    // make_sure(TYPEOF(from) == INTSXP, 
 	// 		  "Parameter `from` must be an integer vector, but it is %s.", 
     //           type2char(TYPEOF(from)));
 
-    // make_sure(TYPEOF(to) == INTSXP, Rf_error, 
+    // make_sure(TYPEOF(to) == INTSXP, 
 	// 		  "Parameter `to` must be an integer vector, but it is %s.", 
     //           type2char(TYPEOF(to)));              
 
-    // make_sure(TYPEOF(by) == INTSXP, Rf_error, 
+    // make_sure(TYPEOF(by) == INTSXP, 
 	// 		  "Parameter `by` must be an integer vector, but it is %s.", 
     //           type2char(TYPEOF(by)));              
 

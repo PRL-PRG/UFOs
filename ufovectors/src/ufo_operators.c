@@ -5,27 +5,14 @@
 #include <Rinternals.h>
 #include <R_ext/Itermacros.h>
 
-#include "make_sure.h"
+#include "safety_first.h"
+#include "safety_first.h"
+
 #include "ufo_empty.h"
 #include "rash.h"
 #include "ufo_coerce.h"
 
 #include <assert.h>
-
-//-----------------------------------------------------------------------------
-// Problem children
-//
-// R macros that are not accessible from outside R, but which I need and which
-// I could not get around.
-//-----------------------------------------------------------------------------
-
-#ifndef SET_COMPLEX_ELT
-void SET_COMPLEX_ELT(SEXP x, R_xlen_t i, Rcomplex v);
-#endif
-
-#ifndef SET_RAW_ELT
-void SET_RAW_ELT(SEXP x, R_xlen_t i, Rbyte v);
-#endif
 
 //-----------------------------------------------------------------------------
 // Chunked binary and unary operators
@@ -314,15 +301,15 @@ SEXP ufo_neg_result (SEXP x, SEXP min_load_count) {
 #define MIN(x, y) (x >= y ? y : x)
 
 SEXP uncompact_intrange(R_xlen_t start, R_xlen_t end, R_xlen_t size) {
-	make_sure(start > 0, Rf_error, "Uncompact intrange start must be > 0");
-	make_sure(end >= start, Rf_error, "Uncompact intrange end must be >= start");
+	make_sure(start > 0, "Uncompact intrange start must be > 0");
+	make_sure(end >= start, "Uncompact intrange end must be >= start");
 
 	R_xlen_t length = end - start + 1;
-	make_sure(size >= length, Rf_error, "Uncompact intrange size must be >= end - start + 1");
+	make_sure(size >= length, "Uncompact intrange size must be >= end - start + 1");
 
 	SEXP vector = PROTECT(allocVector(INTSXP, size));
 	for (R_xlen_t i = 0; i < length; i++) {
-		SET_INTEGER_ELT(vector, i, start + i);
+		safely_set_integer(vector, i, start + i);
 	}
 
 	UNPROTECT(1);
@@ -330,15 +317,15 @@ SEXP uncompact_intrange(R_xlen_t start, R_xlen_t end, R_xlen_t size) {
 }
 
 SEXP uncompact_intrange_fill(SEXP vector, R_xlen_t start, R_xlen_t end) {
-	make_sure(start > 0, Rf_error, "Uncompact intrange start must be > 0");
-	make_sure(end >= start, Rf_error, "Uncompact intrange end must be >= start");
+	make_sure(start > 0, "Uncompact intrange start must be > 0");
+	make_sure(end >= start, "Uncompact intrange end must be >= start");
 
 	R_xlen_t length = XLENGTH(vector);
 	R_xlen_t fill_length = end - start + 1;
-	make_sure(fill_length <= length, Rf_error, "Uncompact intrange size must be >= end - start + 1");
+	make_sure(fill_length <= length, "Uncompact intrange size must be >= end - start + 1");
 
 	for (R_xlen_t i = 0; i < fill_length; i++) {
-		SET_INTEGER_ELT(vector, length - fill_length + i, start + i);
+		safely_set_integer(vector, length - fill_length + i, start + i);
 	}
 
 	return vector;
@@ -360,12 +347,12 @@ SEXP ufo_get_chunk(SEXP x, SEXP chunk_sexp, SEXP chunk_size_sexp, SEXP result_le
 		R_xlen_t ti = (chunk_start_index + i) % x_length;
 
 		switch(TYPEOF(x)) {
-		case INTSXP:  SET_INTEGER_ELT(chunk, i, INTEGER_ELT(x, ti)); break;
-		case REALSXP: SET_REAL_ELT   (chunk, i, REAL_ELT   (x, ti)); break;
-		case LGLSXP:  SET_LOGICAL_ELT(chunk, i, LOGICAL_ELT(x, ti)); break;
-		case CPLXSXP: SET_COMPLEX_ELT(chunk, i, COMPLEX_ELT(x, ti)); break;
-		case STRSXP:  SET_STRING_ELT (chunk, i, STRING_ELT (x, ti)); break;
-		case RAWSXP:  SET_RAW_ELT    (chunk, i, RAW_ELT    (x, ti)); break;
+		case INTSXP:  safely_set_integer(chunk, i, safely_get_integer(x, ti)); break;
+		case REALSXP: safely_set_real (chunk, i, safely_get_real (x, ti)); break;
+		case LGLSXP:  safely_set_logical(chunk, i, safely_get_logical(x, ti)); break;
+		case CPLXSXP: safely_set_complex(chunk, i, safely_get_complex(x, ti)); break;
+		case STRSXP:  safely_set_string (chunk, i, safely_get_string (x, ti)); break;
+		case RAWSXP:  safely_set_raw    (chunk, i, safely_get_raw    (x, ti)); break;
 		case VECSXP:  SET_VECTOR_ELT (chunk, i, VECTOR_ELT (x, ti)); break;
 		default:      Rf_error("Cannot get a chunk of SEXP of this type");
 		}
@@ -380,19 +367,19 @@ SEXP ufo_get_chunk(SEXP x, SEXP chunk_sexp, SEXP chunk_size_sexp, SEXP result_le
 	SEXP start_value;
 	if (R_chunk_start_index_fits_in_int) {
 		start_value = PROTECT(allocVector(INTSXP , 1));
-		SET_INTEGER_ELT(start_value, 0, R_chunk_start_index);
+		safely_set_integer(start_value, 0, R_chunk_start_index);
 	} else {
 		start_value = PROTECT(allocVector(REALSXP , 1));
-		SET_REAL_ELT(start_value, 0, R_chunk_start_index);
+		safely_set_xlen(start_value, 0, R_chunk_start_index);
 	}
 
 	SEXP end_value;
 	if (R_chunk_end_index_fits_in_int) {
 		end_value = PROTECT(allocVector(INTSXP , 1));
-		SET_INTEGER_ELT(end_value, 0, R_chunk_end_index);
+		safely_set_integer(end_value, 0, R_chunk_end_index);
 	} else {
 		end_value = PROTECT(allocVector(REALSXP , 1));
-		SET_REAL_ELT(end_value, 0, R_chunk_end_index);
+		safely_set_xlen(end_value, 0, R_chunk_end_index);
 	}
 
 	setAttrib(chunk, install("start_index"), start_value);
@@ -466,7 +453,7 @@ integer_vector_stats_t integer_subscript_stats(SEXP subscript) {
 	R_xlen_t subscript_length = XLENGTH(subscript);
 
 	for (R_xlen_t i = 0; i < subscript_length; i++) {
-		int value = INTEGER_ELT(subscript, i);
+		int value = safely_get_integer(subscript, i);
 		if (value == NA_INTEGER) stats.nas++;
 		else if (value < 0)		 stats.negatives++;
 		else if (value > 0)      stats.positives++;
@@ -513,12 +500,12 @@ real_vector_stats_t real_subscript_stats(SEXP subscript) {
 	};
 
 	for (R_xlen_t i = 0; i < subscript_length; i++) {
-		double value = REAL_ELT(subscript, i);
-		if (ISNAN(value)) 	    stats.nas++;
-		else if (value < 0)	    stats.negatives++;
-		else if (value >= 1)    stats.positives++;
-		else if (value < 1)     stats.between_zero_and_ones++;
-							    // ignore zeros
+		double value = safely_get_real(subscript, i);
+		if (safely_is_na_double(value)) 	stats.nas++;
+		else if (value < 0)	    		stats.negatives++;
+		else if (value >= 1)    		stats.positives++;
+		else if (value < 1)     		stats.between_zero_and_ones++;
+							    		// ignore zeros
 	}
 
 	return stats;
@@ -546,14 +533,14 @@ R_xlen_t logical_subscript_length(SEXP vector, SEXP subscript) {
 	if (vector_length <= subscript_length) {
 		R_xlen_t elements = subscript_length;
 		for (R_xlen_t i = 0; i < subscript_length; i++) {
-			if (LOGICAL_ELT(subscript, i) == 0) {
+			if (safely_get_logical(subscript, i) == 0) {
 				elements--;
 			}
 		}
 		return elements;
 	}
 
-	if (subscript_length == 1) return LOGICAL_ELT(subscript, 0) == 0 ? 0 : vector_length;
+	if (subscript_length == 1) return safely_get_logical(subscript, 0) == 0 ? 0 : vector_length;
 	if (subscript_length == 0) return 0;
 
 	R_xlen_t whole_fits_this_many_times = vector_length / subscript_length;
@@ -562,7 +549,7 @@ R_xlen_t logical_subscript_length(SEXP vector, SEXP subscript) {
 	R_xlen_t elements_in_remainder = remainder_fits_this_many_elements;
 
 	for (R_xlen_t i = 0; i < subscript_length; i++) {
-		if (LOGICAL_ELT(subscript, i) == 0) {
+		if (safely_get_logical(subscript, i) == 0) {
 			elements_in_whole--;
 			if (i < remainder_fits_this_many_elements) {
 				elements_in_remainder--;
@@ -578,7 +565,7 @@ R_xlen_t string_subscript_length(SEXP vector, SEXP subscript) {
 }
 
 R_xlen_t ufo_subscript_dimension_length(SEXP vector, SEXP subscript, SEXP min_load_count_sexp) {
-	make_sure(isVector(vector) || isList(vector) || isLanguage(vector), Rf_error, "subscripting on non-vector");
+	make_sure(isVector(vector) || isList(vector) || isLanguage(vector), "subscripting on non-vector");
 
 	SEXPTYPE subscript_type = TYPEOF(subscript);
 	switch(subscript_type) {
@@ -621,7 +608,7 @@ SEXP logical_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 	for (R_xlen_t vector_index = 0; vector_index < vector_length; vector_index++) { // XXX consider iterating by region
 		//assert(vector_index % subscript_length < subscript_length);
 
-		Rboolean value = LOGICAL_ELT(subscript, vector_index % subscript_length);
+		Rboolean value = safely_get_logical(subscript, vector_index % subscript_length);
 
 		if(!(result_index <= result_length)) {
 			UNPROTECT(1);
@@ -629,15 +616,15 @@ SEXP logical_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) {
 		}
 
 		if (value == FALSE)		   continue;
-		if (result_vector_is_long) SET_REAL_ELT   (result, result_index, value == TRUE ? vector_index + 1: NA_REAL); // assert
-		else             		   SET_INTEGER_ELT(result, result_index, value == TRUE ? vector_index + 1: NA_INTEGER);
+		if (result_vector_is_long) safely_set_real   (result, result_index, value == TRUE ? vector_index + 1: NA_REAL); // assert
+		else             		   safely_set_integer(result, result_index, value == TRUE ? vector_index + 1: NA_INTEGER);
 
 		result_index++;
 	}
 
 	for (; result_index < result_length; result_index++) {
-		if (result_vector_is_long) SET_REAL_ELT(result, result_index, NA_REAL);
-		else         		       SET_INTEGER_ELT(result, result_index, NA_INTEGER); // BUG HERE - checking fix
+		if (result_vector_is_long) safely_set_real(result, result_index, NA_REAL);
+		else         		       safely_set_integer(result, result_index, NA_INTEGER);
 	}
 
 	UNPROTECT(1);
@@ -654,13 +641,13 @@ SEXP positive_integer_subscript(SEXP vector, SEXP subscript, int32_t min_load_co
 
 	SEXP result = PROTECT(ufo_empty(result_type, result_length, false, min_load_count));
 	for (R_xlen_t result_index = 0, subscript_index = 0; subscript_index < subscript_length; subscript_index++) {
-		int value = INTEGER_ELT(subscript, subscript_index);
+		int value = safely_get_integer(subscript, subscript_index);
 
 		if (value == 0) continue;
 
 		bool na = (value == NA_INTEGER || value > vector_length);
-		if (result_vector_is_long) SET_REAL_ELT   (result, result_index, na ? NA_REAL    : (double) value);
-		else             		   SET_INTEGER_ELT(result, result_index, na ? NA_INTEGER :          value);
+		if (result_vector_is_long) safely_set_real   (result, result_index, na ? NA_REAL    : (double) value);
+		else             		   safely_set_integer(result, result_index, na ? NA_INTEGER :          value);
 
 		result_index++;
 	}
@@ -675,15 +662,15 @@ SEXP negative_integer_subscript(SEXP vector, SEXP subscript, int32_t min_load_co
 	SEXP bitmap = PROTECT(ufo_empty(LGLSXP, vector_length, false, min_load_count));
 
 	for (R_xlen_t vector_index = 0; vector_index < vector_length; vector_index++) {
-		SET_LOGICAL_ELT(bitmap, vector_index, TRUE);
+		safely_set_logical(bitmap, vector_index, TRUE);
 	}
 
 	for (R_xlen_t subscript_index = 0; subscript_index < subscript_length; subscript_index++) {
-		int subscript_value = INTEGER_ELT(subscript, subscript_index);
+		int subscript_value = safely_get_integer(subscript, subscript_index);
 		if (subscript_value == 0) 		  	  continue;
 		if (subscript_value == NA_INTEGER)    continue;
 		if (-subscript_value > vector_length) continue;
-		SET_LOGICAL_ELT(bitmap, -subscript_value - 1, FALSE);
+		safely_set_logical(bitmap, -subscript_value - 1, FALSE);
 	}
 
 	SEXP indices = logical_subscript(vector, bitmap, min_load_count);
@@ -719,13 +706,13 @@ SEXP positive_real_subscript(SEXP vector, SEXP subscript, int32_t min_load_count
 
 	SEXP result = PROTECT(ufo_empty(result_type, result_length, false, min_load_count));
 	for (R_xlen_t result_index = 0, subscript_index = 0; subscript_index < subscript_length; subscript_index++) {
-		double value = REAL_ELT(subscript, subscript_index);
+		double value = safely_get_real(subscript, subscript_index);
 
 		if (value >= 0 && value < 1) continue;
 
 		bool na = (ISNAN(value) || (R_xlen_t) value > vector_length);
-		if (result_vector_is_long) SET_REAL_ELT   (result, result_index, na ? NA_REAL    :       value);
-		else   		               SET_INTEGER_ELT(result, result_index, na ? NA_INTEGER : (int) value);
+		if (result_vector_is_long) safely_set_real   (result, result_index, na ? NA_REAL    :       value);
+		else   		               safely_set_integer(result, result_index, na ? NA_INTEGER : (int) value);
 
 		result_index++;
 	}
@@ -742,15 +729,15 @@ SEXP negative_real_subscript(SEXP vector, SEXP subscript, int32_t min_load_count
 	SEXP bitmap = PROTECT(ufo_empty(LGLSXP, vector_length, false, min_load_count));
 
 	for (R_xlen_t vector_index = 0; vector_index < vector_length; vector_index++) {
-		SET_LOGICAL_ELT(bitmap, vector_index, TRUE);
+		safely_set_logical(bitmap, vector_index, TRUE);
 	}
 
 	for (R_xlen_t subscript_index = 0; subscript_index < subscript_length; subscript_index++) {
-		double subscript_value = REAL_ELT(subscript, subscript_index);
+		double subscript_value = safely_get_real(subscript, subscript_index);
 		if (subscript_value == 0) 			  continue;
 		if (ISNAN(subscript_value))           continue;
 		if (-subscript_value > vector_length) continue;
-		SET_LOGICAL_ELT(bitmap, (R_xlen_t) (-subscript_value - 1), FALSE);
+		safely_set_logical(bitmap, (R_xlen_t) (-subscript_value - 1), FALSE);
 	}
 
 	SEXP indices = logical_subscript(vector, bitmap, min_load_count);
@@ -783,22 +770,22 @@ SEXP looped_string_subscript(SEXP vector, SEXP names, SEXP subscript, int32_t mi
 	SEXP integer_subscript = PROTECT(ufo_empty(INTSXP, subscript_length, true, min_load_count));
 	for (R_xlen_t subscript_index = 0; subscript_index < subscript_length; subscript_index++) { // TODO hashing implementation
 
-		SEXP subscript_element = STRING_ELT(subscript, subscript_index);
+		SEXP subscript_element = safely_get_string(subscript, subscript_index);
 		if (subscript_element == NA_STRING) {
-			SET_INTEGER_ELT(integer_subscript, subscript_index, NA_INTEGER);
+			safely_set_integer(integer_subscript, subscript_index, NA_INTEGER);
 			continue;
 		}
 
 		for (R_xlen_t names_index = 0; names_index < names_length; names_index++) {
-			SEXP name = STRING_ELT(names, names_index);
+			SEXP name = safely_get_string(names, names_index);
 			if (NonNullStringMatch(subscript_element, name)) {
-				SET_INTEGER_ELT(integer_subscript, subscript_index, names_index + 1);
+				safely_set_integer(integer_subscript, subscript_index, names_index + 1);
 				goto _found_something;
 			}
 		}
 
 		//_found_nothing:
-		// SET_INTEGER_ELT(integer_subscript, subscript_index, NA_INTEGER); // Neither NA nor an element of `names`
+		// safely_set_integer(integer_subscript, subscript_index, NA_INTEGER); // Neither NA nor an element of `names`
 		// Actually we can pre-pop the vector with NAs now
 
 		_found_something:
@@ -854,7 +841,7 @@ SEXP string_subscript(SEXP vector, SEXP subscript, int32_t min_load_count) { // 
 }
 
 SEXP ufo_subscript(SEXP vector, SEXP subscript, SEXP min_load_count_sexp) {
-	make_sure(isVector(vector) || isList(vector) || isLanguage(vector), Rf_error, "subscripting on non-vector");
+	make_sure(isVector(vector) || isList(vector) || isLanguage(vector), "subscripting on non-vector");
 
 	int32_t min_load_count = (int32_t) __extract_int_or_die(min_load_count_sexp); // XXX do value checks
 	SEXPTYPE subscript_type   = TYPEOF(subscript);
@@ -873,189 +860,189 @@ SEXP ufo_subscript(SEXP vector, SEXP subscript, SEXP min_load_count_sexp) {
 }
 
 int get_integer_by_integer_index(SEXP vector, R_xlen_t vector_length, int index) {
-	if (NA_INTEGER == index) {
+	if (safely_is_na_integer(index)) {
 		return NA_INTEGER;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,  
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	return INTEGER_ELT(vector, vector_index);
+	return safely_get_integer(vector, vector_index);
 }
 
-int get_integer_by_real_index(SEXP vector, R_xlen_t vector_length, double index) {
-	if (ISNAN(index)) {
+int get_integer_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t index) {
+	if (safely_is_na_xlen(index)) {
 		return NA_INTEGER;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	return INTEGER_ELT(vector, vector_index);
+	return safely_get_integer(vector, vector_index);
 }
 
 double get_real_by_integer_index(SEXP vector, R_xlen_t vector_length, int index) {
-	if (NA_INTEGER == index) {
+	if (safely_is_na_integer(index)) {
 		return NA_REAL;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	return REAL_ELT(vector, vector_index);
+	return safely_get_real(vector, vector_index);
 }
 
-double get_real_by_real_index(SEXP vector, R_xlen_t vector_length, double index) {
-	if (ISNAN(index)) {
+double get_real_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t index) {
+	if (safely_is_na_xlen(index)) {
 		return NA_REAL;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	return REAL_ELT(vector, vector_index);
+	return safely_get_real(vector, vector_index);
 }
 
 Rboolean get_logical_by_integer_index(SEXP vector, R_xlen_t vector_length, int index) {
-	if (NA_INTEGER == index) {
+	if (safely_is_na_integer(index)) {
 		return NA_LOGICAL;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	return LOGICAL_ELT(vector, vector_index);
+	return safely_get_logical(vector, vector_index);
 }
 
-Rboolean get_logical_by_real_index(SEXP vector, R_xlen_t vector_length, double index) {
-	if (ISNAN(index)) {
+Rboolean get_logical_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t index) {
+	if (safely_is_na_xlen(index)) {
 		return NA_LOGICAL;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	return LOGICAL_ELT(vector, vector_index);
+	return safely_get_logical(vector, vector_index);
 }
 
 Rcomplex get_complex_by_integer_index(SEXP vector, R_xlen_t vector_length, int index) {
-	if (NA_INTEGER == index) {
+	if (safely_is_na_integer(index)) {
 		return complex(NA_REAL, NA_REAL);
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	return COMPLEX_ELT(vector, vector_index);
+	return safely_get_complex(vector, vector_index);
 }
 
-Rcomplex get_complex_by_real_index(SEXP vector, R_xlen_t vector_length, double index) {
-	if (ISNAN(index)) {
+Rcomplex get_complex_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t index) {
+	if (safely_is_na_xlen(index)) {
 		return complex(NA_REAL, NA_REAL);
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	return COMPLEX_ELT(vector, vector_index);
+	return safely_get_complex(vector, vector_index);
 }
 
 Rbyte get_raw_by_integer_index(SEXP vector, R_xlen_t vector_length, int index) {
-	if (NA_INTEGER == index) {
+	if (safely_is_na_integer(index)) {
 		return (Rbyte) 0x0;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	return RAW_ELT(vector, vector_index);
+	return safely_get_raw(vector, vector_index);
 }
 
-Rbyte get_raw_by_real_index(SEXP vector, R_xlen_t vector_length, double index) {
-	if (ISNAN(index)) {
+Rbyte get_raw_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t index) {
+	if (safely_is_na_xlen(index)) {
 		return (Rbyte) 0x0;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	return RAW_ELT(vector, vector_index);
+	return safely_get_raw(vector, vector_index);
 }
 
 SEXP/*CHARSXP*/ get_string_by_integer_index(SEXP/*STRSXP*/ vector, R_xlen_t vector_length, int index) {
-	if (NA_INTEGER == index) {
+	if (safely_is_na_integer(index)) {
 		return NA_STRING;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	return STRING_ELT(vector, vector_index);
+	return safely_get_string(vector, vector_index);
 }
 
 
 SEXP/*CHARSXP*/ get_string_by_real_index(SEXP/*STRSXP*/ vector, R_xlen_t vector_length, double index) {
-	if (ISNAN(index)) {
+	if (safely_is_na_xlen(index)) {
 		return NA_STRING;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length, 
 			"Index out of bounds %d >= %d.", vector_index, vector_length);
-	return STRING_ELT(vector, vector_index);
+	return safely_get_string(vector, vector_index);
 }
 
 // XXX Can copy by region for contiguous, ordered areas of memory
 SEXP copy_selected_values_according_to_integer_indices(SEXP source, SEXP target, SEXP indices_into_source) {
-	make_sure(TYPEOF(source) == TYPEOF(target), Rf_error, 
+	make_sure(TYPEOF(source) == TYPEOF(target), 
 			  "Source and target vector must have the same type to copy "
 			  "selected values from one to the other.");
 
-	make_sure(TYPEOF(indices_into_source) == INTSXP, Rf_error, 
+	make_sure(TYPEOF(indices_into_source) == INTSXP, 
 	 		  "Index vector was expected to be of type INTSXP, but found %i.",
 	 		  type2char(TYPEOF(indices_into_source)));
 
 	R_xlen_t index_length = XLENGTH(indices_into_source);
 	R_xlen_t source_length = XLENGTH(source);
 
-	make_sure(XLENGTH(target) == index_length, Rf_error, 
+	make_sure(XLENGTH(target) == index_length, 
 			  "The target vector must be the same size as the index vector "
 			  "when copying selected values between two vectors.");
 
 	switch (TYPEOF(source))	{
 	case INTSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			int index_in_source = INTEGER_ELT(indices_into_source, i);
+			int index_in_source = safely_get_integer(indices_into_source, i);
 			int value = get_integer_by_integer_index(source, source_length, index_in_source);
-			SET_INTEGER_ELT(target, i, value);
+			safely_set_integer(target, i, value);
 		}
 		break;
 	
 	case REALSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			int index_in_source = INTEGER_ELT(indices_into_source, i);
+			int index_in_source = safely_get_integer(indices_into_source, i);
 			double value = get_real_by_integer_index(source, source_length, index_in_source);
-			SET_REAL_ELT(target, i, value);
+			safely_set_real(target, i, value);
 		}
 		break;
 
 	case CPLXSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			int index_in_source = INTEGER_ELT(indices_into_source, i);
+			int index_in_source = safely_get_integer(indices_into_source, i);
 			Rcomplex value = get_complex_by_integer_index(source, source_length, index_in_source);
-			SET_COMPLEX_ELT(target, i, value);
+			safely_set_complex(target, i, value);
 		}
 		break;
 
 	case LGLSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			int index_in_source = INTEGER_ELT(indices_into_source, i);
+			int index_in_source = safely_get_integer(indices_into_source, i);
 			Rboolean value = get_logical_by_integer_index(source, source_length, index_in_source);
-			SET_LOGICAL_ELT(target, i, value);
+			safely_set_logical(target, i, value);
 		}
 		break;
 
 	case STRSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			int index_in_source = INTEGER_ELT(indices_into_source, i);
+			int index_in_source = safely_get_integer(indices_into_source, i);
 			SEXP/*STRSXP*/ value = get_string_by_integer_index(source, source_length, index_in_source);
-			SET_STRING_ELT(target, i, value);
+			safely_set_string(target, i, value);
 		}
 		break;		
 
 	case RAWSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			int index_in_source = INTEGER_ELT(indices_into_source, i);
+			int index_in_source = safely_get_integer(indices_into_source, i);
 			Rbyte value = get_raw_by_integer_index(source, source_length, index_in_source);
-			SET_RAW_ELT(target, i, value);
+			safely_set_raw(target, i, value);
 		}
 		break;
 	
@@ -1069,67 +1056,67 @@ SEXP copy_selected_values_according_to_integer_indices(SEXP source, SEXP target,
 }
 
 SEXP copy_selected_values_according_to_real_indices(SEXP source, SEXP target, SEXP indices_into_source) {
-	make_sure(TYPEOF(source) == TYPEOF(target), Rf_error, 
+	make_sure(TYPEOF(source) == TYPEOF(target), 
 			  "Source and target vector must have the same type to copy "
 			  "selected values from one to the other.");
 
-	make_sure(TYPEOF(indices_into_source) == REALSXP, Rf_error, 
+	make_sure(TYPEOF(indices_into_source) == REALSXP,
 	 		  "Index vector was expected to be of type REALSXP, but found %i.",
 	 		  type2char(TYPEOF(indices_into_source)));
 
 	R_xlen_t index_length = XLENGTH(indices_into_source);
 	R_xlen_t source_length = XLENGTH(source);
 
-	make_sure(XLENGTH(target) == index_length, Rf_error, 
+	make_sure(XLENGTH(target) == index_length,
 			  "The target vector must be the same size as the index vector "
 			  "when copying selected values between two vectors.");
 
 	switch (TYPEOF(source))	{
 	case INTSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			double index_in_source = REAL_ELT(indices_into_source, i);
+			R_xlen_t index_in_source = safely_get_xlen(indices_into_source, i);
 			int value = get_integer_by_real_index(source, source_length, index_in_source);
-			SET_INTEGER_ELT(target, i, value);
+			safely_set_integer(target, i, value);
 		}
 		break;
 	
 	case REALSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			double index_in_source = REAL_ELT(indices_into_source, i);
+			R_xlen_t index_in_source = safely_get_xlen(indices_into_source, i);
 			double value = get_real_by_real_index(source, source_length, index_in_source);
-			SET_REAL_ELT(target, i, value);
+			safely_set_real(target, i, value);
 		}
 		break;
 
 	case CPLXSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			double index_in_source = REAL_ELT(indices_into_source, i);
+			R_xlen_t index_in_source = safely_get_xlen(indices_into_source, i);
 			Rcomplex value = get_complex_by_real_index(source, source_length, index_in_source);
-			SET_COMPLEX_ELT(target, i, value);
+			safely_set_complex(target, i, value);
 		}
 		break;
 
 	case LGLSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			double index_in_source = REAL_ELT(indices_into_source, i);
+			R_xlen_t index_in_source = safely_get_xlen(indices_into_source, i);
 			Rboolean value = get_logical_by_real_index(source, source_length, index_in_source);
-			SET_LOGICAL_ELT(target, i, value);
+			safely_set_logical(target, i, value);
 		}
 		break;
 
 	case RAWSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			double index_in_source = REAL_ELT(indices_into_source, i);
+			R_xlen_t index_in_source = safely_get_xlen(indices_into_source, i);
 			Rbyte value = get_raw_by_real_index(source, source_length, index_in_source);
-			SET_RAW_ELT(target, i, value);
+			safely_set_raw(target, i, value);
 		}
 		break;
 
 	case STRSXP:
 		for (R_xlen_t i = 0; i < index_length; i++) {
-			double index_in_source = REAL_ELT(indices_into_source, i);
+			R_xlen_t index_in_source = safely_get_xlen(indices_into_source, i);
 			SEXP/*STRSXP*/ value = get_string_by_integer_index(source, source_length, index_in_source);
-			SET_STRING_ELT(target, i, value);
+			safely_set_string(target, i, value);
 		}
 		break;			
 	
@@ -1169,120 +1156,120 @@ void set_integer_by_integer_index(SEXP vector, R_xlen_t vector_length, int index
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	SET_INTEGER_ELT(vector, vector_index, value);
+	safely_set_integer(vector, vector_index, value);
 }
 
-void set_integer_by_real_index(SEXP vector, R_xlen_t vector_length, double index, int value) {
-	if (ISNAN(index)) {
+void set_integer_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t index, int value) {
+	if (safely_is_na_xlen(index)) {
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
-	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	SET_INTEGER_ELT(vector, vector_index, value);
+	make_sure(vector_index < vector_length,
+	  		  "Index out of bounds %d >= %d.", vector_index, vector_length); // TODO redundant
+	safely_set_integer(vector, vector_index, value);
 }
 
 void set_real_by_integer_index(SEXP vector, R_xlen_t vector_length, int index, double value) {
-	if (index == NA_INTEGER) {
+	if (safely_is_na_integer(index)) {
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
-	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	SET_REAL_ELT(vector, vector_index, value);
+	make_sure(vector_index < vector_length, 
+	  		  "Index out of bounds %d >= %d.", vector_index, vector_length); // TODO redundant
+	safely_set_real(vector, vector_index, value);
 }
 
-void set_real_by_real_index(SEXP vector, R_xlen_t vector_length, double index, double value) {
-	if (ISNAN(index)) {
+void set_real_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t index, double value) {
+	if (safely_is_na_xlen(index)) {
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
-	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	SET_REAL_ELT(vector, vector_index, value);
+	make_sure(vector_index < vector_length, 
+	  		  "Index out of bounds %d >= %d.", vector_index, vector_length); // TODO redundant
+	safely_set_real(vector, vector_index, value);
 }
 
 void set_complex_by_integer_index(SEXP vector, R_xlen_t vector_length, int index, Rcomplex value) {
-	if (index == NA_INTEGER) {
+	if (safely_is_na_integer(index)) {
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	SET_COMPLEX_ELT(vector, vector_index, value);
+	safely_set_complex(vector, vector_index, value);
 }
 
-void set_complex_by_real_index(SEXP vector, R_xlen_t vector_length, double index, Rcomplex value) {
-	if (ISNAN(index)) {
+void set_complex_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t index, Rcomplex value) {
+	if (safely_is_na_xlen(index)) {
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	SET_COMPLEX_ELT(vector, vector_index, value);
+	safely_set_complex(vector, vector_index, value);
 }
 
 void set_logical_by_integer_index(SEXP vector, R_xlen_t vector_length, int index, Rboolean value) {
-	if (index == NA_INTEGER) {
+	if (safely_is_na_integer(index)) {
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	SET_LOGICAL_ELT(vector, vector_index, value);
+	safely_set_logical(vector, vector_index, value);
 }
 
-void set_logical_by_real_index(SEXP vector, R_xlen_t vector_length, double index, Rboolean value) {
-	if (ISNAN(index)) {
+void set_logical_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t index, Rboolean value) {
+	if (safely_is_na_xlen(index)) {
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	SET_LOGICAL_ELT(vector, vector_index, value);
+	safely_set_logical(vector, vector_index, value);
 }
 
 void set_raw_by_integer_index(SEXP vector, R_xlen_t vector_length, int index, Rbyte value) {
-	if (index == NA_INTEGER) {
+	if (safely_is_na_integer(index)) {
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	SET_RAW_ELT(vector, vector_index, value);
+	safely_set_raw(vector, vector_index, value);
 }
 
-void set_raw_by_real_index(SEXP vector, R_xlen_t vector_length, double index, Rbyte value) {
-	if (ISNAN(index)) {
+void set_raw_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t index, Rbyte value) {
+	if (safely_is_na_xlen(index)) {
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	SET_RAW_ELT(vector, vector_index, value);
+	safely_set_raw(vector, vector_index, value);
 }
 
 
 void set_string_by_integer_index(SEXP vector, R_xlen_t vector_length, int index, SEXP/*CHARSXP*/ value) {
-	if (index == NA_INTEGER) {
+	if (safely_is_na_integer(index)) {
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	SET_STRING_ELT(vector, vector_index, value);
+	safely_set_string(vector, vector_index, value);
 }
 
-void set_string_by_real_index(SEXP vector, R_xlen_t vector_length, double index, SEXP/*CHARSXP*/ value) {
-	if (ISNAN(index)) {
+void set_string_by_real_index(SEXP vector, R_xlen_t vector_length, R_xlen_t index, SEXP/*CHARSXP*/ value) {
+	if (safely_is_na_xlen(index)) {
 		return;
 	}
 	R_xlen_t vector_index = ((R_xlen_t) index) - 1;
-	make_sure(vector_index < vector_length, Rf_error, 
+	make_sure(vector_index < vector_length,
 	  		  "Index out of bounds %d >= %d.", vector_index, vector_length);
-	SET_STRING_ELT(vector, vector_index, value);
+	safely_set_string(vector, vector_index, value);
 }
 
 // XXX Can copy by region for contiguous, ordered areas of memory
@@ -1300,12 +1287,12 @@ SEXP write_values_into_vector_at_integer_indices(SEXP target, SEXP indices_into_
 	R_xlen_t source_length = XLENGTH(source);
 	R_xlen_t target_length = XLENGTH(target);
 
-	make_sure(source_length <= index_length, Rf_error, 
+	make_sure(source_length <= index_length,
 			  "The source vector must be the same size or smaller than "
 			  "the index vector when copying selected values "
 			  "into a vector.");
 
-	make_sure(index_length % source_length == 0, Rf_error, 
+	make_sure(index_length % source_length == 0,
 			  "The source vector's size must be a multiple of "
 			  "the index vector when copying selected values "
 			  "into a vector.");
@@ -1315,7 +1302,7 @@ SEXP write_values_into_vector_at_integer_indices(SEXP target, SEXP indices_into_
 		for (R_xlen_t i = 0; i < index_length; i++) {
 			R_xlen_t index_in_source = i % source_length;
 			int value = element_as_integer(source, index_in_source);
-			int index_in_target = INTEGER_ELT(indices_into_target, i);
+			int index_in_target = safely_get_integer(indices_into_target, i);
 			set_integer_by_integer_index(target, target_length, index_in_target, value);
 		}
 		break;
@@ -1324,7 +1311,7 @@ SEXP write_values_into_vector_at_integer_indices(SEXP target, SEXP indices_into_
 		for (R_xlen_t i = 0; i < index_length; i++) {
 			R_xlen_t index_in_source = i % source_length;
 			double value = element_as_real(source, index_in_source);
-			int index_in_target = INTEGER_ELT(indices_into_target, i);
+			int index_in_target = safely_get_integer(indices_into_target, i);
 			set_real_by_integer_index(target, target_length, index_in_target, value);
 		}
 		break;
@@ -1333,7 +1320,7 @@ SEXP write_values_into_vector_at_integer_indices(SEXP target, SEXP indices_into_
 		for (R_xlen_t i = 0; i < index_length; i++) {
 			R_xlen_t index_in_source = i % source_length;
 			Rcomplex value = element_as_complex(source, index_in_source);
-			int index_in_target = INTEGER_ELT(indices_into_target, i);
+			int index_in_target = safely_get_integer(indices_into_target, i);
 			set_complex_by_integer_index(target, target_length, index_in_target, value);
 		}
 		break;
@@ -1342,7 +1329,7 @@ SEXP write_values_into_vector_at_integer_indices(SEXP target, SEXP indices_into_
 		for (R_xlen_t i = 0; i < index_length; i++) {
 			R_xlen_t index_in_source = i % source_length;
 			Rboolean value = element_as_logical(source, index_in_source);
-			int index_in_target = INTEGER_ELT(indices_into_target, i);
+			int index_in_target = safely_get_integer(indices_into_target, i);
 			set_logical_by_integer_index(target, target_length, index_in_target, value);
 		}
 		break;
@@ -1351,7 +1338,7 @@ SEXP write_values_into_vector_at_integer_indices(SEXP target, SEXP indices_into_
 		for (R_xlen_t i = 0; i < index_length; i++) {
 			R_xlen_t index_in_source = i % source_length;
 			SEXP/*STRSXP*/ value = element_as_string(source, index_in_source);
-			int index_in_target = INTEGER_ELT(indices_into_target, i);
+			int index_in_target = safely_get_integer(indices_into_target, i);
 			set_string_by_integer_index(target, target_length, index_in_target, value);
 		}
 		break;
@@ -1360,7 +1347,7 @@ SEXP write_values_into_vector_at_integer_indices(SEXP target, SEXP indices_into_
 		for (R_xlen_t i = 0; i < index_length; i++) {
 			R_xlen_t index_in_source = i % source_length;
 			Rbyte value = element_as_raw(source, index_in_source);
-			int index_in_target = INTEGER_ELT(indices_into_target, i);
+			int index_in_target = safely_get_integer(indices_into_target, i);
 			set_raw_by_integer_index(target, target_length, index_in_target, value);
 		}
 		break;
@@ -1383,7 +1370,7 @@ SEXP write_values_into_vector_at_real_indices(SEXP target, SEXP indices_into_tar
 	// 		  "values from one into the other.");
 	// XXX Does coercion now
 
-	make_sure(TYPEOF(indices_into_target) == INTSXP, Rf_error, 
+	make_sure(TYPEOF(indices_into_target) == INTSXP,
 	 		  "Index vector was expected to be of type INTSXP, but found %i.",
 	 		  type2char(TYPEOF(indices_into_target)));
 
@@ -1391,7 +1378,7 @@ SEXP write_values_into_vector_at_real_indices(SEXP target, SEXP indices_into_tar
 	R_xlen_t source_length = XLENGTH(source);
 	R_xlen_t target_length = XLENGTH(target);
 
-	make_sure(source_length <= index_length, Rf_error, 
+	make_sure(source_length <= index_length,
 			  "The source vector must be the same size or smaller than "
 			  "the index vector when copying selected values "
 			  "into a vector.");
@@ -1406,7 +1393,7 @@ SEXP write_values_into_vector_at_real_indices(SEXP target, SEXP indices_into_tar
 		for (R_xlen_t i = 0; i < index_length; i++) {
 			R_xlen_t index_in_source = i % source_length;
 			int value = element_as_integer(source, index_in_source);
-			double index_in_target = REAL_ELT(indices_into_target, i);
+			R_xlen_t index_in_target = safely_get_xlen(indices_into_target, i);
 			set_integer_by_real_index(target, target_length, index_in_target, value);
 		}
 		break;
@@ -1415,7 +1402,7 @@ SEXP write_values_into_vector_at_real_indices(SEXP target, SEXP indices_into_tar
 		for (R_xlen_t i = 0; i < index_length; i++) {
 			R_xlen_t index_in_source = i % source_length;
 			double value = element_as_real(source, index_in_source);
-			double index_in_target = REAL_ELT(indices_into_target, i);
+			R_xlen_t index_in_target = safely_get_xlen(indices_into_target, i);
 			set_real_by_real_index(target, target_length, index_in_target, value);
 		}
 		break;
@@ -1424,7 +1411,7 @@ SEXP write_values_into_vector_at_real_indices(SEXP target, SEXP indices_into_tar
 		for (R_xlen_t i = 0; i < index_length; i++) {
 			R_xlen_t index_in_source = i % source_length;
 			Rcomplex value = element_as_complex(source, index_in_source);
-			double index_in_target = REAL_ELT(indices_into_target, i);
+			R_xlen_t index_in_target = safely_get_xlen(indices_into_target, i);
 			set_complex_by_real_index(target, target_length, index_in_target, value);
 		}
 		break;
@@ -1433,7 +1420,7 @@ SEXP write_values_into_vector_at_real_indices(SEXP target, SEXP indices_into_tar
 		for (R_xlen_t i = 0; i < index_length; i++) {
 			R_xlen_t index_in_source = i % source_length;
 			Rboolean value = element_as_logical(source, index_in_source);
-			double index_in_target = REAL_ELT(indices_into_target, i);
+			R_xlen_t index_in_target = safely_get_xlen(indices_into_target, i);
 			set_logical_by_real_index(target, target_length, index_in_target, value);
 		}
 		break;
@@ -1442,7 +1429,7 @@ SEXP write_values_into_vector_at_real_indices(SEXP target, SEXP indices_into_tar
 		for (R_xlen_t i = 0; i < index_length; i++) {
 			R_xlen_t index_in_source = i % source_length;
 			SEXP/*STRSXP*/ value = element_as_string(source, index_in_source);
-			double index_in_target = REAL_ELT(indices_into_target, i);
+			R_xlen_t index_in_target = safely_get_xlen(indices_into_target, i);
 			set_string_by_real_index(target, target_length, index_in_target, value);
 		}
 		break;
@@ -1452,7 +1439,7 @@ SEXP write_values_into_vector_at_real_indices(SEXP target, SEXP indices_into_tar
 		for (R_xlen_t i = 0; i < index_length; i++) {
 			R_xlen_t index_in_source = i % source_length;
 			Rbyte value = element_as_raw(source, index_in_source);
-			double index_in_target = REAL_ELT(indices_into_target, i);
+			R_xlen_t index_in_target = safely_get_xlen(indices_into_target, i);
 			set_raw_by_real_index(target, target_length, index_in_target, value);
 		}
 		break;

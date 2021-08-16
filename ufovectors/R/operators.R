@@ -33,13 +33,142 @@ ufo_subset <- function(x, subscript, ..., drop=FALSE, min_load_count=0) { # drop
   .Call("ufo_subset", x, subscript, as.integer(min_load_count))
 }
 
-ufo_subset_assign <- function(x, subscript, values, ..., drop=FALSE, min_load_count=0) { # drop ignored for ordinary vectors, it seems?
-  # choice of output type goes here? or inside
-  .Call("ufo_subset_assign", x, subscript, values, as.integer(min_load_count))
-}
+# ufo_subset_assign <- function(x, subscript, values, ..., drop=FALSE, min_load_count=0) { # drop ignored for ordinary vectors, it seems?
+#   # choice of output type goes here? or inside
+#   .Call("ufo_subset_assign", x, subscript, values, as.integer(min_load_count))
+# }
 
 ufo_subscript <- function(x, subscript, min_load_count=0) {
   .Call("ufo_subscript", x, subscript, as.integer(min_load_count))
+}
+
+# We can't really do subset_assign equivalent, without triggering copy-on-write
+# when we do, I think.# Unless we really dig into it and re-create it from 
+# scratch. This would perhaps be nicer, but subset assign works out of the box,
+# provided the subscript is small enough. If the subscript is big, there is 
+# v[ufo_subscript(v, i)] <- v as a potential workaround, but it will cause the
+# subscript to be re-created anyway, to change to 0-indexing, so... Another 
+# alternative is to explicitly mutate in-place with ufo_mutate.
+
+# Warnign: buggy.
+ufo_mutate <- function(x, subscript, values, ..., drop=FALSE, min_load_count=0) { # drop ignored for ordinary vectors, it seems?
+  .Call("ufo_subset_assign", x, subscript, values, as.integer(min_load_count))
+}
+
+#-----------------------------------------------------------------------------
+# Applying functions by chunks
+#-----------------------------------------------------------------------------
+
+# Example:
+# arguments:
+# - [p, q, r]
+# - [a, b, c, d]
+# - [x, y]
+# Expected output:
+# - [f(p, a, x), f(q, b, y), f(r, c, x), f(p, d, y)]
+ufo_apply <- function(FUN, ..., MoreArgs = NULL, USE.NAMES = TRUE, chunk_size=100000) {
+
+  # List of vectors that we can create UFOs around.
+  allowed_vector_types <- 
+    c("integer", "double", "logical", "complex", "raw", "character")
+
+  # Convert input arguments to a single list.
+  # - [[1]] [p, q, r]
+  # - [[2]] [a, b, c, d]
+  # - [[3]] [x, y]
+  input_vectors <- list(...)
+
+  # Nothing to process.
+  if (length(input_vectors) == 0) {
+    return(list())
+  }
+
+  # The vectors we return all need to be as large as the largest input vector.
+  return_vector_length <- max(mapply(length, input_vectors));
+  number_of_chunks <- ceiling(return_vector_length/ chunk_size);
+
+  # Initially the type of the result is not known, so NULL.
+  # There is one NULL for each input vector.
+  # results <- Map(function(input_vector) NULL, input_vectors)
+  # Actually there's only one result vector.
+  result <- NULL
+
+  # Create a UFO for each input vector (of a supported type).
+  for (chunk in 0:(.base_subtract(number_of_chunks, 1))) {
+
+    # For each input vector, retrieve a chunk and store it in the list.
+    # Example for chunk 1 (0):
+    # list:
+    # - [[1]] p, q
+    # - [[2]] a, b
+    # - [[3]] x, y
+    # Example for chunk 2 (1):
+    # list:
+    # - [[1]] r, p
+    # - [[2]] c, d
+    # - [[3]] x, y
+    input_chunks <- Map(function(input_vector) {
+      .Call("ufo_get_chunk", input_vector, 
+                             chunk, chunk_size, 
+                             return_vector_length)
+    }, input_vectors)
+
+    # Execute function f for the chunk and store the result in 
+    # reasonably-sized vectors first.
+    arguments <- append(list(FUN), input_chunks)
+    result_chunk = do.call(mapply, arguments)
+
+    # If this is the first chunk, for each input vector, create a vector to 
+    # write all results into. At this point we can determine the return type of
+    # the result by inferring it from the type of the first result chunk. We 
+    # ASSUME that all returned chunks will have the same type.
+    if (chunk == 0) {
+      result_type <- typeof(result_chunk)
+      # If the data cannot be constructed as a UFO, warn the user, but
+      # proceed nevertheless, using an ordinary vector (which may explode
+      # the memory).
+      result <- if(!result_type %in% allowed_vector_types) {
+        warning("Vector type ", result_type, " is not supported by ",
+                "UFOs. Returning an ordinary R object instead.")
+        vector(result_type, return_vector_length)
+      # Otherwise create a UFO to store the result.
+      } else {
+        ufo_vector(result_type, return_vector_length)
+      }
+    }
+
+    # When the loop is finished, the function f should have been applied to all
+    # chunks of all input vectors. The results should be inside `results`.
+
+    # Write values of result chunks into the result vector.
+    # The range to write the changes into is calculated by `ufo_get_chunk`
+    # and attached to each input_chunk. We retrieve it here.
+    input_chunk <- input_chunks[[1]]
+    index_start <- attr(input_chunk, 'start_index')
+    index_end <- attr(input_chunk, 'end_index')
+    index_range <- index_start:index_end
+    # Write the results of f for the chunk into the 
+    # approporiate space in one of the result vector.
+    result[index_range] <- result_chunk
+  }  
+
+  # Do Map naming exit stuff.
+  if (USE.NAMES && length(input_vectors)) {
+      if (is.null(names1 <- names(input_vectors[[1L]])) 
+          && is.character(input_vectors[[1L]])) {
+          names(result) <- input_vectors[[1L]]
+      } else if (!is.null(names1)) {
+          names(result) <- names1
+      }
+  }
+
+  # We do not support unsimplified results, because the type would not work 
+  # well with UFOs (list of vectors).
+  # if (!isFALSE(SIMPLIFY) && length(results)) 
+  #     simplify2array(results, higher = (SIMPLIFY == "array"))
+  # else results
+
+  result
 }
 
 #-----------------------------------------------------------------------------
