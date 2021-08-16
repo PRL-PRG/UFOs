@@ -129,8 +129,7 @@ impl UfoCore {
         std::panic::catch_unwind(|| {
             self.deref()
                 .and_then(|core| {
-                    core.get_ufo_by_address(ptr as usize)
-                        .expect("UFO lookup failed");
+                    core.get_ufo_by_address(ptr as usize).ok()?; // don't care about the error, just doing an is-UFO
                     Some(true)
                 })
                 .unwrap_or(false)
