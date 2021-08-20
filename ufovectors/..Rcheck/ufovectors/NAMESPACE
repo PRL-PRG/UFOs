@@ -1,4 +1,4 @@
-useDynLib(ufovectors, .registration = TRUE, .fixes = "")
+useDynLib(ufovectors, .registration = TRUE, .fixes = "UFO_C_")
 
 export(ufo_set_debug_mode)
 

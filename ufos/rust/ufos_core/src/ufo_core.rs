@@ -5,14 +5,14 @@ use std::{
     collections::{HashMap, VecDeque},
     sync::MutexGuard,
 };
-use std::{cmp::min, ops::Deref, vec::Vec};
+use std::{cmp::min, ops::{Deref, Range}, vec::Vec};
 
 use log::{debug, info, trace, warn};
 
 use crossbeam::channel::{Receiver, Sender};
 use crossbeam::sync::WaitGroup;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use segment_map::{Segment, SegmentMap};
+use btree_interval_map::IntervalMap;
 use userfaultfd::Uffd;
 
 use crate::once_await::OnceFulfiller;
@@ -139,7 +139,7 @@ pub struct UfoCoreState {
     object_id_gen: UfoIdGen,
 
     objects_by_id: HashMap<UfoId, WrappedUfoObject>,
-    objects_by_segment: SegmentMap<usize, WrappedUfoObject>,
+    objects_by_segment: IntervalMap<usize, WrappedUfoObject>,
 
     loaded_chunks: UfoChunks,
 }
@@ -153,6 +153,34 @@ pub struct UfoCore {
 }
 
 impl UfoCore {
+    pub fn print_segments(&self){
+        self.state.lock().expect("core locked")
+            .objects_by_segment.iter()
+            .for_each(|e| {
+                eprintln!("{:?}: {:#x}-{:#x}", e.value.read().expect("locked ufo").id, e.start, e.end)
+            });
+    }
+
+    // pub fn assert_segment_map(&self){
+    //     let core = self.state.lock().expect("core locked");
+    //     let addresses: Vec<(UfoId, usize, usize)> = core.objects_by_id.values()
+    //     .map(|ufo| {
+    //         let ufo = ufo.read().expect("ufo locked");
+    //         let base = ufo.mmap.as_ptr() as usize;
+    //         (ufo.id, base, base + ufo.mmap.length())
+    //     } ).collect();
+    //     for (id, l, h) in addresses {
+    //         if !core.objects_by_segment.contains_key(&l) || !core.objects_by_segment.contains_key(&h.saturating_sub(1)){
+    //             core
+    //             .objects_by_segment.iter()
+    //             .for_each(|e| {
+    //                 eprintln!("{:?}: {:#x}-{:#x}", e.value.read().expect("locked ufo").id, e.start, e.end)
+    //             });
+    //             panic!("{:?} missing! {:#x}-{:#x}", id, l, h);
+    //         }
+    //     }
+    // }
+
     pub fn new(config: UfoCoreConfig) -> Result<Arc<UfoCore>, std::io::Error> {
         // If this fails then there is nothing we should even try to do about it honestly
         let uffd = userfaultfd::UffdBuilder::new()
@@ -171,7 +199,7 @@ impl UfoCore {
 
             loaded_chunks: UfoChunks::new(Arc::clone(&config)),
             objects_by_id: HashMap::new(),
-            objects_by_segment: SegmentMap::new(),
+            objects_by_segment: IntervalMap::new(),
         });
 
         let core = Arc::new(UfoCore {
@@ -408,6 +436,7 @@ impl UfoCore {
                 config.element_ct,
             );
 
+            let ufo = {
             let state = &mut *this.get_locked_state()?;
 
             let id_map = &state.objects_by_id;
@@ -438,7 +467,7 @@ impl UfoCore {
             let mmap_ptr = mmap.as_ptr();
             let true_size = config.true_size;
             let mmap_base = mmap_ptr as usize;
-            let segment = Segment::new(mmap_base, mmap_base + true_size);
+            let segment = Range{start: mmap_base, end: mmap_base + true_size};
 
             debug!(target: "ufo_core", "mmapped {:#x} - {:#x}", mmap_base, mmap_base + true_size);
 
@@ -466,12 +495,17 @@ impl UfoCore {
             let ufo = Arc::new(RwLock::new(ufo));
 
             state.objects_by_id.insert(id, ufo.clone());
-            state.objects_by_segment.insert(segment, ufo.clone());
-
+            state.objects_by_segment.insert(segment, ufo.clone()).expect("non-overlapping ufos");
             Ok(ufo)
+        };
+
+            // this.assert_segment_map();
+
+            ufo
         }
 
         fn reset_impl(this: &Arc<UfoCore>, ufo_id: UfoId) -> anyhow::Result<()> {
+            {
             let state = &mut *this.get_locked_state()?;
 
             let ufo = &mut *(state
@@ -487,11 +521,16 @@ impl UfoCore {
             ufo.reset_internal()?;
 
             state.loaded_chunks.drop_ufo_chunks(ufo_id);
+        }
+
+            // this.assert_segment_map();
 
             Ok(())
         }
 
         fn free_impl(this: &Arc<UfoCore>, ufo_id: UfoId) -> anyhow::Result<()> {
+            // this.assert_segment_map();
+            {
             let state = &mut *this.get_locked_state()?;
             let ufo = state
                 .objects_by_id
@@ -500,22 +539,27 @@ impl UfoCore {
                 .unwrap_or_else(|| Err(anyhow::anyhow!("No such Ufo")))?;
             let ufo = ufo.write().map_err(|_| anyhow::anyhow!("Broken Ufo Lock"))?;
 
-            debug!(target: "ufo_core", "freeing {:?}", ufo.id);
+            debug!(target: "ufo_core", "freeing {:?} @ {:?}", ufo.id, ufo.mmap.as_ptr());
 
             let mmap_base = ufo.mmap.as_ptr() as usize;
-            this.uffd
-                .unregister(ufo.mmap.as_ptr().cast(), ufo.config.true_size)?;
-
-            let segment = *(state
+            let segment = state
                 .objects_by_segment
                 .get_entry(&mmap_base)
                 .map(Ok)
-                .unwrap_or_else(|| Err(anyhow::anyhow!("memory segment missing")))?
-                .0);
-
-            state.objects_by_segment.remove(&segment);
+                .unwrap_or_else(|| Err(anyhow::anyhow!("memory segment missing")))?;
+                
+            debug_assert_eq!(mmap_base, *segment.start, "mmap lower bound not equal to segment lower bound");
+            debug_assert_eq!(mmap_base + ufo.mmap.length(), *segment.end, "mmap upper bound not equal to segment upper bound");
+                
+            this.uffd
+                .unregister(ufo.mmap.as_ptr().cast(), ufo.config.true_size)?;
+            let start_addr = segment.start.clone();
+            state.objects_by_segment.remove_by_start(&start_addr);
 
             state.loaded_chunks.drop_ufo_chunks(ufo_id);
+            }
+
+            // this.assert_segment_map();
 
             Ok(())
         }

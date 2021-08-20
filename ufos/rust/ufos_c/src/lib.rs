@@ -116,8 +116,13 @@ impl UfoCore {
                 .and_then(|core| {
                     let ufo = core
                         .get_ufo_by_address(ptr as usize)
-                        .ok()?; // okay if this fails, we just return "none"
-                    Some(UfoObj::wrap(ufo))
+                        .ok(); // okay if this fails, we just return "none"
+                    if let Some(ufo) = ufo {
+                        Some(UfoObj::wrap(ufo))
+                    }else{
+                        core.print_segments();
+                        None
+                    }
                 })
                 .unwrap_or_else(UfoObj::none)
         })

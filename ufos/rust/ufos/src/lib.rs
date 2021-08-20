@@ -120,8 +120,12 @@ mod tests {
         };
         let core = UfoCore::new_ufo_core(config).expect("error getting core");
 
-        let ufo_prototype =
-            UfoObjectConfigPrototype::new_prototype(header_size, size_of::<T>(), Some(min_load), read_only);
+        let ufo_prototype = UfoObjectConfigPrototype::new_prototype(
+            header_size,
+            size_of::<T>(),
+            Some(min_load),
+            read_only,
+        );
 
         let o = core.new_ufo(
             &ufo_prototype,

@@ -1,10 +1,6 @@
 use std::io::Error;
 use std::num::NonZeroUsize;
-use std::sync::RwLock;
-use std::sync::RwLockReadGuard;
-use std::sync::atomic::AtomicU8;
-use std::sync::atomic::Ordering;
-use std::sync::{Arc, Weak};
+use std::sync::{Arc, Weak, RwLock, RwLockReadGuard, atomic::{AtomicU8, Ordering}};
 use std::lazy::SyncLazy;
 
 use anyhow::Result;
@@ -479,6 +475,14 @@ pub struct UfoObject {
     pub mmap: BaseMmap,
     pub(crate) writeback_util: UfoFileWriteback,
 }
+
+impl std::cmp::PartialEq for UfoObject {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl std::cmp::Eq for UfoObject {}
 
 impl UfoObject {
     fn writeback(&self, chunk: &UfoChunk) -> Result<()> {

@@ -94,11 +94,16 @@ void* __ufo_alloc(R_allocator_t *allocator, size_t size) {
     return ufo_header_ptr(&object);
 }
 
+void free_error(void *ptr){
+    fprintf(stderr, "Tried freeing a UFO, but the provided address is not a UFO address. %lx\n", (uintptr_t) ptr);
+    //TODO: die loudly?
+}
+
 void __ufo_free(R_allocator_t *allocator, void *ptr) {
     UfoObj object = ufo_get_by_address(&__ufo_system, ptr);
     if (ufo_is_error(&object)) {
-        Rf_error("Tried freeing a UFO, "
-                 "but the provided address is not a UFO address.");
+        free_error(ptr);
+        return;
     }
     ufo_source_t* source = (ufo_source_t*) allocator->data;
     source->destructor_function(source->data);
