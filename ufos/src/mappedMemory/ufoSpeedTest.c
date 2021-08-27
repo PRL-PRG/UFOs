@@ -35,7 +35,7 @@ static inline uint64_t getns(void){
 
 
 int main(int argc, char **argv) {
-  // begin_ufo_log();
+  // ufo_begin_log();
 
   UfoCore ufoCore = ufo_new_core("/tmp/", 100l*1024*1024, 300l*1024*1024);
 

@@ -2,17 +2,21 @@ use std::result::Result;
 use std::sync::{Arc, Mutex, RwLock};
 use std::{alloc, ffi::c_void};
 use std::{
+    cmp::min,
+    ops::{Deref, Range},
+    vec::Vec,
+};
+use std::{
     collections::{HashMap, VecDeque},
     sync::MutexGuard,
 };
-use std::{cmp::min, ops::{Deref, Range}, vec::Vec};
 
 use log::{debug, info, trace, warn};
 
+use btree_interval_map::IntervalMap;
 use crossbeam::channel::{Receiver, Sender};
 use crossbeam::sync::WaitGroup;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use btree_interval_map::IntervalMap;
 use userfaultfd::Uffd;
 
 use crate::once_await::OnceFulfiller;
@@ -67,6 +71,17 @@ impl UfoWriteBuffer {
     // }
 }
 
+impl Drop for UfoWriteBuffer {
+    fn drop(&mut self) {
+        if self.size > 0 {
+            let layout = alloc::Layout::from_size_align(self.size, *PAGE_SIZE).unwrap();
+            unsafe {
+                alloc::dealloc(self.ptr, layout);
+            }
+        }
+    }
+}
+
 struct UfoChunks {
     loaded_chunks: VecDeque<UfoChunk>,
     used_memory: usize,
@@ -117,8 +132,10 @@ impl UfoChunks {
 
         let freed_memory = to_free
             .into_par_iter()
-            .map(|mut chunk| chunk.free_and_writeback_dirty())
+            .map_init(ChunkFreer::new, |f, mut c| f.free_chunk(&mut c))
             .reduce(|| Ok(0), |a, b| Ok(a? + b?))?;
+
+        debug!(target: "ufo_core", "Done freeing memory");
 
         self.used_memory -= freed_memory;
         assert!(self.used_memory <= low_water_mark);
@@ -153,11 +170,19 @@ pub struct UfoCore {
 }
 
 impl UfoCore {
-    pub fn print_segments(&self){
-        self.state.lock().expect("core locked")
-            .objects_by_segment.iter()
+    pub fn print_segments(&self) {
+        self.state
+            .lock()
+            .expect("core locked")
+            .objects_by_segment
+            .iter()
             .for_each(|e| {
-                eprintln!("{:?}: {:#x}-{:#x}", e.value.read().expect("locked ufo").id, e.start, e.end)
+                eprintln!(
+                    "{:?}: {:#x}-{:#x}",
+                    e.value.read().expect("locked ufo").id,
+                    e.start,
+                    e.end
+                )
             });
     }
 
@@ -316,11 +341,21 @@ impl UfoCore {
             // Before we perform the load ensure that there is capacity
             UfoCore::ensure_capcity(&core.config, &mut *state, load_size);
 
+            // drop the lock before loading so that UFOs can be recursive
+            Mutex::unlock(state);
+
             let config = &ufo.config;
+            let chunk = UfoChunk::new(&ufo_arc, &ufo, populate_offset, populate_size);
+            trace!("spin locking {:?}.{}", ufo.id, chunk.offset());
+            let chunk_lock = ufo
+                .writeback_util
+                .chunk_locks
+                .spinlock(chunk.offset().chunk_number())
+                .map_err(|_| UfoPopulateError)?;
 
             let raw_data = ufo
                 .writeback_util
-                .try_readback(&populate_offset)
+                .try_readback(&chunk.offset())
                 .map(Ok)
                 .unwrap_or_else(|| {
                     trace!(target: "ufo_core", "calculate");
@@ -331,12 +366,14 @@ impl UfoCore {
                     }
                 })?;
             trace!(target: "ufo_core", "data ready");
+            trace!("unlock populate {:?}.{}", ufo.id, chunk.offset());
+            chunk_lock.unlock(); // once we've loaded the data the rest is non critical
 
             unsafe {
                 core.uffd
                     .copy(
                         raw_data.as_ptr().cast(),
-                        populate_offset.as_ptr_int() as *mut c_void,
+                        chunk.offset().as_ptr_int() as *mut c_void,
                         populate_size,
                         true,
                     )
@@ -345,21 +382,16 @@ impl UfoCore {
             trace!(target: "ufo_core", "populated");
 
             assert!(raw_data.len() == load_size);
-            let chunk = UfoChunk::new(
-                &ufo_arc,
-                &ufo,
-                populate_offset,
-                populate_size,
-                // config.read_only,
-            );
             let hash_fulfiller = chunk.hash_fulfiller();
+
+            let mut state = core.get_locked_state().unwrap();
             state.loaded_chunks.add(chunk);
             trace!(target: "ufo_core", "chunk saved");
 
             // release the lock before calculating the hash so other workers can proceed
             Mutex::unlock(state);
 
-            if config.read_only {
+            if !config.should_try_writeback() {
                 hash_fulfiller.try_init(None);
             } else {
                 // Make sure to take a slice of the raw data. the kernel operates in page sized chunks but the UFO ends where it ends
@@ -437,67 +469,73 @@ impl UfoCore {
             );
 
             let ufo = {
-            let state = &mut *this.get_locked_state()?;
+                let state = &mut *this.get_locked_state()?;
 
-            let id_map = &state.objects_by_id;
-            let id_gen = &mut state.object_id_gen;
+                let id_map = &state.objects_by_id;
+                let id_gen = &mut state.object_id_gen;
 
-            let id = id_gen.next(|k| {
-                trace!(target: "ufo_core", "testing id {:?}", k);
-                !k.is_sentinel() && !id_map.contains_key(k)
-            });
+                let id = id_gen.next(|k| {
+                    trace!(target: "ufo_core", "testing id {:?}", k);
+                    !k.is_sentinel() && !id_map.contains_key(k)
+                });
 
-            debug!(target: "ufo_core", "allocate {:?}: {} elements with stride {} [pad|header⋮body] [{}|{}⋮{}]",
-                id,
-                config.element_ct,
-                config.stride,
-                config.header_size_with_padding - config.header_size,
-                config.header_size,
-                config.stride * config.element_ct,
-            );
+                debug!(target: "ufo_core", "allocate {:?}: {} elements with stride {} [pad|header⋮body] [{}|{}⋮{}]",
+                    id,
+                    config.element_ct,
+                    config.stride,
+                    config.header_size_with_padding - config.header_size,
+                    config.header_size,
+                    config.stride * config.element_ct,
+                );
 
-            let mmap = BaseMmap::new(
-                config.true_size,
-                &[MemoryProtectionFlag::Read, MemoryProtectionFlag::Write],
-                &[MmapFlag::Anonymous, MmapFlag::Private, MmapFlag::NoReserve],
-                None,
-            )
-            .expect("Mmap Error");
+                let mmap = BaseMmap::new(
+                    config.true_size,
+                    &[MemoryProtectionFlag::Read, MemoryProtectionFlag::Write],
+                    &[MmapFlag::Anonymous, MmapFlag::Private, MmapFlag::NoReserve],
+                    None,
+                )
+                .expect("Mmap Error");
 
-            let mmap_ptr = mmap.as_ptr();
-            let true_size = config.true_size;
-            let mmap_base = mmap_ptr as usize;
-            let segment = Range{start: mmap_base, end: mmap_base + true_size};
+                let mmap_ptr = mmap.as_ptr();
+                let true_size = config.true_size;
+                let mmap_base = mmap_ptr as usize;
+                let segment = Range {
+                    start: mmap_base,
+                    end: mmap_base + true_size,
+                };
 
-            debug!(target: "ufo_core", "mmapped {:#x} - {:#x}", mmap_base, mmap_base + true_size);
+                debug!(target: "ufo_core", "mmapped {:#x} - {:#x}", mmap_base, mmap_base + true_size);
 
-            let writeback = UfoFileWriteback::new(id, &config, this)?;
-            this.uffd.register(mmap_ptr.cast(), true_size)?;
+                let writeback = UfoFileWriteback::new(id, &config, this)?;
+                this.uffd.register(mmap_ptr.cast(), true_size)?;
 
-            //Pre-zero the header, that isn't part of our populate duties
-            if config.header_size_with_padding > 0 {
-                unsafe {
-                    this.uffd
-                        .zeropage(mmap_ptr.cast(), config.header_size_with_padding, true)
-                }?;
-            }
+                //Pre-zero the header, that isn't part of our populate duties
+                if config.header_size_with_padding > 0 {
+                    unsafe {
+                        this.uffd
+                            .zeropage(mmap_ptr.cast(), config.header_size_with_padding, true)
+                    }?;
+                }
 
-            // let header_offset = config.header_size_with_padding - config.header_size;
-            // let body_offset = config.header_size_with_padding;
-            let ufo = UfoObject {
-                id,
-                core: Arc::downgrade(this),
-                config,
-                mmap,
-                writeback_util: writeback,
+                // let header_offset = config.header_size_with_padding - config.header_size;
+                // let body_offset = config.header_size_with_padding;
+                let ufo = UfoObject {
+                    id,
+                    core: Arc::downgrade(this),
+                    config,
+                    mmap,
+                    writeback_util: writeback,
+                };
+
+                let ufo = Arc::new(RwLock::new(ufo));
+
+                state.objects_by_id.insert(id, ufo.clone());
+                state
+                    .objects_by_segment
+                    .insert(segment, ufo.clone())
+                    .expect("non-overlapping ufos");
+                Ok(ufo)
             };
-
-            let ufo = Arc::new(RwLock::new(ufo));
-
-            state.objects_by_id.insert(id, ufo.clone());
-            state.objects_by_segment.insert(segment, ufo.clone()).expect("non-overlapping ufos");
-            Ok(ufo)
-        };
 
             // this.assert_segment_map();
 
@@ -506,22 +544,22 @@ impl UfoCore {
 
         fn reset_impl(this: &Arc<UfoCore>, ufo_id: UfoId) -> anyhow::Result<()> {
             {
-            let state = &mut *this.get_locked_state()?;
+                let state = &mut *this.get_locked_state()?;
 
-            let ufo = &mut *(state
-                .objects_by_id
-                .get(&ufo_id)
-                .map(Ok)
-                .unwrap_or_else(|| Err(anyhow::anyhow!("unknown ufo")))?
-                .write()
-                .map_err(|_| anyhow::anyhow!("lock poisoned"))?);
+                let ufo = &mut *(state
+                    .objects_by_id
+                    .get(&ufo_id)
+                    .map(Ok)
+                    .unwrap_or_else(|| Err(anyhow::anyhow!("unknown ufo")))?
+                    .write()
+                    .map_err(|_| anyhow::anyhow!("lock poisoned"))?);
 
-            debug!(target: "ufo_core", "resetting {:?}", ufo.id);
+                debug!(target: "ufo_core", "resetting {:?}", ufo.id);
 
-            ufo.reset_internal()?;
+                ufo.reset_internal()?;
 
-            state.loaded_chunks.drop_ufo_chunks(ufo_id);
-        }
+                state.loaded_chunks.drop_ufo_chunks(ufo_id);
+            }
 
             // this.assert_segment_map();
 
@@ -531,32 +569,41 @@ impl UfoCore {
         fn free_impl(this: &Arc<UfoCore>, ufo_id: UfoId) -> anyhow::Result<()> {
             // this.assert_segment_map();
             {
-            let state = &mut *this.get_locked_state()?;
-            let ufo = state
-                .objects_by_id
-                .remove(&ufo_id)
-                .map(Ok)
-                .unwrap_or_else(|| Err(anyhow::anyhow!("No such Ufo")))?;
-            let ufo = ufo.write().map_err(|_| anyhow::anyhow!("Broken Ufo Lock"))?;
+                let state = &mut *this.get_locked_state()?;
+                let ufo = state
+                    .objects_by_id
+                    .remove(&ufo_id)
+                    .map(Ok)
+                    .unwrap_or_else(|| Err(anyhow::anyhow!("No such Ufo")))?;
+                let ufo = ufo
+                    .write()
+                    .map_err(|_| anyhow::anyhow!("Broken Ufo Lock"))?;
 
-            debug!(target: "ufo_core", "freeing {:?} @ {:?}", ufo.id, ufo.mmap.as_ptr());
+                debug!(target: "ufo_core", "freeing {:?} @ {:?}", ufo.id, ufo.mmap.as_ptr());
 
-            let mmap_base = ufo.mmap.as_ptr() as usize;
-            let segment = state
-                .objects_by_segment
-                .get_entry(&mmap_base)
-                .map(Ok)
-                .unwrap_or_else(|| Err(anyhow::anyhow!("memory segment missing")))?;
-                
-            debug_assert_eq!(mmap_base, *segment.start, "mmap lower bound not equal to segment lower bound");
-            debug_assert_eq!(mmap_base + ufo.mmap.length(), *segment.end, "mmap upper bound not equal to segment upper bound");
-                
-            this.uffd
-                .unregister(ufo.mmap.as_ptr().cast(), ufo.config.true_size)?;
-            let start_addr = segment.start.clone();
-            state.objects_by_segment.remove_by_start(&start_addr);
+                let mmap_base = ufo.mmap.as_ptr() as usize;
+                let segment = state
+                    .objects_by_segment
+                    .get_entry(&mmap_base)
+                    .map(Ok)
+                    .unwrap_or_else(|| Err(anyhow::anyhow!("memory segment missing")))?;
 
-            state.loaded_chunks.drop_ufo_chunks(ufo_id);
+                debug_assert_eq!(
+                    mmap_base, *segment.start,
+                    "mmap lower bound not equal to segment lower bound"
+                );
+                debug_assert_eq!(
+                    mmap_base + ufo.mmap.length(),
+                    *segment.end,
+                    "mmap upper bound not equal to segment upper bound"
+                );
+
+                this.uffd
+                    .unregister(ufo.mmap.as_ptr().cast(), ufo.config.true_size)?;
+                let start_addr = segment.start.clone();
+                state.objects_by_segment.remove_by_start(&start_addr);
+
+                state.loaded_chunks.drop_ufo_chunks(ufo_id);
             }
 
             // this.assert_segment_map();

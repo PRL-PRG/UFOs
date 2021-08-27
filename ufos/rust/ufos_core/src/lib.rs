@@ -1,5 +1,6 @@
-#![feature(ptr_internals, once_cell, slice_ptr_get, mutex_unlock)]
+#![feature(ptr_internals, once_cell, slice_ptr_get, mutex_unlock, thread_id_value)]
 
+mod bitwise_spinlock;
 mod errors;
 mod math;
 mod mmap_wrapers;

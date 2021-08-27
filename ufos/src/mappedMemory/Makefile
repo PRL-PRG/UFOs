@@ -7,6 +7,11 @@ LDFLAGS =
 CFLAGS = -fpic -g -O2 -Wall -Werror -DNDEBUG -I../../rust/ufos_c/target/
 #CFLAGS = -Og -ggdb -Wall -Werror -fPIC
 
+.PHONY: clib
+
+clib:
+	$(MAKE) -C ../../rust/ufos_c/
+
 all: userfaultSpeedTest ufoTest ufoSpeedTest
 
 mostlyclean: clean
@@ -17,12 +22,12 @@ clean:
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-userfaultSpeedTest: userfaultSpeed.o $(OBJ)
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
+userfaultSpeedTest: userfaultSpeed.o clib $(OBJ)
+	$(CC) $(CFLAGS) $(LDFLAGS) userfaultSpeed.o $(OBJ) $(LDLIBS) -o $@
 
-ufoTest:  ufoTest.o $(OBJ)
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
+ufoTest: ufoTest.o clib $(OBJ)
+	$(CC) $(CFLAGS) $(LDFLAGS) ufoTest.o $(OBJ) $(LDLIBS) -o $@
 
-ufoSpeedTest: ufoSpeedTest.o $(OBJ) 
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
+ufoSpeedTest: ufoSpeedTest.o clib $(OBJ) 
+	$(CC) $(CFLAGS) $(LDFLAGS) ufoSpeedTest.o $(OBJ) $(LDLIBS) -o $@
 

@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
   int i = 0;
   int n = (argc > 1) ? atoi(argv[1]) : -1;
 
-  srand(13);
+  srand(31);
 
   UfoCore ufoCore = ufo_new_core("/tmp/", 50*1024*1024, 200*1024*1024);
   if(ufo_core_is_error(&ufoCore))
@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
 
 //  uint64_t* bitmap = calloc(1024*1024*1024, 8);
   while(n < 0 || i < n) {
-    uint64_t ct = 1024ull*1024*((rand() & 0xffull) + 1), sz = ct*8;
+    uint64_t ct = 1024ull*1024*((rand() & 0xfffull) + 1), sz = ct*8;
     UNUSED(sz);
 
     UfoObj o = ufo_new_with_prototype(&ufoCore, &ufoPrototype, ct, &ct, testpopulate);

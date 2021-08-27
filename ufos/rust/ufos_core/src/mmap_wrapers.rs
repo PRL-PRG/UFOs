@@ -16,7 +16,7 @@ pub fn get_page_size() -> usize {
     })
 }
 
-pub trait Mmap {
+pub trait Mmap: Sized {
     fn as_ptr(&self) -> *mut u8;
 
     fn length(&self) -> usize;
@@ -48,6 +48,8 @@ pub trait Mmap {
             Some(f(arr))
         }
     }
+
+    fn resize(self, new_size: usize) -> Result<Self, Error>;
 }
 
 #[repr(i32)]
@@ -153,6 +155,20 @@ impl Mmap for BaseMmap {
     fn length(&self) -> usize {
         self.len
     }
+
+    fn resize(mut self, new_size: usize) -> Result<Self, Error> {
+        unsafe {
+            let new_ptr = check_ptr_nonneg(libc::mremap(
+                self.as_ptr().cast(),
+                self.length(),
+                new_size,
+                libc::MREMAP_MAYMOVE,
+            ))?;
+            self.base = new_ptr.cast();
+        }
+        self.len = new_size;
+        Ok(self)
+    }
 }
 
 impl Drop for BaseMmap {
@@ -233,5 +249,10 @@ impl Mmap for MmapFd {
 
     fn length(&self) -> usize {
         self.mmap.length()
+    }
+
+    fn resize(mut self, new_size: usize) -> Result<Self, Error> {
+        self.mmap = self.mmap.resize(new_size)?;
+        Ok(self)
     }
 }
