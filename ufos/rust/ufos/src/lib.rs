@@ -71,7 +71,7 @@ impl Drop for UfoHandle {
     #[allow(unused_must_use)]
     fn drop(&mut self) {
         // If the lock fails then there is something majorly wrong going on, don't panic inside a panic
-        if let Ok(ufo) = self.ufo.write() {
+        if let Ok(mut ufo) = self.ufo.write() {
             ufo.free(); // may have failed if the core is shutdown
         }
     }
@@ -204,16 +204,16 @@ mod tests {
 
     #[test]
     fn large_load() -> anyhow::Result<()> {
-        // use stderrlog;
-        // stderrlog::new()
-        //     // .module("ufo_core")
-        //     .verbosity(4)
-        //     .timestamp(stderrlog::Timestamp::Microsecond)
-        //     .init()
-        //     .unwrap();
+        use stderrlog;
+        stderrlog::new()
+            // .module("ufo_core")
+            .verbosity(4)
+            .timestamp(stderrlog::Timestamp::Microsecond)
+            .init()
+            .unwrap();
 
         let ct = 1000 * 1000 * 2000;
-        let (core, o) = basic_test_object::<u64>(0, ct, 1024 * 1024, false)?;
+        let (core, o) = basic_test_object::<u64>(0, ct, 4 * 1024 * 1024, false)?;
 
         let arr =
             unsafe { std::slice::from_raw_parts_mut(o.body_ptr().unwrap().cast::<u64>(), ct) };
@@ -269,7 +269,7 @@ mod tests {
         //     .unwrap();
 
         let ct = 1024 * 1024 * 200;
-        let (core, o) = basic_test_object::<u64>(0, ct, 4096 * 4, false)?;
+        let (core, o) = basic_test_object::<u64>(0, ct, 1024 * 1024, false)?;
 
         let arr =
             unsafe { std::slice::from_raw_parts_mut(o.body_ptr().unwrap().cast::<u64>(), ct) };

@@ -12,8 +12,6 @@ use thiserror::Error;
 
 use log::{debug, error, trace};
 
-use num::Integer;
-
 use crate::bitwise_spinlock::Bitlock;
 use crate::mmap_wrapers;
 use crate::once_await::OnceAwait;
@@ -199,7 +197,7 @@ impl UfoOffset {
 
         let offset_from_header = absolute_offset_bytes - header_bytes;
         let bytes_loaded_at_once = ufo.config.elements_loaded_at_once * ufo.config.stride;
-        let chunk_number = offset_from_header.div_floor(&bytes_loaded_at_once);
+        let chunk_number = offset_from_header.div_floor(bytes_loaded_at_once);
         assert!(chunk_number * bytes_loaded_at_once <= offset_from_header);
         assert!((chunk_number + 1) * bytes_loaded_at_once > offset_from_header);
 
@@ -225,7 +223,7 @@ impl UfoOffset {
     }
 
     pub fn as_index_floor(&self) -> usize {
-        self.offset_from_header().div_floor(&self.stride)
+        self.offset_from_header().div_floor(self.stride)
     }
 
     pub fn down_to_nearest_n_relative_to_header(&self, nearest: usize) -> UfoOffset {
@@ -464,12 +462,12 @@ impl UfoFileWriteback {
     ) -> Result<UfoFileWriteback, Error> {
         let page_size = *PAGE_SIZE;
 
-        let chunk_ct = cfg.element_ct.div_ceil(&cfg.elements_loaded_at_once);
+        let chunk_ct = cfg.element_ct.div_ceil(cfg.elements_loaded_at_once);
         assert!(chunk_ct * cfg.elements_loaded_at_once >= cfg.element_ct);
 
         let chunk_size = cfg.elements_loaded_at_once * cfg.stride;
 
-        let bitmap_bytes = chunk_ct.div_ceil(&8); /*8 bits per byte*/
+        let bitmap_bytes = chunk_ct.div_ceil(8); /*8 bits per byte*/
         // Now we want to get the bitmap bytes up to the next multiple of the page size
         let bitmap_bytes = up_to_nearest(bitmap_bytes, page_size);
         assert!(bitmap_bytes * 8 >= chunk_ct);
@@ -521,7 +519,7 @@ impl UfoFileWriteback {
 
         let chunk_number = offset.chunk_number();
         assert!(chunk_number < self.chunk_ct);
-        assert_eq!(off_head.div_floor(&self.chunk_size), chunk_number);
+        assert_eq!(off_head.div_floor(self.chunk_size), chunk_number);
         let writeback_offset = self.header_bytes + off_head;
 
         let chunk_byte = chunk_number >> 3;
@@ -554,7 +552,7 @@ impl UfoFileWriteback {
         let off_head = offset.offset_from_header();
         trace!(target: "ufo_object", "try readback {:?}@{:#x}", self.ufo_id, off_head);
 
-        let chunk_number = off_head.div_floor(&self.chunk_size);
+        let chunk_number = off_head.div_floor(self.chunk_size);
         let readback_offset = self.header_bytes + off_head;
 
         let chunk_byte = chunk_number >> 3;
@@ -605,7 +603,7 @@ impl std::cmp::PartialEq for UfoObject {
 impl std::cmp::Eq for UfoObject {}
 
 impl UfoObject {
-    pub(crate) fn reset_internal(&self) -> anyhow::Result<()> {
+    pub(crate) fn reset_internal(&mut self) -> anyhow::Result<()> {
         let length = self.config.true_size - self.config.header_size_with_padding;
         unsafe {
             check_return_zero(libc::madvise(
@@ -636,7 +634,7 @@ impl UfoObject {
         }
     }
 
-    pub fn reset(&self) -> Result<WaitGroup, UfoLookupErr> {
+    pub fn reset(&mut self) -> Result<WaitGroup, UfoLookupErr> {
         let wait_group = crossbeam::sync::WaitGroup::new();
         let core = match self.core.upgrade() {
             None => return Err(UfoLookupErr::CoreShutdown),
@@ -649,7 +647,7 @@ impl UfoObject {
         Ok(wait_group)
     }
 
-    pub fn free(&self) -> Result<WaitGroup, UfoLookupErr> {
+    pub fn free(&mut self) -> Result<WaitGroup, UfoLookupErr> {
         let wait_group = crossbeam::sync::WaitGroup::new();
         let core = match self.core.upgrade() {
             None => return Err(UfoLookupErr::CoreShutdown),

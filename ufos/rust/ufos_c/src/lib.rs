@@ -114,15 +114,10 @@ impl UfoCore {
         std::panic::catch_unwind(|| {
             self.deref()
                 .and_then(|core| {
-                    let ufo = core
+                    core
                         .get_ufo_by_address(ptr as usize)
-                        .ok(); // okay if this fails, we just return "none"
-                    if let Some(ufo) = ufo {
-                        Some(UfoObj::wrap(ufo))
-                    }else{
-                        core.print_segments();
-                        None
-                    }
+                        .ok()// okay if this fails, we just return "none"
+                        .map(UfoObj::wrap)
                 })
                 .unwrap_or_else(UfoObj::none)
         })
@@ -272,9 +267,9 @@ impl UfoObj {
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn ufo_reset(&self) -> i32 {
+    pub unsafe extern "C" fn ufo_reset(&mut self) -> i32 {
         std::panic::catch_unwind(|| {
-            self.with_ufo(|ufo| ufo.reset())
+            self.with_ufo(|mut ufo| ufo.reset())
                 .map(|w| w.wait())
                 .map(|()| 0)
                 .unwrap_or(-1)

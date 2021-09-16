@@ -21,7 +21,7 @@ rayon = "1.5"
 libc = { git = "https://github.com/rust-lang/libc.git", branch = "master" }
 log = "0.4.14"
 nix = "0.17"
-num = "0.3.1" # for One
+ num = "^0.3" # for One
 promissory = "0.1"
 #rangemap = "0.1.11"
 btree_interval_map = { git = "https://github.com/electroCutie/btree_interval_map", branch = "main" }

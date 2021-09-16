@@ -13,4 +13,4 @@ num = "0.3.1"
 promissory = { git = "https://github.com/electroCutie/promissory", commit = "8f3fc2f2983f555de2019212671cc535a92e50a4" }
 ufos_core = {path = "../ufos_core/"}
 
-# stderrlog = "0.5.1"
+stderrlog = "0.5.1"

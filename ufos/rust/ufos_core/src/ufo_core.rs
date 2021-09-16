@@ -170,21 +170,21 @@ pub struct UfoCore {
 }
 
 impl UfoCore {
-    pub fn print_segments(&self) {
-        self.state
-            .lock()
-            .expect("core locked")
-            .objects_by_segment
-            .iter()
-            .for_each(|e| {
-                eprintln!(
-                    "{:?}: {:#x}-{:#x}",
-                    e.value.read().expect("locked ufo").id,
-                    e.start,
-                    e.end
-                )
-            });
-    }
+    // pub fn print_segments(&self) {
+    //     self.state
+    //         .lock()
+    //         .expect("core locked")
+    //         .objects_by_segment
+    //         .iter()
+    //         .for_each(|e| {
+    //             eprintln!(
+    //                 "{:?}: {:#x}-{:#x}",
+    //                 e.value.read().expect("locked ufo").id,
+    //                 e.start,
+    //                 e.end
+    //             )
+    //         });
+    // }
 
     // pub fn assert_segment_map(&self){
     //     let core = self.state.lock().expect("core locked");

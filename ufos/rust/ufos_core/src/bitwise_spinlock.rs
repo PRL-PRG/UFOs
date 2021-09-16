@@ -130,10 +130,13 @@ impl Bitlock {
             }
 
             loop {
-                match (xor_rnd.next_u32() & 0x3ff, ctr) {
+                match (xor_rnd.next_u32() & 0xff, ctr) {
                     (0, x) if x > 3 => std::thread::yield_now(),
-                    (0, _) => ctr += 1,
-                    (x, _) if x < 30 => break,
+                    (0, _) => {
+                        core::hint::spin_loop();
+                        ctr += 1;
+                    },
+                    (x, _) if x < 32 => break,
                     _ => {}
                 }
             }
